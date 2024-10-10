@@ -3,7 +3,7 @@ CPU実験6班のシミュレータのリポジトリ
 
 ## 使い方
 実行ファイルを`program.bin`という名前で`main.cpp`と同じフォルダに入れるとそのバイナリファイルを実行する
-fib.sは実行には必要ないがprogram.binの元のプログラムなので一応入れておく
+`fib.s`は実行には必要ないが`program.bin`の元のプログラムなので一応入れておく
 ```
 make
 ./simulator > simulator.log
