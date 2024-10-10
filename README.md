@@ -2,10 +2,11 @@
 CPU実験6班のシミュレータのリポジトリ
 
 ## 使い方
-実行ファイルをprogram.binという名前でmain.cppと同じフォルダに入れるとそのバイナリファイルを実行する
+実行ファイルを`program.bin`という名前で`main.cpp`と同じフォルダに入れるとそのバイナリファイルを実行する
+fib.sは実行には必要ないがprogram.binの元のプログラムなので一応入れておく
 ```
 make
 ./simulator > simulator.log
 ```
-CLKが100000に達するかebreakが呼ばれると停止する
-Simulator.cppの#define MAXCLKを変更すれば100000から変えられる
+`CLK`が`100000`に達するか`ebreak`が呼ばれると停止する
+`Simulator.cpp`の`#define MAXCLK 100000`を変更すれば`100000`から変えられる
