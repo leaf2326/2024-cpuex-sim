@@ -11,10 +11,10 @@ OBJS = $(SRCS:.cpp=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS)
 
 debug: $(OBJS)
-	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(OBJS)
+	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(SRCS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
