@@ -8,6 +8,8 @@ CPU実験6班のシミュレータのリポジトリ
 make
 ./simulator > simulator.log
 ```
+`make debug`をすると、シミュレーターのデバッグ用にログが多めに流れる。
+
 `CLK`が`100000`に達するか`ebreak`が呼ばれると停止する
 
 `Simulator.cpp`の`#define MAXCLK 100000`を変更すれば`100000`から変えられる
