@@ -7,6 +7,8 @@
 Simulator::Simulator()
 {
     registers[0] = 0;
+    registers[2] = MEMORY_SIZE /4 -1
+
     pc = 0;
     isBreakpoint = false;
 }
