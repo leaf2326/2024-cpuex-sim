@@ -12,12 +12,12 @@ class Simulator
 {
 private:
     static constexpr int REG_COUNT = 32;
-    static constexpr int64_t MEMORY_SIZE = 1024; // メモリサイズ（1KB）
+    static constexpr int64_t MEMORY_SIZE = 4096; // メモリサイズ（4KB）
     bool isBreakpoint;
     
-    std::array<int64_t, REG_COUNT> registers{};
+    std::array<int32_t, REG_COUNT> registers{};
     int64_t pc;
-    std::array<int64_t, MEMORY_SIZE / 4> memory{};
+    std::array<int32_t, MEMORY_SIZE / 4> memory{};
 
 public:
     Simulator();
