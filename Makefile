@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++17 -Wall -O3
 
 TARGET = simulator
 
-SRCS = main.cpp Simulator.cpp
+SRCS = main.cpp Simulator.cpp Log.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 

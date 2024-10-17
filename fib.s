@@ -1,35 +1,47 @@
-
-movi sp, 1024
-movi a0, 10 # fib(10)を計算することにする
-call fib
-ebreak
-halt
-
-fib:
-	beq a0, x0, case0
-	movi x5, 1
-	beq a0, x5, case1
-	# リンクレジスタとnをバックアップ
-	subi sp, sp, 12
-	sw ra, 8(sp)
-	sw a0, 4(sp)
-	# fib(n - 1)
-	subi a0, a0, 1
-	call fib
-	sw a0, 0(sp) # 結果をバックアップ
-	# fib(n - 2)
-	lw a0, 4(sp)
-	subi a0, a0, 2
-	call fib
-	# 2つの結果を足す
-	lw a1, 0(sp)
-	add a0, a0, a1
-	lw ra, 8(sp) # ra戻す
-	addi sp, sp, 12
-	ret
-	case0: # n = 0
-	movi a0, 0
-	ret
-	case1: # n = 1
-	movi a0, 1
-	ret
+  movi x31, 10
+  mov x10, x31
+  call fib_1
+  mov x10, x10
+  ebreak
+  halt
+fib_1:
+  sw x1, -4(x2)
+  sw x8, -8(x2)
+  mov x8, x2
+  sw x29, -12(x2)
+  sw x30, -16(x2)
+  sw x31, -20(x2)
+  addi x2, x2, -32
+  mov x31, x10
+  movi x30, 0
+  bne x31, x30, Lelse12
+Lthen12:
+  movi x10, 0
+  jal x0, Lend12
+Lelse12:
+  movi x30, 1
+  bne x31, x30, Lelse13
+Lthen13:
+  movi x10, 1
+  jal x0, Lend13
+Lelse13:
+  movi x30, 1
+  sub x30, x31, x30
+  mov x10, x30
+  call fib_1
+  mov x30, x10
+  movi x29, 2
+  sub x29, x31, x29
+  mov x10, x29
+  call fib_1
+  mov x29, x10
+  add x10, x30, x29
+Lend13:
+Lend12:
+  mov x2, x8
+  lw x1, -4(x2)
+  lw x8, -8(x2)
+  lw x29, -12(x2)
+  lw x30, -16(x2)
+  lw x31, -20(x2)
+  ret
