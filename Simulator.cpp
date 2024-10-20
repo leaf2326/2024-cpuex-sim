@@ -1,13 +1,14 @@
 #include "Simulator.hpp"
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <bitset>
 #define MAXCLK 100000
 
 Simulator::Simulator()
 {
-    registers[0] = 0;
-    registers[2] = MEMORY_SIZE / 4 - 1;
+    registers[0] = 0;                   // x0
+    registers[2] = MEMORY_SIZE / 4 - 1; // sp
     pc = 0;
     isBreakpoint = false;
 }
@@ -16,7 +17,7 @@ Simulator::~Simulator()
 {
 }
 
-int64_t Simulator::getRegister(int reg) const
+int32_t Simulator::getRegister(int reg) const
 {
     if (reg < 0 || reg >= REG_COUNT)
     {
@@ -25,7 +26,7 @@ int64_t Simulator::getRegister(int reg) const
     return reg == 0 ? 0 : registers[reg];
 }
 
-void Simulator::setRegister(int reg, int64_t value)
+void Simulator::setRegister(int reg, int32_t value)
 {
     if (reg == 0)
         return;
@@ -38,19 +39,19 @@ void Simulator::setRegister(int reg, int64_t value)
     // printRegisters();
 }
 
-int64_t Simulator::getPC() const
+int32_t Simulator::getPC() const
 {
     return pc;
 }
 
-void Simulator::setPC(int64_t newPC)
+void Simulator::setPC(int32_t newPC)
 {
     std::cout << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
     pc = newPC;
     // printRegisters();
 }
 
-int64_t Simulator::loadWord(int64_t address) const
+int32_t Simulator::loadWord(int32_t address) const
 {
     if (address < 0 || address >= MEMORY_SIZE)
     {
@@ -59,14 +60,165 @@ int64_t Simulator::loadWord(int64_t address) const
     return memory[address / 4];
 }
 
-void Simulator::storeWord(int64_t address, int64_t value)
+void Simulator::storeWord(int32_t address, int32_t value)
 {
     if (address < 0 || address >= MEMORY_SIZE)
     {
         throw std::out_of_range("Memory access out of bounds");
     }
-    std::cout << std::hex <<"Memory 0x" << address << " changed from 0x" << memory[address / 4] << " to 0x" << value << std::dec << std::endl;
+    std::cout << std::hex << "Memory 0x" << address << " changed from 0x" << memory[address / 4] << " to 0x" << value << std::dec << std::endl;
     memory[address / 4] = value;
+}
+
+std::string Simulator::instToString(uint32_t instruction)
+{
+    std::ostringstream sstr;
+    const uint32_t opcode = getOpcode(instruction);
+
+    switch (opcode)
+    {
+    case 0x33:
+    {
+        // add, sub
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t funct7 = getFunct7(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+
+        if (funct3 == 0x0)
+        {
+            if (funct7 == 0x00)
+            {
+                sstr << "add x" << rd << ", x" << rs1 << ", x" << rs2;
+            }
+            else if (funct7 == 0x20)
+            {
+                sstr << "sub x" << rd << ", x" << rs1 << ", x" << rs2;
+            }
+        }
+        break;
+    }
+    case 0x13:
+    {
+        // addi
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        if (funct3 == 0x0)
+        {
+            sstr << "addi x" << rd << ", x" << rs1 << ", " << imm;
+        }
+        break;
+    }
+    case 0x63:
+    {
+        // beq, bne
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = ((instruction >> 7) & 0x1E) | (((instruction >> 25) & 0x7F) << 5) | ((instruction >> 31) << 12) | (((instruction >> 7) & 0x1) << 11);
+        // 符号ビットを処理
+        if ((imm >> 12) & 1)
+        {
+            imm -= 1 << 13;
+        }
+
+        if (funct3 == 0x0)
+        {
+            sstr << "beq x" << rs1 << ", x" << rs2 << ", offset " << imm;
+        }
+        else if (funct3 == 0x1)
+        {
+            sstr << "bne x" << rs1 << ", x" << rs2 << ", offset " << imm;
+        }
+        break;
+    }
+    case 0x6F:
+    {
+        // jal
+        const uint32_t rd = getRd(instruction);
+        int32_t imm = (((instruction >> 12) & 0xFF) << 12) | (((instruction >> 20) & 0x1) << 11) | ((instruction >> 20) & 0x7FE) | ((instruction >> 31) << 20);
+        // 符号ビットを処理
+        if ((imm >> 20) & 1)
+        {
+            imm -= 1 << 21;
+        }
+        sstr << "jal x" << rd << ", offset " << imm;
+        break;
+    }
+    case 0x67:
+    {
+        // jalr
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+        sstr << "jalr x" << rd << ", x" << rs1 << ", offset " << imm;
+        break;
+    }
+    case 0x03:
+    {
+        // lw
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        if (funct3 == 0x2)
+        {
+            sstr << "lw x" << rd << ", " << imm << "(x" << rs1 << ")";
+        }
+        break;
+    }
+    case 0x23:
+    {
+        // sw
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = ((instruction >> 7) & 0x1F) | ((instruction >> 25) & 0x7F);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        if (funct3 == 0x2)
+        {
+            sstr << "sw x" << rs2 << ", " << imm << "(x" << rs1 << ")";
+        }
+        break;
+    }
+    case 0x73:
+    {
+        if (instruction == 0b00000000000100000000000001110011)
+        {
+
+            sstr << "ebreak";
+        }
+        break;
+    }
+    default:
+        throw std::runtime_error("Unknown instruction");
+    }
+    return sstr.str();
 }
 
 void Simulator::loadMemoryFromBinary(const std::string &filename)
@@ -87,146 +239,8 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     {
 
 #ifdef DEBUG
-        const uint32_t opcode = getOpcode(instruction);
-        const std::unordered_map<uint32_t, std::function<void()>> dispatchTable = {
-            {0x33, [this, instruction]
-             {
-                 // add, sub
-                 const uint32_t funct3 = getFunct3(instruction);
-                 const uint32_t funct7 = getFunct7(instruction);
-                 const uint32_t rd = getRd(instruction);
-                 const uint32_t rs1 = getRs1(instruction);
-                 const uint32_t rs2 = getRs2(instruction);
 
-                 if (funct3 == 0x0)
-                 {
-                     if (funct7 == 0x00)
-                     {
-                         std::cout << "add x" << rd << ", x" << rs1 << ", x" << rs2 << std::endl;
-                     }
-                     else if (funct7 == 0x20)
-                     {
-                         std::cout << "sub x" << rd << ", x" << rs1 << ", x" << rs2 << std::endl;
-                     }
-                 }
-             }},
-            {0x13, [this, instruction]
-             {
-                 // addi
-                 const uint32_t funct3 = getFunct3(instruction);
-                 const uint32_t rd = getRd(instruction);
-                 const uint32_t rs1 = getRs1(instruction);
-                 int32_t imm = getImmediate(instruction);
-                 // 符号ビットを処理
-                 if ((imm >> 11) & 1)
-                 {
-                     imm -= 1 << 12;
-                 }
-
-                 if (funct3 == 0x0)
-                 {
-                     std::cout << "addi x" << rd << ", x" << rs1 << ", " << imm << std::endl;
-                 }
-             }},
-            {0x63, [this, instruction] { // beq, bne
-                 const uint32_t funct3 = getFunct3(instruction);
-                 const uint32_t rs1 = getRs1(instruction);
-                 const uint32_t rs2 = getRs2(instruction);
-                 int32_t imm = ((instruction >> 7) & 0x1E) | (((instruction >> 25) & 0x7F) << 5) | ((instruction >> 31) << 12) | (((instruction >> 7) & 0x1) << 11);
-                 // 符号ビットを処理
-                 if ((imm >> 12) & 1)
-                 {
-                     imm -= 1 << 13;
-                 }
-
-                 // std::cout << "imm: 0b" << std::bitset<12>(imm)<< std::endl;
-                 if (funct3 == 0x0)
-                 {
-                     std::cout << "beq x" << rs1 << ", x" << rs2 << ", offset " << imm << std::endl;
-                 }
-                 else if (funct3 == 0x1)
-                 {
-                     std::cout << "bne x" << rs1 << ", x" << rs2 << ", offset " << imm << std::endl;
-                 }
-             }},
-            {0x6F, [this, instruction]
-             {
-                 // jal
-                 const uint32_t rd = getRd(instruction);
-                 int32_t imm = (((instruction >> 12) & 0xFF) << 12) | (((instruction >> 20) & 0x1) << 11) | ((instruction >> 20) & 0x7FE) | ((instruction >> 31) << 20);
-                 // 符号ビットを処理
-                 if ((imm >> 20) & 1)
-                 {
-                     imm -= 1 << 21;
-                 }
-                 std::cout << "jal x" << rd << ", offset " << imm << std::endl;
-             }},
-            {0x67, [this, instruction]
-             {
-                 // jalr
-                 const uint32_t rd = getRd(instruction);
-                 const uint32_t rs1 = getRs1(instruction);
-                 int32_t imm = getImmediate(instruction);
-                 // 符号ビットを処理
-                 if ((imm >> 11) & 1)
-                 {
-                     imm -= 1 << 12;
-                 }
-                 std::cout << "jalr x" << rd << ", x" << rs1 << ", offset " << imm << std::endl;
-             }},
-            {0x03, [this, instruction]
-             {
-                 // lw
-                 const uint32_t funct3 = getFunct3(instruction);
-                 const uint32_t rd = getRd(instruction);
-                 const uint32_t rs1 = getRs1(instruction);
-                 int32_t imm = getImmediate(instruction);
-                 // 符号ビットを処理
-                 if ((imm >> 11) & 1)
-                 {
-                     imm -= 1 << 12;
-                 }
-
-                 if (funct3 == 0x2)
-                 {
-                     std::cout << "lw x" << rd << ", " << imm << "(x" << rs1 << ")" << std::endl;
-                 }
-             }},
-            {0x23, [this, instruction]
-             {
-                 // sw
-                 const uint32_t funct3 = getFunct3(instruction);
-                 const uint32_t rs1 = getRs1(instruction);
-                 const uint32_t rs2 = getRs2(instruction);
-                 int32_t imm = ((instruction >> 7) & 0x1F) | ((instruction >> 25) & 0x7F);
-                 // 符号ビットを処理
-                 if ((imm >> 11) & 1)
-                 {
-                     imm -= 1 << 12;
-                 }
-
-                 if (funct3 == 0x2)
-                 {
-                     std::cout << "sw x" << rs2 << ", " << imm << "(x" << rs1 << ")" << std::endl;
-                 }
-             }},
-            {0x73, [this, instruction]
-             {
-                 if (instruction == 0b00000000000100000000000001110011)
-                 {
-
-                     std::cout << "ebreak" << std::endl;
-                 }
-             }}};
-        if (dispatchTable.find(opcode) != dispatchTable.end())
-        {
-            std::cout << "0x" << std::hex << address << ": "<<std::dec;
-            dispatchTable.at(opcode)();
-        }
-        else
-        {
-            throw std::runtime_error("Unknown instruction");
-        }
+        std::cout << "0x" << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
 
 #endif // DEBUG
         storeWord(address, instruction);
@@ -330,8 +344,11 @@ inline void Simulator::updateWriteReg(int currWriteReg)
 
 void Simulator::executeInstruction(uint32_t instruction)
 {
-    int currWriteReg = -1;
+    int currWriteReg = NULLREG;
     const uint32_t opcode = getOpcode(instruction);
+
+    std::cout << "Executing: " << instToString(instruction) << std::endl;
+    
     const std::unordered_map<uint32_t, std::function<void()>> dispatchTable = {
         {0x33, [this, instruction, &currWriteReg]
          {
@@ -348,13 +365,11 @@ void Simulator::executeInstruction(uint32_t instruction)
              {
                  if (funct7 == 0x00)
                  {
-                     std::cout << "Executing: add x" << rd << ", x" << rs1 << ", x" << rs2 << std::endl;
-                     logInstruction("add"); // 命令の記録
+                     logInstruction("add");
                      setRegister(rd, getRegister(rs1) + getRegister(rs2));
                  }
                  else if (funct7 == 0x20)
                  {
-                     std::cout << "Executing: sub x" << rd << ", x" << rs1 << ", x" << rs2 << std::endl;
                      logInstruction("sub");
                      setRegister(rd, getRegister(rs1) - getRegister(rs2));
                  }
@@ -375,11 +390,10 @@ void Simulator::executeInstruction(uint32_t instruction)
                  imm -= 1 << 12;
              }
 
-             detectDataHazard(rs1, -2);
+             detectDataHazard(rs1, NOWRITEREG);
 
              if (funct3 == 0x0)
              {
-                 std::cout << "Executing: addi x" << rd << ", x" << rs1 << ", " << imm << std::endl;
                  logInstruction("addi");
                  setRegister(rd, getRegister(rs1) + imm);
              }
@@ -401,16 +415,13 @@ void Simulator::executeInstruction(uint32_t instruction)
 
              bool isTaken = false;
 
-             // std::cout << "imm: 0b" << std::bitset<12>(imm)<< std::endl;
              if (funct3 == 0x0)
              {
-                 std::cout << "Executing: beq x" << rs1 << ", x" << rs2 << ", offset " << imm << std::endl;
                  logInstruction("beq"); // 命令の記録
                  isTaken = (getRegister(rs1) == getRegister(rs2));
              }
              else if (funct3 == 0x1)
              {
-                 std::cout << "Executing: bne x" << rs1 << ", x" << rs2 << ", offset " << imm << std::endl;
                  logInstruction("bne"); // 命令の記録
                  isTaken = (getRegister(rs1) != getRegister(rs2));
              }
@@ -426,7 +437,6 @@ void Simulator::executeInstruction(uint32_t instruction)
              {
                  imm -= 1 << 21;
              }
-             std::cout << "Executing: jal x" << rd << ", offset " << imm << std::endl;
              logInstruction("jal"); // 命令の記録
              setRegister(rd, getPC() + 4);
              setPC(getPC() + imm);
@@ -443,9 +453,8 @@ void Simulator::executeInstruction(uint32_t instruction)
                  imm -= 1 << 12;
              }
 
-             detectDataHazard(rs1, -2);
+             detectDataHazard(rs1, NOWRITEREG);
 
-             std::cout << "Executing: jalr x" << rd << ", x" << rs1 << ", offset " << imm << std::endl;
              logInstruction("jalr"); // 命令の記録
              const int64_t temp = getPC() + 4;
              setPC((getRegister(rs1) + imm) & ~1);
@@ -465,12 +474,11 @@ void Simulator::executeInstruction(uint32_t instruction)
                  imm -= 1 << 12;
              }
 
-             detectDataHazard(rs1, -2);
+             detectDataHazard(rs1, NOWRITEREG);
 
              if (funct3 == 0x2)
              {
                  const int64_t address = getRegister(rs1) + imm;
-                 std::cout << "Executing: lw x" << rd << ", " << imm << "(x" << rs1 << ")" << std::endl;
                  logInstruction("lw"); // 命令の記録
                  setRegister(rd, loadWord(address));
              }
@@ -491,12 +499,11 @@ void Simulator::executeInstruction(uint32_t instruction)
                  imm -= 1 << 12;
              }
 
-             detectDataHazard(rs1, -2);
+             detectDataHazard(rs1, NOWRITEREG);
 
              if (funct3 == 0x2)
              {
                  const int64_t address = getRegister(rs1) + imm;
-                 std::cout << "Executing: sw x" << rs2 << ", " << imm << "(x" << rs1 << ")" << std::endl;
                  logInstruction("sw"); // 命令の記録
                  storeWord(address, getRegister(rs2));
              }
@@ -506,7 +513,6 @@ void Simulator::executeInstruction(uint32_t instruction)
          {
              if (instruction == 0b00000000000100000000000001110011)
              {
-                 std::cout << "Executing: ebreak" << std::endl;
                  std::cout << "Program reached breakpoint" << std::endl;
                  logInstruction("ebreak"); // 命令の記録
                  isBreakpoint = true;
