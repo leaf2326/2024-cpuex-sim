@@ -8,13 +8,13 @@ CPU実験6班のシミュレータのリポジトリ
 
 6asmのリンク: https://github.com/windows-server-2003/2024-cpuex-asm
 
-使い方は、`$ ./simulator <filepath>`
+使い方は、`make`して`$ ./simulator <filepath>`
 実行例：
 ```
 make
 ./simulator program.bin > simulator.log
 ```
-`make debug`をすると、シミュレーターのデバッグ用にログが多めに流れる。
+`make debug`をすると、シミュレーターのデバッグ用にログが多めに流れるが、普通は使わない。
 
 `CLK`が`100000`に達するか`ebreak`が呼ばれると停止する
 
