@@ -10,7 +10,7 @@
 #include <string>
 
 #define NULLREG -1
-#define NOWRITEREG -2 // NOWRITEREG != NULLREG
+#define NOLOADREG -2 // NOLOADREG != NULLREG
 
 class Simulator : public Log
 {
@@ -24,8 +24,7 @@ private:
     std::array<int32_t, MEMORY_SIZE / 4> memory{};
 
     // 前の命令で書き込んだレジスタ
-    int prevWriteReg = NULLREG;
-    int prevPrevWriteReg = NULLREG;
+    int prevLoadReg = NULLREG;
 
 public:
     Simulator();
@@ -55,10 +54,10 @@ public:
     int32_t getImmediate(uint32_t instruction) const;
 
     // 直近に書き込んだレジスタの更新
-    void updateWriteReg(int currWriteReg);
+    void updatePrevLoadReg(int currLoadReg);
 
-    // データハザード検出
-    void detectDataHazard(int32_t rs1, int32_t rs2);
+    // 一つ前のロード命令でロードしたレジスタであるかを検出
+    void detectPrevLoad(int32_t rs1, int32_t rs2);
 
     // 分岐予測
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);

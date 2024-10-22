@@ -304,16 +304,11 @@ inline int32_t Simulator::getImmediate(uint32_t instruction) const
     return (instruction >> 20);
 }
 
-void Simulator::detectDataHazard(int32_t rs1, int32_t rs2)
+void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
 {
 
-    // 1命令前に書き込んだレジスタとのハザードを検出
-    if (rs1 == prevWriteReg || rs2 == prevWriteReg)
-    {
-        logStall(2);
-    }
-    // 2命令前に書き込んだレジスタとのハザードを検出
-    else if (rs1 == prevPrevWriteReg || rs2 == prevPrevWriteReg)
+    // 1命令前にロードしたレジスタであるかを検出
+    if (rs1 == prevLoadReg || rs2 == prevLoadReg)
     {
         logStall(1);
     }
@@ -336,198 +331,199 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     }
 }
 
-inline void Simulator::updateWriteReg(int currWriteReg)
+inline void Simulator::updatePrevLoadReg(int currLoadReg)
 {
-    prevPrevWriteReg = prevWriteReg;
-    prevWriteReg = currWriteReg;
+    prevLoadReg = currLoadReg;
 }
 
 void Simulator::executeInstruction(uint32_t instruction)
 {
-    int currWriteReg = NULLREG;
+    int currLoadReg = NULLREG;
     const uint32_t opcode = getOpcode(instruction);
 
     std::cout << "Executing: " << instToString(instruction) << std::endl;
-    
-    const std::unordered_map<uint32_t, std::function<void()>> dispatchTable = {
-        {0x33, [this, instruction, &currWriteReg]
-         {
-             // R-type (add, sub)
-             const uint32_t funct3 = getFunct3(instruction);
-             const uint32_t funct7 = getFunct7(instruction);
-             const uint32_t rd = getRd(instruction);
-             const uint32_t rs1 = getRs1(instruction);
-             const uint32_t rs2 = getRs2(instruction);
 
-             detectDataHazard(rs1, rs2);
-
-             if (funct3 == 0x0)
-             {
-                 if (funct7 == 0x00)
-                 {
-                     logInstruction("add");
-                     setRegister(rd, getRegister(rs1) + getRegister(rs2));
-                 }
-                 else if (funct7 == 0x20)
-                 {
-                     logInstruction("sub");
-                     setRegister(rd, getRegister(rs1) - getRegister(rs2));
-                 }
-             }
-             setPC(getPC() + 4);
-             currWriteReg = rd;
-         }},
-        {0x13, [this, instruction, &currWriteReg]
-         {
-             // I-type (addi)
-             const uint32_t funct3 = getFunct3(instruction);
-             const uint32_t rd = getRd(instruction);
-             const uint32_t rs1 = getRs1(instruction);
-             int32_t imm = getImmediate(instruction);
-             // 符号ビットを処理
-             if ((imm >> 11) & 1)
-             {
-                 imm -= 1 << 12;
-             }
-
-             detectDataHazard(rs1, NOWRITEREG);
-
-             if (funct3 == 0x0)
-             {
-                 logInstruction("addi");
-                 setRegister(rd, getRegister(rs1) + imm);
-             }
-             setPC(getPC() + 4);
-             currWriteReg = rd;
-         }},
-        {0x63, [this, instruction, &currWriteReg]
-         {
-             // B-type (beq, bne)
-             const uint32_t funct3 = getFunct3(instruction);
-             const uint32_t rs1 = getRs1(instruction);
-             const uint32_t rs2 = getRs2(instruction);
-             int32_t imm = ((instruction >> 7) & 0x1E) | (((instruction >> 25) & 0x7F) << 5) | ((instruction >> 31) << 12) | (((instruction >> 7) & 0x1) << 11);
-             // 符号ビットを処理
-             if ((imm >> 12) & 1)
-             {
-                 imm -= 1 << 13;
-             }
-
-             bool isTaken = false;
-
-             if (funct3 == 0x0)
-             {
-                 logInstruction("beq"); // 命令の記録
-                 isTaken = (getRegister(rs1) == getRegister(rs2));
-             }
-             else if (funct3 == 0x1)
-             {
-                 logInstruction("bne"); // 命令の記録
-                 isTaken = (getRegister(rs1) != getRegister(rs2));
-             }
-             branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
-         }},
-        {0x6F, [this, instruction, &currWriteReg]
-         {
-             // J-type (jal)
-             const uint32_t rd = getRd(instruction);
-             int32_t imm = (((instruction >> 12) & 0xFF) << 12) | (((instruction >> 20) & 0x1) << 11) | ((instruction >> 20) & 0x7FE) | ((instruction >> 31) << 20);
-             // 符号ビットを処理
-             if ((imm >> 20) & 1)
-             {
-                 imm -= 1 << 21;
-             }
-             logInstruction("jal"); // 命令の記録
-             setRegister(rd, getPC() + 4);
-             setPC(getPC() + imm);
-         }},
-        {0x67, [this, instruction, &currWriteReg]
-         {
-             // I-type (jalr)
-             const uint32_t rd = getRd(instruction);
-             const uint32_t rs1 = getRs1(instruction);
-             int32_t imm = getImmediate(instruction);
-             // 符号ビットを処理
-             if ((imm >> 11) & 1)
-             {
-                 imm -= 1 << 12;
-             }
-
-             detectDataHazard(rs1, NOWRITEREG);
-
-             logInstruction("jalr"); // 命令の記録
-             const int64_t temp = getPC() + 4;
-             setPC((getRegister(rs1) + imm) & ~1);
-             setRegister(rd, temp);
-             currWriteReg = rd;
-         }},
-        {0x03, [this, instruction, &currWriteReg]
-         {
-             // I-type (lw)
-             const uint32_t funct3 = getFunct3(instruction);
-             const uint32_t rd = getRd(instruction);
-             const uint32_t rs1 = getRs1(instruction);
-             int32_t imm = getImmediate(instruction);
-             // 符号ビットを処理
-             if ((imm >> 11) & 1)
-             {
-                 imm -= 1 << 12;
-             }
-
-             detectDataHazard(rs1, NOWRITEREG);
-
-             if (funct3 == 0x2)
-             {
-                 const int64_t address = getRegister(rs1) + imm;
-                 logInstruction("lw"); // 命令の記録
-                 setRegister(rd, loadWord(address));
-             }
-             setPC(getPC() + 4);
-
-             currWriteReg = rd;
-         }},
-        {0x23, [this, instruction, &currWriteReg]
-         {
-             // S-type (sw)
-             const uint32_t funct3 = getFunct3(instruction);
-             const uint32_t rs1 = getRs1(instruction);
-             const uint32_t rs2 = getRs2(instruction);
-             int32_t imm = ((instruction >> 7) & 0x1F) | (((instruction >> 25) & 0x7F) << 5);
-             // 符号ビットを処理
-             if ((imm >> 11) & 1)
-             {
-                 imm -= 1 << 12;
-             }
-
-             detectDataHazard(rs1, NOWRITEREG);
-
-             if (funct3 == 0x2)
-             {
-                 const int64_t address = getRegister(rs1) + imm;
-                 logInstruction("sw"); // 命令の記録
-                 storeWord(address, getRegister(rs2));
-             }
-             setPC(getPC() + 4);
-         }},
-        {0x73, [this, instruction]
-         {
-             if (instruction == 0b00000000000100000000000001110011)
-             {
-                 std::cout << "Program reached breakpoint" << std::endl;
-                 logInstruction("ebreak"); // 命令の記録
-                 isBreakpoint = true;
-             }
-         }}};
-
-    if (dispatchTable.find(opcode) != dispatchTable.end())
+    switch (opcode)
     {
-        dispatchTable.at(opcode)();
-    }
-    else
+    case 0x33:
     {
-        throw std::runtime_error("Unknown instruction");
+        // R-type (add, sub)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t funct7 = getFunct7(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+
+        detectPrevLoad(rs1, rs2);
+
+        if (funct3 == 0x0)
+        {
+            if (funct7 == 0x00)
+            {
+                logInstruction("add");
+                setRegister(rd, getRegister(rs1) + getRegister(rs2));
+            }
+            else if (funct7 == 0x20)
+            {
+                logInstruction("sub");
+                setRegister(rd, getRegister(rs1) - getRegister(rs2));
+            }
+        }
+        setPC(getPC() + 4);
+        break;
     }
-    updateWriteReg(currWriteReg);
+
+    case 0x13:
+    {
+        // I-type (addi)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        detectPrevLoad(rs1, NOLOADREG);
+
+        if (funct3 == 0x0)
+        {
+            logInstruction("addi");
+            setRegister(rd, getRegister(rs1) + imm);
+        }
+        setPC(getPC() + 4);
+        break;
+    }
+    case 0x63:
+    {
+        // B-type (beq, bne)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = ((instruction >> 7) & 0x1E) | (((instruction >> 25) & 0x7F) << 5) | ((instruction >> 31) << 12) | (((instruction >> 7) & 0x1) << 11);
+        // 符号ビットを処理
+        if ((imm >> 12) & 1)
+        {
+            imm -= 1 << 13;
+        }
+
+        bool isTaken = false;
+        detectPrevLoad(rs1, rs2);
+        if (funct3 == 0x0)
+        {
+            logInstruction("beq"); // 命令の記録
+            isTaken = (getRegister(rs1) == getRegister(rs2));
+        }
+        else if (funct3 == 0x1)
+        {
+            logInstruction("bne"); // 命令の記録
+            isTaken = (getRegister(rs1) != getRegister(rs2));
+        }
+        branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
+        break;
+    }
+    case 0x6F:
+    {
+        // J-type (jal)
+        const uint32_t rd = getRd(instruction);
+        int32_t imm = (((instruction >> 12) & 0xFF) << 12) | (((instruction >> 20) & 0x1) << 11) | ((instruction >> 20) & 0x7FE) | ((instruction >> 31) << 20);
+        // 符号ビットを処理
+        if ((imm >> 20) & 1)
+        {
+            imm -= 1 << 21;
+        }
+        logInstruction("jal"); // 命令の記録
+        setRegister(rd, getPC() + 4);
+        setPC(getPC() + imm);
+        break;
+    }
+    case 0x67:
+    {
+        // I-type (jalr)
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        detectPrevLoad(rs1, NOLOADREG);
+
+        logInstruction("jalr"); // 命令の記録
+        const int64_t temp = getPC() + 4;
+        setPC((getRegister(rs1) + imm) & ~1);
+        setRegister(rd, temp);
+        break;
+    }
+    case 0x03:
+    {
+        // I-type (lw)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        detectPrevLoad(rs1, NOLOADREG);
+
+        if (funct3 == 0x2)
+        {
+            const int64_t address = getRegister(rs1) + imm;
+            logInstruction("lw"); // 命令の記録
+            setRegister(rd, loadWord(address));
+        }
+        setPC(getPC() + 4);
+
+        currLoadReg = rd;
+        break;
+    }
+    case 0x23:
+    {
+        // S-type (sw)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = ((instruction >> 7) & 0x1F) | (((instruction >> 25) & 0x7F) << 5);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        detectPrevLoad(rs1, rs2);
+
+        if (funct3 == 0x2)
+        {
+            const int64_t address = getRegister(rs1) + imm;
+            logInstruction("sw"); // 命令の記録
+            storeWord(address, getRegister(rs2));
+        }
+        setPC(getPC() + 4);
+        break;
+    }
+    case 0x73:
+    {
+        if (instruction == 0b00000000000100000000000001110011)
+        {
+            std::cout << "Program reached breakpoint" << std::endl;
+            logInstruction("ebreak"); // 命令の記録
+            isBreakpoint = true;
+        }
+        break;
+    }
+    default:
+     throw std::runtime_error("Unknown instruction");
+    }
+
+    updatePrevLoadReg(currLoadReg);
 }
 
 // ログの出力
@@ -555,4 +551,6 @@ void Simulator::runProgram()
     }
     printRegisters();
     printLog();
+    
+    std::cout <<"__Simulator Terminated__" << std::endl;
 }

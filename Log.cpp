@@ -18,18 +18,12 @@ void Log::logBranchPrediction()
 
 void Log::logStall(int stallType)
 {
-    if (stallType == 1)
-    {
-        stallCount1++;
-    }
-    else if (stallType == 2)
-    {
-        stallCount2++;
-    }
+    nStallCount[stallType]++;
 }
 
 void Log::printLog() const
 {
+    std::cout <<"__Start printLog__" << std::endl;
     std::cout << "Total instructions executed: " << totalInstructions << std::endl;
 
     std::cout << "Instruction counts:" << std::endl;
@@ -40,6 +34,11 @@ void Log::printLog() const
 
     std::cout << "Branch predictions: " << branchPredCount << std::endl;
     std::cout << "Flushes due to branch misprediction: " << flushCount << std::endl;
-    std::cout << "1-cycle stalls: " << stallCount1 << std::endl;
-    std::cout << "2-cycle stalls: " << stallCount2 << std::endl;
+
+    for (const auto &pair : nStallCount)
+    {
+        std::cout << pair.first << "-cycle stalls: " << pair.second << std::endl;
+    }
+    
+    std::cout <<"__End printLog__" << std::endl;
 }
