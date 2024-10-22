@@ -2,17 +2,17 @@
 CPU実験6班のシミュレータのリポジトリ
 
 ## 使い方
-実行ファイルを`program.bin`という名前で`main.cpp`と同じフォルダに入れるとそのバイナリファイルを実行する
+実行ファイルへのパスを与えるとそのバイナリファイルを実行する
 
-`fib.s`はデフォルトの`program.bin`の元になったコードを参考にいれているだけで動作に関係はない
-
-アセンブリファイルを`6asm`で機械語にしてから用いる
+アセンブリファイルを`6asm`で機械語にしてから用いてください
 
 6asmのリンク: https://github.com/windows-server-2003/2024-cpuex-asm
 
+使い方は、`$ ./simulator <filepath>`
+実行例：
 ```
 make
-./simulator > simulator.log
+./simulator program.bin > simulator.log
 ```
 `make debug`をすると、シミュレーターのデバッグ用にログが多めに流れる。
 
