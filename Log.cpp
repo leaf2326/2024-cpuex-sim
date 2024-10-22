@@ -34,10 +34,14 @@ void Log::printLog() const
 
     std::cout << "Branch predictions: " << branchPredCount << std::endl;
     std::cout << "Flushes due to branch misprediction: " << flushCount << std::endl;
-
-    for (const auto &pair : nStallCount)
+    if(nStallCount.empty()){
+        std::cout << "No n-cycle stalls detected!" << std::endl;
+    }
+    else{
+        for (const auto &pair : nStallCount)
     {
         std::cout << pair.first << "-cycle stalls: " << pair.second << std::endl;
+    }
     }
     
     std::cout <<"__End printLog__" << std::endl;
