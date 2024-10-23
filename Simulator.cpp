@@ -527,7 +527,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 }
 
 // ログの出力
-void Simulator::printLog() const
+void Simulator::printLog()
 {
     Log::printLog();
 }

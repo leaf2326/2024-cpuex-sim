@@ -66,7 +66,7 @@ public:
     void executeInstruction(uint32_t instruction);
 
     // ログの出力
-    void printLog() const;
+    void printLog();
 
     void runProgram();
 };

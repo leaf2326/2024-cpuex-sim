@@ -16,6 +16,8 @@ protected:
     // 命令ごとの実行回数
     std::unordered_map<std::string, int> instructionCounts;
 
+    int sumCLKCount();
+
 public:
     void logInstruction(const std::string &instructionName);
 
@@ -25,7 +27,7 @@ public:
 
     void logStall(int stallType);
 
-    void printLog() const;
+    void printLog();
 };
 
 #endif // LOG_HPP
