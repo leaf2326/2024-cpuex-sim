@@ -16,6 +16,8 @@ make
 ```
 `make debug`をすると、シミュレーターのデバッグ用にログが多めに流れるが、普通は使わない。
 
+`make testFPU`をすると、`main.cpp`ではなく`testFPU.cpp`が実行される。FPUのテストはこっちでやる予定。
+
 `CLK`が`100000`に達するか`ebreak`が呼ばれると停止する
 
 `Simulator.cpp`の`#define MAXCLK 100000`を変更すれば`100000`から変えられる

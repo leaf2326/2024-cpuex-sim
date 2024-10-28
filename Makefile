@@ -1,20 +1,23 @@
 CXX = g++
 
-CXXFLAGS = -std=c++17 -Wall -O3
+CXXFLAGS = -std=c++23 -Wall -O3
 
 TARGET = simulator
 
-SRCS = main.cpp Simulator.cpp Log.cpp
+SRCS = Simulator.cpp Log.cpp FPU.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS)
+$(TARGET): main.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp $(SRCS)
 
-debug: $(OBJS)
-	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(SRCS)
+debug: main.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) main.cpp $(SRCS)
+
+testFPU: testFPU.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) testFPU.cpp $(SRCS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
