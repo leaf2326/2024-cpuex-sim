@@ -2,6 +2,7 @@
 #define SIMULATOR_HPP
 
 #include "Log.hpp"
+#include "Util.hpp"
 #include <array>
 #include <cstdint>
 #include <unordered_map>
@@ -44,15 +45,7 @@ public:
     void loadMemoryFromBinary(const std::string &filename);
 
     void printRegisters() const;
-
-    uint32_t getOpcode(uint32_t instruction) const;
-    uint32_t getRd(uint32_t instruction) const;
-    uint32_t getFunct3(uint32_t instruction) const;
-    uint32_t getRs1(uint32_t instruction) const;
-    uint32_t getRs2(uint32_t instruction) const;
-    uint32_t getFunct7(uint32_t instruction) const;
-    int32_t getImmediate(uint32_t instruction) const;
-
+ 
     // 直近に書き込んだレジスタの更新
     void updatePrevLoadReg(int currLoadReg);
 

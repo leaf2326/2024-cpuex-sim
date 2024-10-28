@@ -269,41 +269,6 @@ void Simulator::printRegisters() const
     std::cout << "PC: 0x" << std::hex << pc << std::dec << std::endl;
 }
 
-inline uint32_t Simulator::getOpcode(uint32_t instruction) const
-{
-    return instruction & 0x7F;
-}
-
-inline uint32_t Simulator::getRd(uint32_t instruction) const
-{
-    return (instruction >> 7) & 0x1F;
-}
-
-inline uint32_t Simulator::getFunct3(uint32_t instruction) const
-{
-    return (instruction >> 12) & 0x7;
-}
-
-inline uint32_t Simulator::getRs1(uint32_t instruction) const
-{
-    return (instruction >> 15) & 0x1F;
-}
-
-inline uint32_t Simulator::getRs2(uint32_t instruction) const
-{
-    return (instruction >> 20) & 0x1F;
-}
-
-inline uint32_t Simulator::getFunct7(uint32_t instruction) const
-{
-    return (instruction >> 25) & 0x7F;
-}
-
-inline int32_t Simulator::getImmediate(uint32_t instruction) const
-{
-    return (instruction >> 20);
-}
-
 void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
 {
 
