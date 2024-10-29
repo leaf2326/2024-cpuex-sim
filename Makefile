@@ -8,7 +8,11 @@ SRCS = Simulator.cpp Log.cpp FPU.cpp Util.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
+DEPS = $(SRCS:.cpp=%.d)
+
 all: $(TARGET)
+
+-include $(DEPS)	
 
 $(TARGET): main.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp $(SRCS)
@@ -20,7 +24,7 @@ testFPU: testFPU.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) testFPU.cpp $(SRCS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET) simulator.log
+	rm -f $(OBJS) $(TARGET) $(DEPS) simulator.log
