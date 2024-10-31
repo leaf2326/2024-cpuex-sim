@@ -14,6 +14,13 @@ CPU実験6班のシミュレータのリポジトリ
 make
 ./simulator program.bin > simulator.log
 ```
+
+出力のみ表示するコマンドも追加
+
+```
+./simulator program.bin -onlystdio
+```
+
 `make debug`をすると、シミュレーターのデバッグ用にログが多めに流れるが、普通は使わない。
 
 `make testFPU`をすると、`main.cpp`ではなく`testFPU.cpp`が実行される。FPUのテストはこっちでやる予定。
@@ -21,3 +28,4 @@ make
 `CLK`が`100000`に達するか`ebreak`が呼ばれると停止する
 
 `Simulator.cpp`の`#define MAXCLK 100000`を変更すれば`100000`から変えられる
+git commit -m "Memory outputに対応, iMemoryとdMemoryの分割に対応, 実行時オプション-onlystdioに対応"

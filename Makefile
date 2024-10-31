@@ -4,13 +4,14 @@ CXXFLAGS = -std=c++23 -Wall -O3
 
 TARGET = simulator
 
-SRCS = Simulator.cpp Log.cpp FPU.cpp Util.cpp
+SRCS = Simulator.cpp Log.cpp FPU.cpp Option.cpp Util.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
 DEPS = $(SRCS:.cpp=%.d)
 
 all: $(TARGET)
+	ulimit -s unlimited
 
 -include $(DEPS)	
 

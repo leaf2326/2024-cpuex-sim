@@ -3,18 +3,16 @@
 #include <iostream>
 #include <sstream>
 #include <bitset>
+#include <iomanip>
 #define MAXCLK 100000
 
-Simulator::Simulator()
+Simulator::Simulator(Options op)
 {
-    registers[0] = 0;                   // x0
-    registers[2] = MEMORY_SIZE / 4 - 1; // sp
+    registers[0] = 0;                    // x0
+    registers[2] = DMEMORY_SIZE / 4 - 1; // sp
     pc = 0;
     isBreakpoint = false;
-}
-
-Simulator::~Simulator()
-{
+    options = op;
 }
 
 int32_t Simulator::getRegister(int reg) const
@@ -34,7 +32,10 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Invalid register index");
     }
-    std::cout << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
+    }
     registers[reg] = value;
     // printRegisters();
 }
@@ -46,28 +47,64 @@ int32_t Simulator::getPC() const
 
 void Simulator::setPC(int32_t newPC)
 {
-    std::cout << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
+    }
     pc = newPC;
     // printRegisters();
 }
 
 int32_t Simulator::loadWord(int32_t address) const
 {
-    if (address < 0 || address >= MEMORY_SIZE)
+    if (address < 0 || address >= DMEMORY_SIZE)
     {
-        throw std::out_of_range("Memory access out of bounds");
+        throw std::out_of_range("dMemory access out of bounds");
     }
-    return memory[address / 4];
+    return dMemory[address / 4];
+}
+int32_t Simulator::loadInstruction(int32_t address) const
+{
+    if (address < 0 || address >= IMEMORY_SIZE)
+    {
+        throw std::out_of_range("iMemory access out of bounds");
+    }
+    return iMemory[address / 4];
 }
 
 void Simulator::storeWord(int32_t address, int32_t value)
 {
-    if (address < 0 || address >= MEMORY_SIZE)
+    if (address < 0 || address >= DMEMORY_SIZE)
     {
-        throw std::out_of_range("Memory access out of bounds");
+        throw std::out_of_range("dMemory access out of bounds");
     }
-    std::cout << std::hex << "Memory 0x" << address << " changed from 0x" << memory[address / 4] << " to 0x" << value << std::dec << std::endl;
-    memory[address / 4] = value;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << std::hex << "dMemory 0x" << address << " changed from 0x" << dMemory[address / 4] << " to 0x" << value << std::dec << std::endl;
+    }
+    dMemory[address / 4] = value;
+    if (address == OUTPUT_ADDRESS)
+    {
+        if (!options.has(options.ONLYSTDIO))
+        {
+            std::cout << "Output: " << std::hex << dMemory[address / 4] << std::dec << std::endl;
+        }
+        output.emplace_back(value);
+    }
+}
+void Simulator::storeInstruction(int32_t address, int32_t instruction)
+{
+    if (address < 0 || address >= IMEMORY_SIZE)
+    {
+        throw std::out_of_range("iMemory access out of bounds");
+    }
+#ifdef DEBUG
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "0x" << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
+    }
+#endif // DEBUG
+    iMemory[address / 4] = instruction;
 }
 
 std::string Simulator::instToString(uint32_t instruction)
@@ -232,29 +269,29 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     uint32_t instruction;
     int64_t address = 0;
 #ifdef DEBUG
-    std::cout << "DEBUG MODE INSTRUCTION LIST" << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "DEBUG MODE INSTRUCTION LIST" << std::endl;
+    }
 #endif // DEBUG
 
     while (file.read(reinterpret_cast<char *>(&instruction), sizeof(instruction)))
     {
-
-#ifdef DEBUG
-
-        std::cout << "0x" << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
-
-#endif // DEBUG
-        storeWord(address, instruction);
+        storeInstruction(address, instruction);
         address += 4;
-        if (address >= MEMORY_SIZE)
+        if (address >= IMEMORY_SIZE)
         {
-            throw std::runtime_error("Program size exceeds memory limits");
+            throw std::runtime_error("Program size exceeds iMemory limits");
         }
     }
 
     /*
     for (int i = 0; i < address / 4; i++)
     {
-        std::cout << std::dec << "memory[" << i << "] is 0b" << std::bitset<32>(memory[i]) << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << std::dec << "iMemory[" << i << "] is 0b" << std::bitset<32>(iMemory[i]) << std::endl;
+    }
     }
     */
 }
@@ -305,9 +342,10 @@ void Simulator::executeInstruction(uint32_t instruction)
 {
     int currLoadReg = NULLREG;
     const uint32_t opcode = getOpcode(instruction);
-
-    std::cout << "Executing: " << instToString(instruction) << std::endl;
-
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "Executing: " << instToString(instruction) << std::endl;
+    }
     switch (opcode)
     {
     case 0x33:
@@ -478,14 +516,17 @@ void Simulator::executeInstruction(uint32_t instruction)
     {
         if (instruction == 0b00000000000100000000000001110011)
         {
-            std::cout << "Program reached breakpoint" << std::endl;
+            if (!options.has(options.ONLYSTDIO))
+            {
+                std::cout << "Program reached breakpoint" << std::endl;
+            }
             logInstruction("ebreak"); // 命令の記録
             isBreakpoint = true;
         }
         break;
     }
     default:
-     throw std::runtime_error("Unknown instruction");
+        throw std::runtime_error("Unknown instruction");
     }
 
     updatePrevLoadReg(currLoadReg);
@@ -497,25 +538,55 @@ void Simulator::printLog()
     Log::printLog();
 }
 
+void Simulator::printOutput()
+{
+
+    std::cout << "P3" << std::endl;
+    uint32_t r, g, b;
+    for (const auto &o : output)
+    {
+        r = o & 0xFF000000;
+        g = o & 0x00FF0000;
+        b = o & 0x0000FF00;
+        std::cout << std::setw(3) << std::setfill('0') << r << " " << g << " " << b << std::endl;
+    }
+}
+
 void Simulator::runProgram()
 {
 #ifdef DEBUG
-    std::cout << "__DEBUG_MODE__" << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "__DEBUG_MODE__" << std::endl;
+    }
 #endif // DEBUG
     uint32_t CLK = 0;
     while (MAXCLK > CLK && !isBreakpoint)
     {
-        std::cout << "CLK : " << CLK << std::endl;
-        const uint32_t instruction = loadWord(pc);
+        if (!options.has(options.ONLYSTDIO))
+        {
+            std::cout << "CLK : " << CLK << std::endl;
+        }
+        const uint32_t instruction = loadInstruction(pc);
 #ifdef DEBUG
-        std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+        if (!options.has(options.ONLYSTDIO))
+        {
+            std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+        }
 #endif // DEBUG
 
         executeInstruction(instruction);
         CLK++;
     }
-    printRegisters();
-    printLog();
-    
-    std::cout <<"__Simulator Terminated__" << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+    {
+        printRegisters();
+        printLog();
+        std::cout<< "__Output__"<<std::endl;
+    }
+    printOutput();
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "__Simulator Terminated__" << std::endl;
+    }
 }

@@ -62,6 +62,4 @@ void Log::printLog()
         }
     }
     std::cout << "Clock cycle: " << sumCLKCount() << std::endl;
-
-    std::cout << "__End printLog__" << std::endl;
 }
