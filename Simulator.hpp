@@ -30,6 +30,7 @@ private:
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     std::array<int32_t, DMEMORY_SIZE / 4> dMemory{};
     std::vector<int32_t> inputData{};
+    unsigned int inputIndex = 0;
     std::vector<int32_t> output{};
 
     // 前の命令で書き込んだレジスタ
@@ -45,7 +46,7 @@ public:
     int32_t getPC() const;
     void setPC(int32_t newPC);
 
-    int32_t loadWord(int32_t address) const;
+    int32_t loadWord(int32_t address);
     int32_t loadInstruction(int32_t address) const;
     void storeWord(int32_t address, int32_t value);
     void storeInstruction(int32_t address, int32_t instruction);

@@ -17,8 +17,8 @@ public:
         All = 0xFF,         // 11111111
     };
     void set(uint32_t flag);
-    bool is(uint32_t flag);
-    bool has(uint32_t flag);
+    bool is(uint32_t flag) const;
+    bool has(uint32_t flag) const;
 };
 
 #endif

@@ -56,13 +56,30 @@ void Simulator::setPC(int32_t newPC)
     // printRegisters();
 }
 
-int32_t Simulator::loadWord(int32_t address) const
+int32_t Simulator::loadWord(int32_t address)
 {
     if (address < 0 || address >= DMEMORY_SIZE)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
-    return dMemory[address / 4];
+    auto temp = dMemory[address / 4];
+    if (address == INPUT_ADDRESS)
+    {
+        if (!options.has(options.ONLYSTDIO))
+        {
+            if (inputIndex >= inputData.size())
+            {
+                std::cerr << "Error: No more input data available" << std::endl;
+            }
+            else
+            {
+                std::cout << "Input: 0x" << std::hex << temp << std::dec << std::endl;
+                storeWord(INPUT_ADDRESS, inputData[inputIndex]);
+                inputIndex++;
+            }
+        }
+    }
+    return temp;
 }
 int32_t Simulator::loadInstruction(int32_t address) const
 {
@@ -84,11 +101,19 @@ void Simulator::storeWord(int32_t address, int32_t value)
         std::cout << std::hex << "dMemory 0x" << address << " changed from 0x" << dMemory[address / 4] << " to 0x" << value << std::dec << std::endl;
     }
     dMemory[address / 4] = value;
+    if (address == INPUT_ADDRESS)
+    {
+        if (!options.has(options.ONLYSTDIO))
+        {
+            std::cout << "Warning: storeWord executed with INPUT_ADDRESS" << std::dec << std::endl;
+        }
+        output.emplace_back(value);
+    }
     if (address == OUTPUT_ADDRESS)
     {
         if (!options.has(options.ONLYSTDIO))
         {
-            std::cout << "Output: " << std::hex << dMemory[address / 4] << std::dec << std::endl;
+            std::cout << "Output: 0x" << std::hex << dMemory[address / 4] << std::dec << std::endl;
         }
         output.emplace_back(value);
     }
@@ -299,6 +324,10 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
 
 void Simulator::loadInputData(const std::string &inputFilePath)
 {
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "Loading input file..." << std::endl;
+    }
     std::ifstream file(inputFilePath);
     if (!file)
     {
@@ -330,6 +359,10 @@ void Simulator::loadInputData(const std::string &inputFilePath)
             std::cerr << "Error: Failed to process token " << token << " - " << e.what() << std::endl;
         }
     }
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "Completed loading input file" << std::endl;
+    }
 #ifdef DEBUG
     std::cout << "Input Data:" << std::endl;
     for (const auto &data : inputData)
@@ -342,12 +375,15 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 
 void Simulator::printRegisters() const
 {
-    std::cout << "Registers state:" << std::endl;
-    for (int i = 0; i < REG_COUNT; ++i)
+    if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "x" << i << ": 0x" << std::hex << registers[i] << std::dec << std::endl;
+        std::cout << "Registers state:" << std::endl;
+        for (int i = 0; i < REG_COUNT; ++i)
+        {
+            std::cout << "x" << i << ": 0x" << std::hex << registers[i] << std::dec << std::endl;
+        }
+        std::cout << "PC: 0x" << std::hex << pc << std::dec << std::endl;
     }
-    std::cout << "PC: 0x" << std::hex << pc << std::dec << std::endl;
 }
 
 void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
@@ -604,6 +640,10 @@ void Simulator::runProgram()
         std::cout << "__DEBUG_MODE__" << std::endl;
     }
 #endif // DEBUG
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "__Simulating Program__" << std::endl;
+    }
     uint32_t CLK = 0;
     while (MAXCLK > CLK && !isBreakpoint)
     {
