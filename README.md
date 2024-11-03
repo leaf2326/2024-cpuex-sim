@@ -9,6 +9,7 @@ CPU実験6班のシミュレータのリポジトリ
 6asmのリンク: https://github.com/windows-server-2003/2024-cpuex-asm
 
 使い方は、`make`して`$ ./simulator <filepath>`
+
 実行例：
 ```
 make
@@ -19,6 +20,14 @@ make
 
 ```
 ./simulator program.bin -onlystdio
+```
+
+何も指定せずに実行すると、`sld/contest.sld`が入力ファイルとして読み込まれる。
+
+入力ファイルのパスを指定したい場合、以下のように実行する。
+
+```
+./simulator program.bin -i <filepath>
 ```
 
 `make debug`をすると、シミュレーターのデバッグ用にログが多めに流れるが、普通は使わない。

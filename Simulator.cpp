@@ -4,6 +4,7 @@
 #include <sstream>
 #include <bitset>
 #include <iomanip>
+#include <bit>
 #define MAXCLK 100000
 
 Simulator::Simulator(Options op)
@@ -263,7 +264,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     std::ifstream file(filename, std::ios::binary);
     if (!file)
     {
-        throw std::runtime_error("Failed to open binary file");
+        throw std::runtime_error("Error: Could not open binary file");
     }
 
     uint32_t instruction;
@@ -281,7 +282,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         address += 4;
         if (address >= IMEMORY_SIZE)
         {
-            throw std::runtime_error("Program size exceeds iMemory limits");
+            throw std::runtime_error("Error: Program size exceeds iMemory limits");
         }
     }
 
@@ -294,6 +295,49 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     }
     }
     */
+}
+
+void Simulator::loadInputData(const std::string &inputFilePath)
+{
+    std::ifstream file(inputFilePath);
+    if (!file)
+    {
+        std::cerr << "Error: Could not open input file" << inputFilePath << std::endl;
+        return;
+    }
+
+    std::string token;
+    while (file >> token)
+    {
+        try
+        {
+            if (token.find('.') != std::string::npos)
+            {
+                // 小数として扱う場合
+                float floatValue = std::stof(token);
+                int32_t intValue = std::bit_cast<int32_t>(floatValue);
+                inputData.push_back(intValue);
+            }
+            else
+            {
+                // 整数として扱う場合
+                int32_t intValue = std::stoi(token);
+                inputData.push_back(intValue);
+            }
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error: Failed to process token " << token << " - " << e.what() << std::endl;
+        }
+    }
+#ifdef DEBUG
+    std::cout << "Input Data:" << std::endl;
+    for (const auto &data : inputData)
+    {
+        std::cout << data << " ";
+    }
+    std::cout << std::endl;
+#endif
 }
 
 void Simulator::printRegisters() const
@@ -582,7 +626,7 @@ void Simulator::runProgram()
     {
         printRegisters();
         printLog();
-        std::cout<< "__Output__"<<std::endl;
+        std::cout << "__Output__" << std::endl;
     }
     printOutput();
     if (!options.has(options.ONLYSTDIO))

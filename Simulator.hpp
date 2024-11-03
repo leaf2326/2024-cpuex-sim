@@ -29,6 +29,7 @@ private:
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     std::array<int32_t, DMEMORY_SIZE / 4> dMemory{};
+    std::vector<int32_t> inputData{};
     std::vector<int32_t> output{};
 
     // 前の命令で書き込んだレジスタ
@@ -51,7 +52,9 @@ public:
 
     std::string instToString(uint32_t instruction);
 
-    void loadMemoryFromBinary(const std::string &filename);
+    void loadMemoryFromBinary(const std::string &programFilePath);
+
+    void loadInputData(const std::string& inputFilePath);
 
     void printRegisters() const;
 

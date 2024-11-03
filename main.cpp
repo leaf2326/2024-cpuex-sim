@@ -10,7 +10,8 @@ int main(int argc, char *argv[])
         std::cout << "argv[" << i << "]: " << argv[i] << std::endl;
     }
 #endif
-    std::string filepath;
+    std::string programFilePath;
+    std::string inputFilePath = "sld/contest.sld";
     Options options;
 
     for (int i = 1; i < argc; ++i)
@@ -27,15 +28,28 @@ int main(int argc, char *argv[])
             {
                 options.set(options.ONLYSTDIO);
             }
+            else if (arg == "-i")
+            {
+                if (i + 1 < argc)
+                {
+                    inputFilePath = argv[i + 1];
+                    options.set(options.I);
+                    ++i;
+                }
+                else
+                {
+                     std::cerr << "Filepath is required. Expected: $ -i <filepath>" << std::endl;
+                }
+            }
             else
             {
                 std::cerr << "Unknown option: " << arg << std::endl;
                 return 1;
             }
         }
-        else if (filepath.empty())
+        else if (programFilePath.empty())
         {
-            filepath = arg;
+            programFilePath = arg;
         }
         else
         {
@@ -44,27 +58,29 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (filepath.empty())
+    if (programFilePath.empty())
     {
         std::cerr << "Error: Filepath is required. Expected: $ ./simulator <filepath>" << std::endl;
         return 1;
     }
-    #ifdef DEBUG
-    std::cout << "Filepath: " << filepath << std::endl;
-    if (option_o)
+#ifdef DEBUG
+    std::cout << "programFilepath: " << programFilePath << std::endl;
+    if (options.has(options.ONLYSTDIO))
     {
-        std::cout << "Option -o is enabled." << std::endl;
+        std::cout << "Option -onlystdio is enabled." << std::endl;
     }
-    if (option_i)
+    if (options.has(options.I))
     {
         std::cout << "Option -i is enabled." << std::endl;
+        std::cout << "inputFilepath: " << programFilePath << std::endl;
     }
-    #endif
+#endif
 
     Simulator simulator(options);
     try
     {
-        simulator.loadMemoryFromBinary(filepath);
+        simulator.loadInputData(inputFilePath);
+        simulator.loadMemoryFromBinary(programFilePath);
         simulator.runProgram();
     }
     catch (const std::exception &e)
