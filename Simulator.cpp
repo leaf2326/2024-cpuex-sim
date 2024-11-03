@@ -230,7 +230,7 @@ std::string Simulator::instToString(uint32_t instruction)
         const uint32_t funct3 = getFunct3(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t imm = ((instruction >> 7) & 0x1F) | ((instruction >> 25) & 0x7F);
+        int32_t imm = ((instruction >> 7) & 0x1F) | (((instruction >> 25) & 0x7F) << 5);
         // 符号ビットを処理
         if ((imm >> 11) & 1)
         {
