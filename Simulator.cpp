@@ -347,6 +347,40 @@ std::string Simulator::instToString(uint32_t instruction)
         }
         break;
     }
+    case 0x53:
+    {
+        // fadd, fsub, fmul, fdiv, ftoi, itof
+        const uint32_t funct7 = getFunct7(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        if (funct7 == 0x00)
+        {
+            sstr << "fadd fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+        }
+        else if (funct7 == 0x04)
+        {
+            sstr << "fsub fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+        }
+        else if (funct7 == 0x08)
+        {
+            sstr << "fmul fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+        }
+        else if (funct7 == 0x0C)
+        {
+            sstr << "fdiv fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+        }
+        else if (funct7 == 0x60)
+        {
+            sstr << "ftoi x" << rd << ", fp" << rs1;
+        }
+        else if (funct7 == 0x68)
+        {
+            sstr << "fdiv fp" << rd << ", x" << rs1;
+        }
+
+        break;
+    }
     case 0x73:
     {
         if (instruction == 0b00000000000100000000000001110011)
@@ -753,7 +787,49 @@ void Simulator::executeInstruction(uint32_t instruction)
         setPC(getPC() + 4);
         break;
     }
+    case 0x53:
+    {
+        // fadd, fsub, fmul, fdiv, ftoi, itof
+        const uint32_t funct7 = getFunct7(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
 
+        detectPrevLoad(rs1, rs2);
+
+        if (funct7 == 0x00)
+        {
+            logInstruction("fadd");
+            setFpRegister(rd, fpu.fadd(getFpRegister(rs1),  getFpRegister(rs2)));
+        }
+        else if (funct7 == 0x04)
+        {
+            logInstruction("fsub");
+            setFpRegister(rd, fpu.fsub(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        else if (funct7 == 0x08)
+        {
+            logInstruction("fmul");
+            setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        else if (funct7 == 0x0C)
+        {
+            logInstruction("fdiv");
+            setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        /*
+        else if (funct7 == 0x60)
+        {
+            sstr << "ftoi x" << rd << ", fp" << rs1;
+        }
+        else if (funct7 == 0x68)
+        {
+            sstr << "fdiv fp" << rd << ", x" << rs1;
+        }
+        */
+        setPC(getPC() + 4);
+        break;
+    }
     case 0x73:
     {
         if (instruction == 0b00000000000100000000000001110011)

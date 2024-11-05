@@ -4,6 +4,7 @@
 #include "Log.hpp"
 #include "Util.hpp"
 #include "Option.hpp"
+#include "FPU.hpp"
 #include <array>
 #include <cstdint>
 #include <unordered_map>
@@ -26,6 +27,7 @@ private:
     static constexpr int64_t OUTPUT_ADDRESS = 104;
     bool isBreakpoint;
 
+    FPU fpu;
     std::array<int32_t, REG_COUNT> registers{};
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
