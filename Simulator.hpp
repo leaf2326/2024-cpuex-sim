@@ -19,6 +19,7 @@ class Simulator : public Log
 {
 private:
     static constexpr int REG_COUNT = 32;
+    static constexpr int FPREG_COUNT = 32;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024;        // Iメモリサイズ（512KiB）
     static constexpr int64_t DMEMORY_SIZE = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
     static constexpr int64_t INPUT_ADDRESS = 100;
@@ -26,6 +27,7 @@ private:
     bool isBreakpoint;
 
     std::array<int32_t, REG_COUNT> registers{};
+    std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     std::array<int32_t, DMEMORY_SIZE / 4> dMemory{};
@@ -42,6 +44,8 @@ public:
     Simulator(Options op);
     int32_t getRegister(int reg) const;
     void setRegister(int reg, int32_t value);
+    int32_t getFpRegister(int fpreg) const;
+    void setFpRegister(int fpreg, int32_t fpvalue);
 
     int32_t getPC() const;
     void setPC(int32_t newPC);

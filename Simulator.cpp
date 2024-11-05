@@ -40,6 +40,30 @@ void Simulator::setRegister(int reg, int32_t value)
     registers[reg] = value;
     // printRegisters();
 }
+int32_t Simulator::getFpRegister(int fpreg) const
+{
+    if (fpreg < 0 || fpreg >= FPREG_COUNT)
+    {
+        throw std::out_of_range("Invalid fpregister index");
+    }
+    return fpreg == 0 ? 0 : fpRegisters[fpreg];
+}
+
+void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
+{
+    if (fpreg == 0)
+        return;
+    if (fpreg < 0 || fpreg >= REG_COUNT)
+    {
+        throw std::out_of_range("Invalid fpregister index");
+    }
+    if (!options.has(options.ONLYSTDIO))
+    {
+        std::cout << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
+    }
+    fpRegisters[fpreg] = fpvalue;
+    // printRegisters();
+}
 
 int32_t Simulator::getPC() const
 {
@@ -183,7 +207,7 @@ std::string Simulator::instToString(uint32_t instruction)
     }
     case 0x63:
     {
-        // beq, bne
+        // beq, bne, blt, bge
         const uint32_t funct3 = getFunct3(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
@@ -201,6 +225,14 @@ std::string Simulator::instToString(uint32_t instruction)
         else if (funct3 == 0x1)
         {
             sstr << "bne x" << rs1 << ", x" << rs2 << ", offset " << imm;
+        }
+        else if (funct3 == 0x4)
+        {
+            sstr << "blt x" << rs1 << ", x" << rs2 << ", offset " << imm;
+        }
+        else if (funct3 == 0x5)
+        {
+            sstr << "bge x" << rs1 << ", x" << rs2 << ", offset " << imm;
         }
         break;
     }
@@ -266,6 +298,44 @@ std::string Simulator::instToString(uint32_t instruction)
         if (funct3 == 0x2)
         {
             sstr << "sw x" << rs2 << ", " << imm << "(x" << rs1 << ")";
+        }
+        break;
+    }
+    case 0x07:
+    {
+        // flw
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        if (funct3 == 0x2)
+        {
+            sstr << "flw fp" << rd << ", " << imm << "(x" << rs1 << ")";
+        }
+        break;
+    }
+    case 0x27:
+    {
+        // fsw
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = ((instruction >> 7) & 0x1F) | (((instruction >> 25) & 0x7F) << 5);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        if (funct3 == 0x2)
+        {
+            sstr << "fsw fp" << rs2 << ", " << imm << "(x" << rs1 << ")";
         }
         break;
     }
@@ -381,6 +451,10 @@ void Simulator::printRegisters() const
         for (int i = 0; i < REG_COUNT; ++i)
         {
             std::cout << "x" << i << ": 0x" << std::hex << registers[i] << std::dec << std::endl;
+        }
+        for (int i = 0; i < FPREG_COUNT; ++i)
+        {
+            std::cout << "fp" << i << ": 0x" << std::hex << fpRegisters[i] << std::dec << std::endl;
         }
         std::cout << "PC: 0x" << std::hex << pc << std::dec << std::endl;
     }
@@ -504,6 +578,16 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("bne"); // 命令の記録
             isTaken = (getRegister(rs1) != getRegister(rs2));
         }
+        else if (funct3 == 0x4)
+        {
+            logInstruction("blt"); // 命令の記録
+            isTaken = (getRegister(rs1) < getRegister(rs2));
+        }
+        else if (funct3 == 0x5)
+        {
+            logInstruction("bge"); // 命令の記録
+            isTaken = (getRegister(rs1) >= getRegister(rs2));
+        }
         branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
         break;
     }
@@ -588,6 +672,56 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("sw"); // 命令の記録
             storeWord(address, getRegister(rs2));
+        }
+        setPC(getPC() + 4);
+        break;
+    }
+    case 0x07:
+    {
+        // I-type (flw)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        detectPrevLoad(rs1, NOLOADREG);
+
+        if (funct3 == 0x2)
+        {
+            const int64_t address = getRegister(rs1) + imm;
+            logInstruction("flw"); // 命令の記録
+            setFpRegister(rd, loadWord(address));
+        }
+        setPC(getPC() + 4);
+
+        currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
+        break;
+    }
+    case 0x27:
+    {
+        // S-type (fsw)
+        const uint32_t funct3 = getFunct3(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = ((instruction >> 7) & 0x1F) | (((instruction >> 25) & 0x7F) << 5);
+        // 符号ビットを処理
+        if ((imm >> 11) & 1)
+        {
+            imm -= 1 << 12;
+        }
+
+        detectPrevLoad(rs1, rs2);
+
+        if (funct3 == 0x2)
+        {
+            const int64_t address = getRegister(rs1) + imm;
+            logInstruction("fsw"); // 命令の記録
+            storeWord(address, getFpRegister(rs2));
         }
         setPC(getPC() + 4);
         break;
