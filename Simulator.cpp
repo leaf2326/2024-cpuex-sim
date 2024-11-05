@@ -398,21 +398,35 @@ std::string Simulator::instToString(uint32_t instruction)
 
 void Simulator::loadMemoryFromBinary(const std::string &filename)
 {
+     std::cout << "Load memory from binary file..." << std::endl;
     std::ifstream file(filename, std::ios::binary);
     if (!file)
     {
         throw std::runtime_error("Error: Could not open binary file");
     }
-
-    uint32_t instruction;
-    int64_t address = 0;
 #ifdef DEBUG
     if (!options.has(options.ONLYSTDIO))
     {
         std::cout << "DEBUG MODE INSTRUCTION LIST" << std::endl;
     }
 #endif // DEBUG
+    uint32_t instruction;
+    uint32_t data;
+    int64_t address;
+    file.read(reinterpret_cast<char *>(&dataSectionSize), sizeof(dataSectionSize));
+    address = 256;
+    for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); i++)
+    {
+        file.read(reinterpret_cast<char *>(&data), sizeof(data));
+        storeWord(address, data);
+        address += 4;
+        if (address >= DMEMORY_SIZE)
+        {
+            throw std::runtime_error("Error: Program size exceeds dMemory limits");
+        }
+    }
 
+    address = 0;
     while (file.read(reinterpret_cast<char *>(&instruction), sizeof(instruction)))
     {
         storeInstruction(address, instruction);
@@ -432,6 +446,8 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     }
     }
     */
+   
+     std::cout << "Completed loading memory" << std::endl;
 }
 
 void Simulator::loadInputData(const std::string &inputFilePath)
@@ -800,7 +816,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (funct7 == 0x00)
         {
             logInstruction("fadd");
-            setFpRegister(rd, fpu.fadd(getFpRegister(rs1),  getFpRegister(rs2)));
+            setFpRegister(rd, fpu.fadd(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (funct7 == 0x04)
         {

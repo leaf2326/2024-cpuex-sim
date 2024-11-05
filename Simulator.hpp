@@ -33,6 +33,7 @@ private:
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     std::array<int32_t, DMEMORY_SIZE / 4> dMemory{};
+    uint32_t dataSectionSize = 0;
     std::vector<int32_t> inputData{};
     unsigned int inputIndex = 0;
     std::vector<int32_t> output{};
