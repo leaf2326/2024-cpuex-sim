@@ -203,6 +203,14 @@ std::string Simulator::instToString(uint32_t instruction)
         {
             sstr << "addi x" << rd << ", x" << rs1 << ", " << imm;
         }
+        else if (funct3 == 0x1)
+        {
+            sstr << "slli x" << rd << ", x" << rs1 << ", " << imm;
+        }
+        else if (funct3 == 0x5)
+        {
+            sstr << "srli x" << rd << ", x" << rs1 << ", " << imm;
+        }
         break;
     }
     case 0x63:
@@ -526,6 +534,7 @@ void Simulator::executeInstruction(uint32_t instruction)
                 setRegister(rd, getRegister(rs1) - getRegister(rs2));
             }
         }
+
         setPC(getPC() + 4);
         break;
     }
@@ -549,6 +558,24 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             logInstruction("addi");
             setRegister(rd, getRegister(rs1) + imm);
+        }
+        else if (funct3 == 0x1)
+        {
+            if (!(imm >= 0 && imm <= 3))
+            {
+                std::cerr << "Warning: shamt is not between 0 and 3" << std::endl;
+            }
+            logInstruction("slli");
+            setRegister(rd, getRegister(rs1) << imm);
+        }
+        else if (funct3 == 0x5)
+        {
+            if (!(imm >= 0 && imm <= 3))
+            {
+                std::cerr << "Warning: shamt is not between 0 and 3" << std::endl;
+            }
+            logInstruction("srli");
+            setRegister(rd, getRegister(rs1) >> imm);
         }
         setPC(getPC() + 4);
         break;
@@ -726,6 +753,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         setPC(getPC() + 4);
         break;
     }
+
     case 0x73:
     {
         if (instruction == 0b00000000000100000000000001110011)
