@@ -398,7 +398,7 @@ std::string Simulator::instToString(uint32_t instruction)
 
 void Simulator::loadMemoryFromBinary(const std::string &filename)
 {
-     std::cout << "Load memory from binary file..." << std::endl;
+    std::cout << "Load memory from binary file..." << std::endl;
     std::ifstream file(filename, std::ios::binary);
     if (!file)
     {
@@ -446,8 +446,8 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     }
     }
     */
-   
-     std::cout << "Completed loading memory" << std::endl;
+
+    std::cout << "Completed loading memory" << std::endl;
 }
 
 void Simulator::loadInputData(const std::string &inputFilePath)
@@ -550,14 +550,18 @@ inline void Simulator::updatePrevLoadReg(int currLoadReg)
     prevLoadReg = currLoadReg;
 }
 
-void Simulator::executeInstruction(uint32_t instruction)
+void Simulator::printInstruction(uint32_t instruction)
 {
-    int currLoadReg = NULLREG;
-    const uint32_t opcode = getOpcode(instruction);
     if (!options.has(options.ONLYSTDIO))
     {
         std::cout << "Executing: " << instToString(instruction) << std::endl;
     }
+}
+
+void Simulator::executeInstruction(uint32_t instruction)
+{
+    int currLoadReg = NULLREG;
+    const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
     {
     case 0x33:
@@ -840,7 +844,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         }
         else if (funct7 == 0x68)
         {
-            sstr << "fdiv fp" << rd << ", x" << rs1;
+            sstr << "itof fp" << rd << ", x" << rs1;
         }
         */
         setPC(getPC() + 4);
@@ -857,6 +861,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("ebreak"); // 命令の記録
             isBreakpoint = true;
         }
+        setPC(getPC() + 4);
         break;
     }
     default:
@@ -888,41 +893,101 @@ void Simulator::printOutput()
 
 void Simulator::runProgram()
 {
+    if (!options.has(options.ONLYSTDIO))
+    {
 #ifdef DEBUG
-    if (!options.has(options.ONLYSTDIO))
-    {
         std::cout << "__DEBUG_MODE__" << std::endl;
-    }
 #endif // DEBUG
-    if (!options.has(options.ONLYSTDIO))
-    {
         std::cout << "__Simulating Program__" << std::endl;
+        if (options.has(options.GDB))
+        {
+            std::cout << "__GDB MODE__" << std::endl;
+        }
     }
     uint32_t CLK = 0;
-    while (MAXCLK > CLK && !isBreakpoint)
+    if (options.has(options.GDB))
     {
-        if (!options.has(options.ONLYSTDIO))
+        bool breakMode = false;
+        std::string gdbCommand;
+        while (true)
         {
-            std::cout << "CLK : " << CLK << std::endl;
-        }
-        const uint32_t instruction = loadInstruction(pc);
+            if (!breakMode)
+            {
+                std::cin >> gdbCommand;
+                if (gdbCommand == "s")
+                {
+                    const uint32_t instruction = loadInstruction(pc);
+                    if (!options.has(options.ONLYSTDIO))
+                    {
+                        std::cout << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
+                        std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+#endif // DEBUG
+                    }
+                    printInstruction(instruction);
+                    executeInstruction(instruction);
+                    CLK++;
+                }
+                else if (gdbCommand == "c")
+                {
+                    std::cout<<"heading to eBreak..."<<std::endl;
+                    breakMode = true;
+                    options.on(options.ONLYSTDIO);
+                }
+                else if (gdbCommand == "quit")
+                {
+                    break;
+                }
+                else
+                {
+                    std::cout << "Unknown command: " << gdbCommand << std::endl;
+                }
+            }
+            else
+            {
+                const uint32_t instruction = loadInstruction(pc);
+                executeInstruction(instruction);
+                if (MAXCLK > CLK && isBreakpoint)
+                {
+                    breakMode = false;
+                    options.off(options.ONLYSTDIO);
+                    if (!options.has(options.ONLYSTDIO))
+                    {
+                        std::cout << "CLK : " << CLK << std::endl;
+#ifdef DEBUG
+                        std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+#endif // DEBUG
+                    }
+                    printInstruction(instruction);
+                }
+                CLK++;
+            }
+        }
+    }
+    else
+    {
+        while (MAXCLK > CLK && !isBreakpoint)
+        {
+            const uint32_t instruction = loadInstruction(pc);
+            if (!options.has(options.ONLYSTDIO))
+            {
+                std::cout << "CLK : " << CLK << std::endl;
+#ifdef DEBUG
+                std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+#endif // DEBUG
+            }
+            printInstruction(instruction);
+            executeInstruction(instruction);
+            CLK++;
+        }
         if (!options.has(options.ONLYSTDIO))
         {
-            std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+            printRegisters();
+            printLog();
+            std::cout << "__Output__" << std::endl;
         }
-#endif // DEBUG
-
-        executeInstruction(instruction);
-        CLK++;
+        printOutput();
     }
-    if (!options.has(options.ONLYSTDIO))
-    {
-        printRegisters();
-        printLog();
-        std::cout << "__Output__" << std::endl;
-    }
-    printOutput();
     if (!options.has(options.ONLYSTDIO))
     {
         std::cout << "__Simulator Terminated__" << std::endl;

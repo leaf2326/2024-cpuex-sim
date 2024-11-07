@@ -21,7 +21,7 @@ class Simulator : public Log
 private:
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;
-    static constexpr int64_t IMEMORY_SIZE = 512 * 1024;        // Iメモリサイズ（512KiB）
+    static constexpr int64_t IMEMORY_SIZE = 512 * 1024;      // Iメモリサイズ（512KiB）
     static constexpr int64_t DMEMORY_SIZE = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
     static constexpr int64_t INPUT_ADDRESS = 100;
     static constexpr int64_t OUTPUT_ADDRESS = 104;
@@ -62,7 +62,7 @@ public:
 
     void loadMemoryFromBinary(const std::string &programFilePath);
 
-    void loadInputData(const std::string& inputFilePath);
+    void loadInputData(const std::string &inputFilePath);
 
     void printRegisters() const;
 
@@ -75,6 +75,8 @@ public:
     // 分岐予測
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
+    // 命令出力
+    void printInstruction(uint32_t instruction);
     // 命令実行
     void executeInstruction(uint32_t instruction);
 

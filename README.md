@@ -19,7 +19,7 @@ make
 出力のみ表示するコマンドも追加
 
 ```
-./simulator program.bin -onlystdio
+./simulator program.bin 
 ```
 
 何も指定せずに実行すると、`sld/contest.sld`が入力ファイルとして読み込まれる。
@@ -30,6 +30,20 @@ make
 ./simulator program.bin -i <filepath>
 ```
 
+| オプション | 説明 |
+| --- | --- |
+| `-onlystdio` | 実行時のOutputのみ表示する |
+| `-i <filepath>` | 入力ファイルのパスを`<filepath>`に指定 |
+| `-gdb` | ステップ実行とかできる。`-onlystdio`との併用は不可 |
+
+`gdb`モードの時のコマンド一覧
+| コマンド | 説明 |
+| --- | --- |
+| `s` | ステップ実行 |
+| `c` | `ebreak`まで飛ぶ |
+| `quit` | 終了する |
+
+
 `make debug`をすると、シミュレーターのデバッグ用にログが多めに流れるが、普通は使わない。
 
 `make testFPU`をすると、`main.cpp`ではなく`testFPU.cpp`が実行される。FPUのテストはこっちでやる予定。
@@ -37,4 +51,3 @@ make
 `CLK`が`100000`に達するか`ebreak`が呼ばれると停止する
 
 `Simulator.cpp`の`#define MAXCLK 100000`を変更すれば`100000`から変えられる
-git commit -m "Memory outputに対応, iMemoryとdMemoryの分割に対応, 実行時オプション-onlystdioに対応"

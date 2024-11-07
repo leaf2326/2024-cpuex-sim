@@ -20,20 +20,20 @@ int main(int argc, char *argv[])
 
         if (arg[0] == '-')
         {
-            if (arg == "-b")
+            if (arg == "-onlystdio")
             {
-                options.set(options.B);
+                options.on(options.ONLYSTDIO);
             }
-            else if (arg == "-onlystdio")
+            else if (arg == "-gdb")
             {
-                options.set(options.ONLYSTDIO);
+                options.on(options.GDB);
             }
             else if (arg == "-i")
             {
                 if (i + 1 < argc)
                 {
                     inputFilePath = argv[i + 1];
-                    options.set(options.I);
+                    options.on(options.I);
                     ++i;
                 }
                 else
