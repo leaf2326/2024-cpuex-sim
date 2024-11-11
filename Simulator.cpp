@@ -53,7 +53,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
 {
     if (fpreg == 0)
         return;
-    if (fpreg < 0 || fpreg >= REG_COUNT)
+    if (fpreg < 0 || fpreg >= FPREG_COUNT)
     {
         throw std::out_of_range("Invalid fpregister index");
     }
@@ -93,7 +93,7 @@ int32_t Simulator::loadWord(int32_t address)
         {
             if (inputIndex >= inputData.size())
             {
-                std::cerr << "Error: No more input data available" << std::endl;
+                throw std::out_of_range("No more input data available");
             }
             else
             {
@@ -402,7 +402,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     std::ifstream file(filename, std::ios::binary);
     if (!file)
     {
-        throw std::runtime_error("Error: Could not open binary file");
+        throw std::runtime_error("Could not open binary file");
     }
 #ifdef DEBUG
     if (!options.has(options.ONLYSTDIO))
@@ -422,7 +422,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         address += 4;
         if (address >= DMEMORY_SIZE)
         {
-            throw std::runtime_error("Error: Program size exceeds dMemory limits");
+            throw std::out_of_range("Program size exceeds dMemory limits");
         }
     }
 
@@ -433,7 +433,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         address += 4;
         if (address >= IMEMORY_SIZE)
         {
-            std::cerr << "Error: Program size exceeds iMemory limits" << std::endl;
+            throw std::out_of_range("Program size exceeds iMemory limits");
         }
     }
     instructionCount = address / 4;
@@ -505,8 +505,7 @@ void Simulator::loadInputData(const std::string &inputFilePath)
     std::ifstream file(inputFilePath);
     if (!file)
     {
-        std::cerr << "Error: Could not open input file" << inputFilePath << std::endl;
-        return;
+        throw std::runtime_error("Could not open input file"+inputFilePath);
     }
 
     std::string token;
@@ -530,7 +529,7 @@ void Simulator::loadInputData(const std::string &inputFilePath)
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Error: Failed to process token " << token << " - " << e.what() << std::endl;
+            throw std::runtime_error("Failed to process token " + token + " - ");
         }
     }
     if (!options.has(options.ONLYSTDIO))
@@ -911,7 +910,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         break;
     }
     default:
-        std::cerr << "Unknown instruction" << std::endl;
+        throw std::runtime_error("Unknown instruction");
     }
 
     updatePrevLoadReg(currLoadReg);

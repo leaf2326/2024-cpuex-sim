@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[])
 {
+    // optionの処理
 #ifdef DEBUG
     for (int i = 0; i < argc; ++i)
     {
@@ -14,71 +15,70 @@ int main(int argc, char *argv[])
     std::string inputFilePath = "sld/contest.sld";
     Options options;
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        std::string arg = argv[i];
-
-        if (arg[0] == '-')
+        for (int i = 1; i < argc; ++i)
         {
-            if (arg == "-onlystdio")
+            std::string arg = argv[i];
+
+            if (arg[0] == '-')
             {
-                options.on(options.ONLYSTDIO);
-            }
-            else if (arg == "-gdb")
-            {
-                options.on(options.GDB);
-            }
-            else if (arg == "-i")
-            {
-                if (i + 1 < argc)
+                if (arg == "-onlystdio")
                 {
-                    inputFilePath = argv[i + 1];
-                    options.on(options.I);
-                    ++i;
+                    options.on(options.ONLYSTDIO);
+                }
+                else if (arg == "-gdb")
+                {
+                    options.on(options.GDB);
+                }
+                else if (arg == "-i")
+                {
+                    if (i + 1 < argc)
+                    {
+                        inputFilePath = argv[i + 1];
+                        options.on(options.I);
+                        ++i;
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Filepath is required. Expected: $ -i <filepath>");
+                    }
                 }
                 else
                 {
-                     std::cerr << "Filepath is required. Expected: $ -i <filepath>" << std::endl;
+                    throw std::runtime_error("Unknown option " + arg);
                 }
+            }
+            else if (programFilePath.empty())
+            {
+                programFilePath = arg;
             }
             else
             {
-                std::cerr << "Unknown option: " << arg << std::endl;
-                return 1;
+                throw std::invalid_argument("Too many arguments. Expected: $ ./simulator <filepath>");
             }
         }
-        else if (programFilePath.empty())
-        {
-            programFilePath = arg;
-        }
-        else
-        {
-            std::cerr << "Error: Too many arguments. Expected: $ ./simulator <filepath>" << std::endl;
-            return 1;
-        }
-    }
 
-    if (programFilePath.empty())
-    {
-        std::cerr << "Error: Filepath is required. Expected: $ ./simulator <filepath>" << std::endl;
-        return 1;
-    }
+        if (programFilePath.empty())
+        {
+            throw std::runtime_error("Filepath is required. Expected: $ ./simulator <filepath>");
+        }
 #ifdef DEBUG
-    std::cout << "programFilepath: " << programFilePath << std::endl;
-    if (options.has(options.ONLYSTDIO))
-    {
-        std::cout << "Option -onlystdio is enabled." << std::endl;
-    }
-    if (options.has(options.I))
-    {
-        std::cout << "Option -i is enabled." << std::endl;
-        std::cout << "inputFilepath: " << programFilePath << std::endl;
-    }
+        std::cout << "programFilepath: " << programFilePath << std::endl;
+        if (options.has(options.ONLYSTDIO))
+        {
+            std::cout << "Option -onlystdio is enabled." << std::endl;
+        }
+        if (options.has(options.I))
+        {
+            std::cout << "Option -i is enabled." << std::endl;
+            std::cout << "inputFilepath: " << programFilePath << std::endl;
+        }
 #endif
 
-    Simulator simulator(options);
-    try
-    {
+        // プログラムシミュレート
+        Simulator simulator(options);
+
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);
         simulator.runProgram();

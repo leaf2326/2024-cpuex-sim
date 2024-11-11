@@ -2,6 +2,7 @@
 #include "ftable.hpp"
 #include <bit>
 #include <iostream>
+
 uint32_t FPU::fadd(uint32_t x1, uint32_t x2)
 {
     return addOrSub(x1, x2, false);
@@ -11,6 +12,7 @@ uint32_t FPU::fsub(uint32_t x1, uint32_t x2)
 {
     return addOrSub(x1, x2, true);
 }
+
 uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
 {
     uint32_t s1, e1, m1, s2, e2, m2;
@@ -54,6 +56,7 @@ uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
 
     return (sy << 31) | ((ey & 0xFF) << 23) | my;
 }
+
 uint32_t FPU::finv(uint32_t xm)
 {
     // x_mは23bit
@@ -68,13 +71,15 @@ uint32_t FPU::fsqrt(uint32_t x)
     s = getSign(x);
     e = getExponent(x);
     m = getMantissa(x);
-    uint32_t key = ((~e & 1 ) << 9) | (m >> 14);
-    uint32_t xex = ((e & 1)==0) ? ((0x0 << 31) | (0x80 << 23) | m) : ((0x0 << 31) | (0x7f << 23) | m);
+    uint32_t key = ((~e & 1) << 9) | (m >> 14);
+    uint32_t xex = ((e & 1) == 0) ? ((0x0 << 31) | (0x80 << 23) | m) : ((0x0 << 31) | (0x7f << 23) | m);
     uint32_t esqrt = (e - 127) / 2 + 127;
     uint32_t msqrt = fadd(fsqrt_table[key].b, fmul(fsqrt_table[key].a, xex));
     return (e == 0) ? 0 : ((s & 1) << 31) | ((esqrt & 0xFF) << 23) | (msqrt & 0x7FFFFF);
 }
-uint32_t FPU::fdiv(uint32_t x1, uint32_t x2){
+
+uint32_t FPU::fdiv(uint32_t x1, uint32_t x2)
+{
     uint32_t s1, e1, m1, s2, e2, m2;
     s1 = getSign(x1);
     e1 = getExponent(x1);
@@ -83,15 +88,16 @@ uint32_t FPU::fdiv(uint32_t x1, uint32_t x2){
     e2 = getExponent(x2);
     m2 = getMantissa(x2);
     uint32_t sdiv = s1 ^ s2;
-    uint32_t m1inv =finv(m2);
+    uint32_t m1inv = finv(m2);
     uint32_t m2ex = (0x0 << 31) | (0x7f << 23) | m1;
-    uint32_t mdiv = fmul(m2ex,m1inv);
-     // 仮数部の積が1以下の場合の判定(mdivの23bit目が0なら1以下) 指数部を追加で1減らす必要があるため
+    uint32_t mdiv = fmul(m2ex, m1inv);
+    // 仮数部の積が1以下の場合の判定(mdivの23bit目が0なら1以下) 指数部を追加で1減らす必要があるため
     // 指数部の計算
-    uint32_t ediv = (((mdiv>>23)&1) == 0) ? (e1 - e2 + 126) : (e1 - e2 + 127);
+    uint32_t ediv = (((mdiv >> 23) & 1) == 0) ? (e1 - e2 + 126) : (e1 - e2 + 127);
 
-    return (((ediv >> 8) &1 )|| e1 == 0)?0:((sdiv & 1) << 31) | ((ediv & 0xFF) << 23) | (mdiv & 0x7FFFFF);
+    return (((ediv >> 8) & 1) || e1 == 0) ? 0 : ((sdiv & 1) << 31) | ((ediv & 0xFF) << 23) | (mdiv & 0x7FFFFF);
 }
+
 uint32_t FPU::addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction)
 {
     uint32_t s1, e1, m1, s2, e2, m2;
