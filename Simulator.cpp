@@ -1053,7 +1053,7 @@ void Simulator::runProgram(int outputRegNum)
             }
             else
             {
-                throw std::out_of_range("-reg <outputRegNum>: outputRegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
+                throw std::out_of_range("-reg <RegNum>: RegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
             }
         }
     }
