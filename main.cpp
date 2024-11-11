@@ -8,11 +8,12 @@ int main(int argc, char *argv[])
 #ifdef DEBUG
     for (int i = 0; i < argc; ++i)
     {
-        std::cout << "argv[" << i << "]: " << argv[i] << std::endl;
+        std::cerr << "argv[" << i << "]: " << argv[i] << std::endl;
     }
 #endif
     std::string programFilePath;
     std::string inputFilePath = "sld/contest.sld";
+    int outputRegNum = -1;
     Options options;
 
     try
@@ -44,6 +45,19 @@ int main(int argc, char *argv[])
                         throw std::runtime_error("Filepath is required. Expected: $ -i <filepath>");
                     }
                 }
+                else if (arg == "-reg")
+                {
+                    if (i + 1 < argc)
+                    {
+                        outputRegNum = std::stoi(argv[i + 1]);
+                        options.on(options.REG);
+                        ++i;
+                    }
+                    else
+                    {
+                        throw std::runtime_error("the number of output register is required. Expected: $ -reg <outputRegNum>");
+                    }
+                }
                 else
                 {
                     throw std::runtime_error("Unknown option " + arg);
@@ -64,15 +78,15 @@ int main(int argc, char *argv[])
             throw std::runtime_error("Filepath is required. Expected: $ ./simulator <filepath>");
         }
 #ifdef DEBUG
-        std::cout << "programFilepath: " << programFilePath << std::endl;
+        std::cerr << "programFilepath: " << programFilePath << std::endl;
         if (options.has(options.ONLYSTDIO))
         {
-            std::cout << "Option -onlystdio is enabled." << std::endl;
+            std::cerr << "Option -onlystdio is enabled." << std::endl;
         }
         if (options.has(options.I))
         {
-            std::cout << "Option -i is enabled." << std::endl;
-            std::cout << "inputFilepath: " << programFilePath << std::endl;
+            std::cerr << "Option -i is enabled." << std::endl;
+            std::cerr << "inputFilepath: " << programFilePath << std::endl;
         }
 #endif
 
@@ -81,7 +95,7 @@ int main(int argc, char *argv[])
 
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);
-        simulator.runProgram();
+        simulator.runProgram(outputRegNum);
     }
     catch (const std::exception &e)
     {

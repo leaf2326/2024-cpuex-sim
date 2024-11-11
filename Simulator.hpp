@@ -88,7 +88,7 @@ public:
 
     void printOutput();
 
-    void runProgram();
+    void runProgram(int outputRegNum);
 };
 
 #endif // SIMULATOR_HPP

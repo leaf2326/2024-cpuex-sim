@@ -35,7 +35,7 @@ void Simulator::setRegister(int reg, int32_t value)
     }
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
+        std::cerr << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
     }
     registers[reg] = value;
     // printRegisters();
@@ -59,7 +59,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     }
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
+        std::cerr << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
     }
     fpRegisters[fpreg] = fpvalue;
     // printRegisters();
@@ -74,7 +74,7 @@ void Simulator::setPC(int32_t newPC)
 {
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
+        std::cerr << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
     }
     pc = newPC;
     // printRegisters();
@@ -97,7 +97,7 @@ int32_t Simulator::loadWord(int32_t address)
             }
             else
             {
-                std::cout << "Input: 0x" << std::hex << temp << std::dec << std::endl;
+                std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
                 storeWord(INPUT_ADDRESS, inputData[inputIndex]);
                 inputIndex++;
             }
@@ -122,14 +122,14 @@ void Simulator::storeWord(int32_t address, int32_t value)
     }
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << std::hex << "dMemory 0x" << address << " changed from 0x" << dMemory[address / 4] << " to 0x" << value << std::dec << std::endl;
+        std::cerr << std::hex << "dMemory 0x" << address << " changed from 0x" << dMemory[address / 4] << " to 0x" << value << std::dec << std::endl;
     }
     dMemory[address / 4] = value;
     if (address == INPUT_ADDRESS)
     {
         if (!options.has(options.ONLYSTDIO))
         {
-            std::cout << "Warning: storeWord executed with INPUT_ADDRESS" << std::dec << std::endl;
+            std::cerr << "Warning: storeWord executed with INPUT_ADDRESS" << std::dec << std::endl;
         }
         output.emplace_back(value);
     }
@@ -137,7 +137,7 @@ void Simulator::storeWord(int32_t address, int32_t value)
     {
         if (!options.has(options.ONLYSTDIO))
         {
-            std::cout << "Output: 0x" << std::hex << dMemory[address / 4] << std::dec << std::endl;
+            std::cerr << "Output: 0x" << std::hex << dMemory[address / 4] << std::dec << std::endl;
         }
         output.emplace_back(value);
     }
@@ -151,7 +151,7 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
 #ifdef DEBUG
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "0x" << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
+        std::cerr << "0x" << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
     }
 #endif // DEBUG
     iMemory[address / 4] = instruction;
@@ -398,7 +398,7 @@ std::string Simulator::instToString(uint32_t instruction) const
 
 void Simulator::loadMemoryFromBinary(const std::string &filename)
 {
-    std::cout << "Load memory from binary file..." << std::endl;
+    std::cerr << "Load memory from binary file..." << std::endl;
     std::ifstream file(filename, std::ios::binary);
     if (!file)
     {
@@ -407,7 +407,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
 #ifdef DEBUG
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "DEBUG MODE INSTRUCTION LIST" << std::endl;
+        std::cerr << "DEBUG MODE INSTRUCTION LIST" << std::endl;
     }
 #endif // DEBUG
     uint32_t instruction;
@@ -442,11 +442,11 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     {
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << std::dec << "iMemory[" << i << "] is 0b" << std::bitset<32>(iMemory[i]) << std::endl;
+        std::cerr << std::dec << "iMemory[" << i << "] is 0b" << std::bitset<32>(iMemory[i]) << std::endl;
     }
     }
     */
-    std::cout << "Completed loading memory" << std::endl;
+    std::cerr << "Completed loading memory" << std::endl;
 }
 
 void Simulator::printProgram(bool aroundPC) const noexcept
@@ -462,17 +462,17 @@ void Simulator::printProgram(bool aroundPC) const noexcept
                 int32_t address = getPC() / 4 + i;
                 if (address < 0 || address >= IMEMORY_SIZE / 4)
                 {
-                    std::cout << "-: " << std::endl;
+                    std::cerr << "-: " << std::endl;
                 }
                 else
                 {
                     const uint32_t instruction = iMemory[address];
-                    std::cout << address + 1 << ": " << instToString(instruction);
+                    std::cerr << address + 1 << ": " << instToString(instruction);
                     if (i == 0)
                     {
-                        std::cout << " ←-";
+                        std::cerr << " ←-";
                     }
-                    std::cout << std::endl;
+                    std::cerr << std::endl;
                 }
             }
         }
@@ -484,12 +484,12 @@ void Simulator::printProgram(bool aroundPC) const noexcept
             const uint32_t instruction = iMemory[i];
             if (!options.has(options.ONLYSTDIO))
             {
-                std::cout << i + 1 << ": " << instToString(instruction);
+                std::cerr << i + 1 << ": " << instToString(instruction);
                 if (i == getPC() / 4)
                 {
-                    std::cout << " ←-";
+                    std::cerr << " ←-";
                 }
-                std::cout << std::endl;
+                std::cerr << std::endl;
             }
         }
     }
@@ -500,12 +500,12 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 {
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "Loading input file..." << std::endl;
+        std::cerr << "Loading input file..." << std::endl;
     }
     std::ifstream file(inputFilePath);
     if (!file)
     {
-        throw std::runtime_error("Could not open input file"+inputFilePath);
+        throw std::runtime_error("Could not open input file" + inputFilePath);
     }
 
     std::string token;
@@ -534,15 +534,15 @@ void Simulator::loadInputData(const std::string &inputFilePath)
     }
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "Completed loading input file" << std::endl;
+        std::cerr << "Completed loading input file" << std::endl;
     }
 #ifdef DEBUG
-    std::cout << "Input Data:" << std::endl;
+    std::cerr << "Input Data:" << std::endl;
     for (const auto &data : inputData)
     {
-        std::cout << data << " ";
+        std::cerr << data << " ";
     }
-    std::cout << std::endl;
+    std::cerr << std::endl;
 #endif
 }
 
@@ -550,16 +550,16 @@ void Simulator::printRegisters() const
 {
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "Registers state:" << std::endl;
+        std::cerr << "Registers state:" << std::endl;
         for (int i = 0; i < REG_COUNT; ++i)
         {
-            std::cout << "x" << i << ": 0x" << std::hex << registers[i] << std::dec << std::endl;
+            std::cerr << "x" << i << ": 0x" << std::hex << registers[i] << std::dec << std::endl;
         }
         for (int i = 0; i < FPREG_COUNT; ++i)
         {
-            std::cout << "fp" << i << ": 0x" << std::hex << fpRegisters[i] << std::dec << std::endl;
+            std::cerr << "fp" << i << ": 0x" << std::hex << fpRegisters[i] << std::dec << std::endl;
         }
-        std::cout << "PC: 0x" << std::hex << pc << std::dec << std::endl;
+        std::cerr << "PC: 0x" << std::hex << pc << std::dec << std::endl;
     }
 }
 
@@ -599,7 +599,7 @@ void Simulator::printInstruction(uint32_t instruction) const
 {
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "Executing: " << instToString(instruction) << std::endl;
+        std::cerr << "Executing: " << instToString(instruction) << std::endl;
     }
 }
 
@@ -901,7 +901,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             if (!options.has(options.ONLYSTDIO))
             {
-                std::cout << "Program reached breakpoint" << std::endl;
+                std::cerr << "Program reached breakpoint" << std::endl;
             }
             logInstruction("ebreak"); // 命令の記録
             isBreakpoint = true;
@@ -936,17 +936,17 @@ void Simulator::printOutput()
     }
 }
 
-void Simulator::runProgram()
+void Simulator::runProgram(int outputRegNum)
 {
     if (!options.has(options.ONLYSTDIO))
     {
 #ifdef DEBUG
-        std::cout << "__DEBUG_MODE__" << std::endl;
+        std::cerr << "__DEBUG_MODE__" << std::endl;
 #endif // DEBUG
-        std::cout << "__Simulating Program__" << std::endl;
+        std::cerr << "__Simulating Program__" << std::endl;
         if (options.has(options.GDB))
         {
-            std::cout << "__GDB MODE__" << std::endl;
+            std::cerr << "__GDB MODE__" << std::endl;
         }
     }
     uint32_t CLK = 0;
@@ -969,9 +969,9 @@ void Simulator::runProgram()
                     const uint32_t instruction = loadInstruction(pc);
                     if (!options.has(options.ONLYSTDIO))
                     {
-                        std::cout << "CLK : " << CLK << std::endl;
+                        std::cerr << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
-                        std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+                        std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
                     }
                     printInstruction(instruction);
@@ -981,7 +981,7 @@ void Simulator::runProgram()
                 }
                 else if (gdbCommand == "c")
                 {
-                    std::cout << "heading to eBreak..." << std::endl;
+                    std::cerr << "heading to eBreak..." << std::endl;
                     printBoundary();
                     breakMode = true;
                     options.on(options.ONLYSTDIO);
@@ -992,7 +992,7 @@ void Simulator::runProgram()
                 }
                 else
                 {
-                    std::cout << "Unknown command: " << gdbCommand << std::endl;
+                    std::cerr << "Unknown command: " << gdbCommand << std::endl;
                 }
             }
             else
@@ -1005,9 +1005,9 @@ void Simulator::runProgram()
                     options.off(options.ONLYSTDIO);
                     if (!options.has(options.ONLYSTDIO))
                     {
-                        std::cout << "CLK : " << CLK << std::endl;
+                        std::cerr << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
-                        std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+                        std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
                     }
                     printInstruction(instruction);
@@ -1023,9 +1023,9 @@ void Simulator::runProgram()
             const uint32_t instruction = loadInstruction(pc);
             if (!options.has(options.ONLYSTDIO))
             {
-                std::cout << "CLK : " << CLK << std::endl;
+                std::cerr << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
-                std::cout << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+                std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
             }
             printInstruction(instruction);
@@ -1036,12 +1036,29 @@ void Simulator::runProgram()
         {
             printRegisters();
             printLog();
-            std::cout << "__Output__" << std::endl;
+            std::cerr << "__Output__" << std::endl;
         }
         printOutput();
+        if (options.has(options.REG))
+        {
+            // 0-31はレジスタに対応
+            if (outputRegNum >= 0 && outputRegNum < REG_COUNT)
+            {
+                std::cout << "x" << outputRegNum << ": 0x" << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
+            }
+            // 32以上はfpレジスタに対応
+            else if (outputRegNum >= REG_COUNT && outputRegNum < REG_COUNT + FPREG_COUNT)
+            {
+                std::cout << "fp" << outputRegNum - REG_COUNT << ": 0x" << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
+            }
+            else
+            {
+                throw std::out_of_range("-reg <outputRegNum>: outputRegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
+            }
+        }
     }
     if (!options.has(options.ONLYSTDIO))
     {
-        std::cout << "__Simulator Terminated__" << std::endl;
+        std::cerr << "__Simulator Terminated__" << std::endl;
     }
 }

@@ -47,5 +47,5 @@ uint32_t getMantissa(uint32_t x)
     return x & 0x7FFFFF;
 }
 void printBoundary(){
-    std::cout << "--------------------------------------------" << std::endl;
+    std::cerr << "--------------------------------------------" << std::endl;
 }
