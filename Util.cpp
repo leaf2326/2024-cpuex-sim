@@ -1,5 +1,5 @@
 #include "Util.hpp"
-
+#include <iostream>
 uint32_t getOpcode(uint32_t instruction)
 {
     return instruction & 0x7F;
@@ -45,4 +45,7 @@ uint32_t getExponent(uint32_t x)
 uint32_t getMantissa(uint32_t x)
 {
     return x & 0x7FFFFF;
+}
+void printBoundary(){
+    std::cout << "--------------------------------------------" << std::endl;
 }

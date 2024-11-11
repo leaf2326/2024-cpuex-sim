@@ -32,6 +32,7 @@ private:
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
+    int instructionCount = 0;
     std::array<int32_t, DMEMORY_SIZE / 4> dMemory{};
     uint32_t dataSectionSize = 0;
     std::vector<int32_t> inputData{};
@@ -54,13 +55,15 @@ public:
     void setPC(int32_t newPC);
 
     int32_t loadWord(int32_t address);
-    int32_t loadInstruction(int32_t address) const;
+    int32_t loadInstruction(int32_t adsdress) const;
     void storeWord(int32_t address, int32_t value);
     void storeInstruction(int32_t address, int32_t instruction);
 
-    std::string instToString(uint32_t instruction);
+    std::string instToString(uint32_t instruction) const;
 
     void loadMemoryFromBinary(const std::string &programFilePath);
+
+    void printProgram(bool aroundPC) const noexcept;
 
     void loadInputData(const std::string &inputFilePath);
 
@@ -76,7 +79,7 @@ public:
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力
-    void printInstruction(uint32_t instruction);
+    void printInstruction(uint32_t instruction) const;
     // 命令実行
     void executeInstruction(uint32_t instruction);
 

@@ -157,7 +157,7 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
     iMemory[address / 4] = instruction;
 }
 
-std::string Simulator::instToString(uint32_t instruction)
+std::string Simulator::instToString(uint32_t instruction) const
 {
     std::ostringstream sstr;
     const uint32_t opcode = getOpcode(instruction);
@@ -433,10 +433,10 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         address += 4;
         if (address >= IMEMORY_SIZE)
         {
-            throw std::runtime_error("Error: Program size exceeds iMemory limits");
+            std::cerr << "Error: Program size exceeds iMemory limits" << std::endl;
         }
     }
-
+    instructionCount = address / 4;
     /*
     for (int i = 0; i < address / 4; i++)
     {
@@ -446,8 +446,54 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     }
     }
     */
-
     std::cout << "Completed loading memory" << std::endl;
+}
+
+void Simulator::printProgram(bool aroundPC) const noexcept
+{
+    printBoundary();
+    if (aroundPC)
+    {
+
+        for (int i = -1; i < 2; i++)
+        {
+            if (!options.has(options.ONLYSTDIO))
+            {
+                int32_t address = getPC() / 4 + i;
+                if (address < 0 || address >= IMEMORY_SIZE / 4)
+                {
+                    std::cout << "-: " << std::endl;
+                }
+                else
+                {
+                    const uint32_t instruction = iMemory[address];
+                    std::cout << address + 1 << ": " << instToString(instruction);
+                    if (i == 0)
+                    {
+                        std::cout << " ←-";
+                    }
+                    std::cout << std::endl;
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < instructionCount; i++)
+        {
+            const uint32_t instruction = iMemory[i];
+            if (!options.has(options.ONLYSTDIO))
+            {
+                std::cout << i + 1 << ": " << instToString(instruction);
+                if (i == getPC() / 4)
+                {
+                    std::cout << " ←-";
+                }
+                std::cout << std::endl;
+            }
+        }
+    }
+    printBoundary();
 }
 
 void Simulator::loadInputData(const std::string &inputFilePath)
@@ -550,7 +596,7 @@ inline void Simulator::updatePrevLoadReg(int currLoadReg)
     prevLoadReg = currLoadReg;
 }
 
-void Simulator::printInstruction(uint32_t instruction)
+void Simulator::printInstruction(uint32_t instruction) const
 {
     if (!options.has(options.ONLYSTDIO))
     {
@@ -865,7 +911,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         break;
     }
     default:
-        throw std::runtime_error("Unknown instruction");
+        std::cerr << "Unknown instruction" << std::endl;
     }
 
     updatePrevLoadReg(currLoadReg);
@@ -914,7 +960,12 @@ void Simulator::runProgram()
             if (!breakMode)
             {
                 std::cin >> gdbCommand;
-                if (gdbCommand == "s")
+                if (gdbCommand == "l")
+                {
+                    printProgram(false);
+                    continue;
+                }
+                else if (gdbCommand == "s")
                 {
                     const uint32_t instruction = loadInstruction(pc);
                     if (!options.has(options.ONLYSTDIO))
@@ -927,10 +978,12 @@ void Simulator::runProgram()
                     printInstruction(instruction);
                     executeInstruction(instruction);
                     CLK++;
+                    printProgram(true);
                 }
                 else if (gdbCommand == "c")
                 {
-                    std::cout<<"heading to eBreak..."<<std::endl;
+                    std::cout << "heading to eBreak..." << std::endl;
+                    printBoundary();
                     breakMode = true;
                     options.on(options.ONLYSTDIO);
                 }

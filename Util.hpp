@@ -12,5 +12,6 @@ int32_t getImmediate(uint32_t instruction);
 uint32_t getSign(uint32_t x);
 uint32_t getExponent(uint32_t x);
 uint32_t getMantissa(uint32_t x);
+void printBoundary();
 
 #endif
