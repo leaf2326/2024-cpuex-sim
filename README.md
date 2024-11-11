@@ -2,9 +2,9 @@
 CPU実験6班のシミュレータのリポジトリ
 
 ## 使い方
-実行ファイルへのパスを与えるとそのバイナリファイルを実行する
+実行ファイルへのパスを与えるとそのバイナリファイルを実行するシミュレータ。
 
-アセンブリファイルを`6asm`で機械語にしてから用いてください
+アセンブリファイルを`6asm`で機械語にしてから使用する。
 
 6asmのリンク: https://github.com/windows-server-2003/2024-cpuex-asm
 
@@ -13,14 +13,10 @@ CPU実験6班のシミュレータのリポジトリ
 実行例：
 ```
 make
-./simulator program.bin > simulator.log
+./simulator program.bin 1> simulator.log 2> simulator.err
 ```
 
-出力のみ表示するコマンドも追加
-
-```
-./simulator program.bin 
-```
+実行結果の内シミュレートされたio命令のOutputが標準出力に、デバッグの出力が標準エラー出力に出力される。
 
 何も指定せずに実行すると、`sld/contest.sld`が入力ファイルとして読み込まれる。
 
@@ -32,9 +28,10 @@ make
 
 | オプション | 説明 |
 | --- | --- |
-| `-onlystdio` | 実行時のOutputのみ表示する |
+| `-onlystdio` | (deprecated)実行時のOutputのみ表示する |
 | `-i <filepath>` | 入力ファイルのパスを`<filepath>`に指定 |
 | `-gdb` | ステップ実行とかできる。`-onlystdio`との併用は不可 |
+| `-reg <outputRegNum>` | 特定のレジスタの値を標準出力に出力。outputRegNumは0~31がx0~x31、32~63がfp0~fp31に対応。 |
 
 `gdb`モードの時のコマンド一覧
 | コマンド | 説明 |
