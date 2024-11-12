@@ -5,6 +5,7 @@
 #include "Util.hpp"
 #include "Option.hpp"
 #include "FPU.hpp"
+#include "Memory.hpp"
 #include <array>
 #include <cstdint>
 #include <unordered_map>
@@ -18,11 +19,19 @@
 
 class Simulator : public Log
 {
+public:
+    Simulator(Options op);
+    void loadMemoryFromBinary(const std::string &programFilePath);
+    void loadInputData(const std::string &inputFilePath);
+    void runProgram(int outputRegNum);
+
 private:
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024;      // Iメモリサイズ（512KiB）
     static constexpr int64_t DMEMORY_SIZE = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
+    static constexpr int64_t CACHE_SIZE = 1024 * 16;
+    static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t INPUT_ADDRESS = 100;
     static constexpr int64_t OUTPUT_ADDRESS = 104;
     bool isBreakpoint;
@@ -33,19 +42,14 @@ private:
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     int instructionCount = 0;
-    std::array<int32_t, DMEMORY_SIZE / 4> dMemory{};
+    Memory dMemory{DMEMORY_SIZE, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS};
     uint32_t dataSectionSize = 0;
-    std::vector<int32_t> inputData{};
-    unsigned int inputIndex = 0;
-    std::vector<int32_t> output{};
 
     // 前の命令で書き込んだレジスタ
     int prevLoadReg = NULLREG;
     Options options;
     uint32_t output_num;
 
-public:
-    Simulator(Options op);
     int32_t getRegister(int reg) const;
     void setRegister(int reg, int32_t value);
     int32_t getFpRegister(int fpreg) const;
@@ -61,11 +65,7 @@ public:
 
     std::string instToString(uint32_t instruction) const;
 
-    void loadMemoryFromBinary(const std::string &programFilePath);
-
     void printProgram(bool aroundPC) const noexcept;
-
-    void loadInputData(const std::string &inputFilePath);
 
     void printRegisters() const;
 
@@ -87,8 +87,6 @@ public:
     void printLog();
 
     void printOutput();
-
-    void runProgram(int outputRegNum);
 };
 
 #endif // SIMULATOR_HPP

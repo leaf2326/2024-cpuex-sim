@@ -80,31 +80,6 @@ void Simulator::setPC(int32_t newPC)
     // printRegisters();
 }
 
-int32_t Simulator::loadWord(int32_t address)
-{
-    if (address < 0 || address >= DMEMORY_SIZE)
-    {
-        throw std::out_of_range("dMemory access out of bounds");
-    }
-    auto temp = dMemory[address / 4];
-    if (address == INPUT_ADDRESS)
-    {
-        if (!options.has(options.ONLYSTDIO))
-        {
-            if (inputIndex >= inputData.size())
-            {
-                throw std::out_of_range("No more input data available");
-            }
-            else
-            {
-                std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
-                storeWord(INPUT_ADDRESS, inputData[inputIndex]);
-                inputIndex++;
-            }
-        }
-    }
-    return temp;
-}
 int32_t Simulator::loadInstruction(int32_t address) const
 {
     if (address < 0 || address >= IMEMORY_SIZE)
@@ -114,34 +89,6 @@ int32_t Simulator::loadInstruction(int32_t address) const
     return iMemory[address / 4];
 }
 
-void Simulator::storeWord(int32_t address, int32_t value)
-{
-    if (address < 0 || address >= DMEMORY_SIZE)
-    {
-        throw std::out_of_range("dMemory access out of bounds");
-    }
-    if (!options.has(options.ONLYSTDIO))
-    {
-        std::cerr << std::hex << "dMemory 0x" << address << " changed from 0x" << dMemory[address / 4] << " to 0x" << value << std::dec << std::endl;
-    }
-    dMemory[address / 4] = value;
-    if (address == INPUT_ADDRESS)
-    {
-        if (!options.has(options.ONLYSTDIO))
-        {
-            std::cerr << "Warning: storeWord executed with INPUT_ADDRESS" << std::dec << std::endl;
-        }
-        output.emplace_back(value);
-    }
-    if (address == OUTPUT_ADDRESS)
-    {
-        if (!options.has(options.ONLYSTDIO))
-        {
-            std::cerr << "Output: 0x" << std::hex << dMemory[address / 4] << std::dec << std::endl;
-        }
-        output.emplace_back(value);
-    }
-}
 void Simulator::storeInstruction(int32_t address, int32_t instruction)
 {
     if (address < 0 || address >= IMEMORY_SIZE)
@@ -418,7 +365,12 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); i++)
     {
         file.read(reinterpret_cast<char *>(&data), sizeof(data));
-        storeWord(address, data);
+        if (address < 0 || address >= DMEMORY_SIZE)
+        {
+            throw std::out_of_range("dMemory access out of bounds");
+        }
+
+        dMemory.mainMemory[address / 4] = data;
         address += 4;
         if (address >= DMEMORY_SIZE)
         {
@@ -518,13 +470,13 @@ void Simulator::loadInputData(const std::string &inputFilePath)
                 // 小数として扱う場合
                 float floatValue = std::stof(token);
                 int32_t intValue = std::bit_cast<int32_t>(floatValue);
-                inputData.push_back(intValue);
+                dMemory.inputData.push_back(intValue);
             }
             else
             {
                 // 整数として扱う場合
                 int32_t intValue = std::stoi(token);
-                inputData.push_back(intValue);
+                dMemory.inputData.push_back(intValue);
             }
         }
         catch (const std::exception &e)
@@ -538,7 +490,7 @@ void Simulator::loadInputData(const std::string &inputFilePath)
     }
 #ifdef DEBUG
     std::cerr << "Input Data:" << std::endl;
-    for (const auto &data : inputData)
+    for (const auto &data : dMemory.inputData)
     {
         std::cerr << data << " ";
     }
@@ -771,7 +723,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("lw"); // 命令の記録
-            setRegister(rd, loadWord(address));
+            setRegister(rd, dMemory.loadWord(address));
         }
         setPC(getPC() + 4);
 
@@ -797,7 +749,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("sw"); // 命令の記録
-            storeWord(address, getRegister(rs2));
+            dMemory.storeWord(address, getRegister(rs2));
         }
         setPC(getPC() + 4);
         break;
@@ -821,7 +773,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("flw"); // 命令の記録
-            setFpRegister(rd, loadWord(address));
+            setFpRegister(rd, dMemory.loadWord(address));
         }
         setPC(getPC() + 4);
 
@@ -847,7 +799,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("fsw"); // 命令の記録
-            storeWord(address, getFpRegister(rs2));
+            dMemory.storeWord(address, getFpRegister(rs2));
         }
         setPC(getPC() + 4);
         break;
@@ -927,7 +879,7 @@ void Simulator::printOutput()
 
     std::cout << "P3" << std::endl;
     uint32_t r, g, b;
-    for (const auto &o : output)
+    for (const auto &o : dMemory.output)
     {
         r = o & 0xFF000000;
         g = o & 0x00FF0000;
@@ -1036,7 +988,8 @@ void Simulator::runProgram(int outputRegNum)
         {
             printRegisters();
             printLog();
-            std::cerr << "__Output__" << std::endl;
+            std::cerr << "__Cache__" << std::endl;
+            dMemory.printCache();
         }
         printOutput();
         if (options.has(options.REG))
@@ -1057,6 +1010,7 @@ void Simulator::runProgram(int outputRegNum)
             }
         }
     }
+
     if (!options.has(options.ONLYSTDIO))
     {
         std::cerr << "__Simulator Terminated__" << std::endl;
