@@ -76,8 +76,9 @@ int32_t Memory::loadWord(uint32_t address)
             }
             else
             {
+                temp = inputData[inputIndex];
                 std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
-                storeWord(input_addr, inputData[inputIndex]);
+                storeWord(input_addr, temp);
                 inputIndex++;
             }
         }
@@ -110,11 +111,6 @@ void Memory::storeWord(uint32_t address, int32_t value)
 
     if (address == input_addr || address == output_addr)
     {
-        if (address == input_addr)
-        {
-            std::cerr << "Warning: storeWord executed with INPUT_ADDRESS" << std::endl;
-        }
-
         if (address == output_addr)
         {
             std::cerr << "Output written at OUTPUT_ADDRESS (0x" << std::hex << address << "): " << value << std::dec << std::endl;
