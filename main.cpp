@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
     std::string inputFilePath = "sld/contest.sld";
     int outputRegNum = -1;
     Options options;
+    uint64_t max_clk = 100000;
 
     try
     {
@@ -43,6 +44,19 @@ int main(int argc, char *argv[])
                     else
                     {
                         throw std::runtime_error("Filepath is required. Expected: $ -i <filepath>");
+                    }
+                }
+                else if (arg == "-limit")
+                {
+                    if (i + 1 < argc)
+                    {
+                        max_clk = std::stoi(argv[i + 1]);
+                        options.on(options.LIMIT);
+                        ++i;
+                    }
+                    else
+                    {
+                        throw std::runtime_error("maxClock is required. Expected: $ -limit <maxClock>");
                     }
                 }
                 else if (arg == "-reg")
@@ -91,7 +105,7 @@ int main(int argc, char *argv[])
 #endif
 
         // プログラムシミュレート
-        Simulator simulator(options);
+        Simulator simulator(options, max_clk);
 
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);

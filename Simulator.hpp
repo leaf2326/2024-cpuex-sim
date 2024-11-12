@@ -20,12 +20,13 @@
 class Simulator : public Log
 {
 public:
-    Simulator(Options op);
+    Simulator(Options op, uint64_t maxClock);
     void loadMemoryFromBinary(const std::string &programFilePath);
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
 
 private:
+    uint64_t max_clk = 100000;
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024;      // Iメモリサイズ（512KiB）

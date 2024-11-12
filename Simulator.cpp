@@ -5,15 +5,15 @@
 #include <bitset>
 #include <iomanip>
 #include <bit>
-#define MAXCLK 100000
 
-Simulator::Simulator(Options op)
+Simulator::Simulator(Options op, uint64_t maxClock)
 {
     registers[0] = 0;                    // x0
     registers[2] = DMEMORY_SIZE / 4 - 1; // sp
     pc = 0;
     isBreakpoint = false;
     options = op;
+    max_clk = maxClock;
 }
 
 int32_t Simulator::getRegister(int reg) const
@@ -975,7 +975,7 @@ void Simulator::runProgram(int outputRegNum)
             {
                 const uint32_t instruction = loadInstruction(pc);
                 executeInstruction(instruction);
-                if (MAXCLK > CLK && isBreakpoint)
+                if (max_clk > CLK && isBreakpoint)
                 {
                     breakMode = false;
                     options.off(options.ONLYSTDIO);
@@ -994,7 +994,7 @@ void Simulator::runProgram(int outputRegNum)
     }
     else
     {
-        while (MAXCLK > CLK && !isBreakpoint)
+        while (max_clk > CLK && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
             if (!options.has(options.ONLYSTDIO))
