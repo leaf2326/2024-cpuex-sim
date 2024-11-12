@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
 
     try
     {
+
         for (int i = 1; i < argc; ++i)
         {
             std::string arg = argv[i];
@@ -93,20 +94,19 @@ int main(int argc, char *argv[])
         }
 #ifdef DEBUG
         std::cerr << "programFilepath: " << programFilePath << std::endl;
-        if (options.has(options.ONLYSTDIO))
-        {
-            std::cerr << "Option -onlystdio is enabled." << std::endl;
-        }
+        std::cerr << "Option -onlystdio is enabled." << std::endl;
         if (options.has(options.I))
         {
             std::cerr << "Option -i is enabled." << std::endl;
             std::cerr << "inputFilepath: " << programFilePath << std::endl;
         }
 #endif
-
+        if (options.has(options.ONLYSTDIO))
+        {
+            std::cerr.rdbuf(nullptr);
+        }
         // プログラムシミュレート
         Simulator simulator(options, max_clk);
-
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);
         simulator.runProgram(outputRegNum);

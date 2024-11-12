@@ -1,6 +1,7 @@
 #ifndef UTIL_HPP
 #define UTIL_HPP
 #include <cstdint>
+#include <streambuf>
 
 uint32_t getOpcode(uint32_t instruction);
 uint32_t getRd(uint32_t instruction);
@@ -14,4 +15,13 @@ uint32_t getExponent(uint32_t x);
 uint32_t getMantissa(uint32_t x);
 void printBoundary();
 
+// cerrの出力を一時的にリダイレクトするためのクラス
+class CerrRedirect {
+public:
+    CerrRedirect(std::ostream& newStream);
+    ~CerrRedirect();
+
+private:
+    std::streambuf* oldBuffer;
+};
 #endif

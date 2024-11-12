@@ -49,3 +49,11 @@ uint32_t getMantissa(uint32_t x)
 void printBoundary(){
     std::cerr << "--------------------------------------------" << std::endl;
 }
+
+
+CerrRedirect::CerrRedirect(std::ostream& newStream)
+    : oldBuffer(std::cerr.rdbuf(newStream.rdbuf())) {}
+
+CerrRedirect::~CerrRedirect() {
+    std::cerr.rdbuf(oldBuffer);
+}
