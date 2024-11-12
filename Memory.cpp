@@ -112,7 +112,6 @@ void Memory::storeWord(uint32_t address, int32_t value)
     {
         if (address == input_addr)
         {
-
             std::cerr << "Warning: storeWord executed with INPUT_ADDRESS" << std::endl;
         }
 
@@ -120,8 +119,8 @@ void Memory::storeWord(uint32_t address, int32_t value)
         {
             std::cerr << "Output written at OUTPUT_ADDRESS (0x" << std::hex << address << "): " << value << std::dec << std::endl;
             std::cerr << "Output: 0x" << std::hex << mainMemory[address / 4] << std::dec << std::endl;
+            output.emplace_back(value);
         }
-        output.emplace_back(value);
         mainMemory[address / 4] = value;
         return;
     }
