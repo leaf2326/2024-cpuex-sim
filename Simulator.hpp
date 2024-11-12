@@ -87,7 +87,7 @@ private:
     // ログの出力
     void printLog();
 
-    void printOutput();
+    void printOutput() const noexcept;
 };
 
 #endif // SIMULATOR_HPP

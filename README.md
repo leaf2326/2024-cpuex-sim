@@ -13,7 +13,7 @@ CPU実験6班のシミュレータのリポジトリ
 実行例：
 ```
 make
-./simulator program.bin 1> simulator.log 2> simulator.err
+./simulator example.bin 1> simulator.log 2> simulator.err
 ```
 
 実行結果の内シミュレートされたio命令のOutputが標準出力に、デバッグの出力が標準エラー出力に出力される。
@@ -23,7 +23,7 @@ make
 入力ファイルのパスを指定したい場合、以下のように実行する。
 
 ```
-./simulator program.bin -i <filepath>
+./simulator example.bin -i <filepath>
 ```
 
 | オプション | 説明 |

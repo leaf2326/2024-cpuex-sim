@@ -898,17 +898,12 @@ void Simulator::printLog()
     Log::printLog();
 }
 
-void Simulator::printOutput()
+void Simulator::printOutput() const noexcept
 {
-
-    std::cout << "P3" << std::endl;
-    uint32_t r, g, b;
     for (const auto &o : dMemory.output)
     {
-        r = o & 0xFF000000;
-        g = o & 0x00FF0000;
-        b = o & 0x0000FF00;
-        std::cout << std::setw(3) << std::setfill('0') << r << " " << g << " " << b << std::endl;
+        char output_c = o & 0xFF;
+        std::cout << output_c;
     }
 }
 
