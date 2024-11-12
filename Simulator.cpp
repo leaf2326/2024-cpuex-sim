@@ -237,6 +237,12 @@ std::string Simulator::instToString(uint32_t instruction) const
         }
         break;
     }
+    case 0x37:
+    {
+        const uint32_t rd = getRd(instruction);
+        int32_t imm = (instruction >> 12) & 0xFFFFF;
+        sstr << "lui x" << rd << ", 0x" << std::hex << imm << std::dec;
+    }
     case 0x23:
     {
         // sw
@@ -323,7 +329,11 @@ std::string Simulator::instToString(uint32_t instruction) const
         }
         else if (funct7 == 0x68)
         {
-            sstr << "fdiv fp" << rd << ", x" << rs1;
+            sstr << "itof fp" << rd << ", x" << rs1;
+        }
+        else if (funct7 == 0x2C)
+        {
+            sstr << "fsqrt fp" << rd << ", fp" << rs1;
         }
 
         break;
@@ -754,6 +764,15 @@ void Simulator::executeInstruction(uint32_t instruction)
         setPC(getPC() + 4);
         break;
     }
+    case 0x37:
+    {
+        // ?-type (lui)
+        const uint32_t rd = getRd(instruction);
+        int32_t imm = (instruction >> 12) & 0xFFFFF;
+        setRegister(rd, imm << 12);
+        setPC(getPC() + 4);
+        break;
+    }
     case 0x07:
     {
         // I-type (flw)
@@ -844,6 +863,11 @@ void Simulator::executeInstruction(uint32_t instruction)
             sstr << "itof fp" << rd << ", x" << rs1;
         }
         */
+        else if (funct7 == 0x2C)
+        {
+            logInstruction("fsqrt");
+            setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
+        }
         setPC(getPC() + 4);
         break;
     }
