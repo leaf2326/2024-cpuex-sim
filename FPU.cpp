@@ -256,6 +256,7 @@ uint32_t FPU::addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction)
 
 uint32_t FPU::ftoi(uint32_t x)
 {
+    /*
     bool s = (x >> 31) & 1;
     uint32_t e = (x >> 23) & 0xFF;
     uint32_t m = x & 0x7FFFFF;
@@ -271,10 +272,19 @@ uint32_t FPU::ftoi(uint32_t x)
     }
 
     return s ? -static_cast<int32_t>(m_ex_shift >> 1) : static_cast<int32_t>(m_ex_shift >> 1);
+    */
+    // 簡易的実装
+    int32_t i = static_cast<int32_t>(std::bit_cast<float>(x));
+    return std::bit_cast<uint32_t>(i);
 }
 
 uint32_t FPU::itof(uint32_t x)
 {
+    // 簡易的実装
+    float f = static_cast<float>(std::bit_cast<int32_t>(x));
+    return std::bit_cast<uint32_t>(f);
+
+    /*
     if (x == 0)
         return 0;
 
@@ -310,6 +320,7 @@ uint32_t FPU::itof(uint32_t x)
     }
 
     return (sx << 31) | (ey << 23) | (my & 0x7FFFFF);
+    */
 }
 
 uint32_t FPU::ffloor(uint32_t x)
