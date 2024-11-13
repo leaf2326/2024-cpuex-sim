@@ -253,3 +253,93 @@ uint32_t FPU::addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction)
 
     return (sy << 31) | (ey << 23) | my;
 }
+
+uint32_t FPU::ftoi(uint32_t x)
+{
+    bool s = (x >> 31) & 1;
+    uint32_t e = (x >> 23) & 0xFF;
+    uint32_t m = x & 0x7FFFFF;
+
+    uint32_t m_ex = (1 << 23) | m;
+    m_ex <<= 8;
+
+    uint32_t m_ex_shift = (e > 157) ? (m_ex << (e - 157)) : (m_ex >> (157 - e));
+
+    if (m_ex_shift & 1)
+    {
+        m_ex_shift += 1;
+    }
+
+    return s ? -static_cast<int32_t>(m_ex_shift >> 1) : static_cast<int32_t>(m_ex_shift >> 1);
+}
+
+uint32_t FPU::itof(uint32_t x)
+{
+    if (x == 0)
+        return 0;
+
+    bool sx = x < 0;
+    uint32_t xabs = sx ? -x : x;
+
+    int shifts = 0;
+    for (int i = 31; i >= 0; --i)
+    {
+        if ((xabs >> i) & 1)
+        {
+            shifts = 31 - i;
+            break;
+        }
+    }
+
+    uint32_t xshift = xabs << shifts;
+    bool r = xshift & (1 << 8);
+    uint32_t my = (xshift >> 9) + (r ? 1 : 0);
+
+    uint32_t ey;
+    if (shifts == 0)
+    {
+        ey = 0;
+    }
+    else if ((xshift >> 9) == (1 << 23) && r)
+    {
+        ey = 160 - shifts;
+    }
+    else
+    {
+        ey = 159 - shifts;
+    }
+
+    return (sx << 31) | (ey << 23) | (my & 0x7FFFFF);
+}
+
+uint32_t FPU::ffloor(uint32_t x)
+{
+    int32_t intValue = ftoi(x);
+    uint32_t floatInt = itof(intValue);
+
+    // floatIntが元のxより大きければ1を引く
+    if (flt(floatInt, x) == false && !feq(floatInt, x))
+    {
+        return itof(intValue - 1);
+    }
+    else
+    {
+        return floatInt;
+    }
+}
+
+uint32_t FPU::fneg(uint32_t x)
+{
+    return x ^ (1 << 31);
+}
+
+bool FPU::flt(uint32_t x1, uint32_t x2)
+{
+    uint32_t result = fsub(x1, x2);
+    return getSign(result) & 1;
+}
+
+bool FPU::feq(uint32_t x1, uint32_t x2)
+{
+    return x1 == x2;
+}

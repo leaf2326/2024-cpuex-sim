@@ -22,10 +22,10 @@ debug: main.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) main.cpp $(SRCS)
 
 testFPU: testFPU.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) testFPU.cpp $(SRCS)
+	$(CXX) $(CXXFLAGS) -o testFPU testFPU.cpp $(SRCS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(DEPS) *.log *.err
+	rm -f $(OBJS) $(TARGET) $(DEPS) *.log *.err testFPU

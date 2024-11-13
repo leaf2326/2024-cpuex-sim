@@ -297,7 +297,8 @@ std::string Simulator::instToString(uint32_t instruction) const
     }
     case 0x53:
     {
-        // fadd, fsub, fmul, fdiv, ftoi, itof
+        // fadd, fsub, fmul, fdiv, ftoi, itof, fsqrt, fmv, ffloor, fneg, flt, feq
+        const uint32_t funct3 = getFunct3(instruction);
         const uint32_t funct7 = getFunct7(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
@@ -329,6 +330,29 @@ std::string Simulator::instToString(uint32_t instruction) const
         else if (funct7 == 0x2C)
         {
             sstr << "fsqrt fp" << rd << ", fp" << rs1;
+        }
+        else if (funct7 == 0x7C)
+        {
+            sstr << "fmv fp" << rd << ", fp" << rs1;
+        }
+        else if (funct7 == 0x78)
+        {
+            sstr << "ffloor fp" << rd << ", fp" << rs1;
+        }
+        else if (funct7 == 0x74)
+        {
+            sstr << "fneg fp" << rd << ", fp" << rs1;
+        }
+        else if (funct7 == 0x50)
+        {
+            if (funct3 == 0x1)
+            {
+                sstr << "flt x" << rd << ", fp" << rs1 << ", fp " << rs2;
+            }
+            else if (funct3 == 0x2)
+            {
+                sstr << "feq x" << rd << ", fp" << rs1 << ", fp " << rs2;
+            }
         }
 
         break;
@@ -800,7 +824,8 @@ void Simulator::executeInstruction(uint32_t instruction)
     }
     case 0x53:
     {
-        // fadd, fsub, fmul, fdiv, ftoi, itof
+        // fadd, fsub, fmul, fdiv, ftoi, itof, fsqrt, fmv, ffloor, fneg, flt, feq
+        const uint32_t funct3 = getFunct3(instruction);
         const uint32_t funct7 = getFunct7(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
@@ -828,20 +853,48 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("fdiv");
             setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
         }
-        /*
         else if (funct7 == 0x60)
         {
-            sstr << "ftoi x" << rd << ", fp" << rs1;
+            logInstruction("ftoi");
+            setRegister(rd, fpu.ftoi(getFpRegister(rs1)));
         }
         else if (funct7 == 0x68)
         {
-            sstr << "itof fp" << rd << ", x" << rs1;
+            logInstruction("itof");
+            setFpRegister(rd, fpu.itof(getRegister(rs1)));
         }
-        */
         else if (funct7 == 0x2C)
         {
             logInstruction("fsqrt");
             setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
+        }
+        else if (funct7 == 0x7C)
+        {
+            logInstruction("fmv");
+            setFpRegister(rd, getFpRegister(rs1));
+        }
+        else if (funct7 == 0x78)
+        {
+            logInstruction("ffloor");
+            setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
+        }
+        else if (funct7 == 0x74)
+        {
+            logInstruction("fneg");
+            setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
+        }
+        else if (funct7 == 0x50)
+        {
+            if (funct3 == 0x1)
+            {
+                logInstruction("flt");
+                setRegister(rd, fpu.flt(getFpRegister(rs1), getFpRegister(rs2)));
+            }
+            else if (funct3 == 0x2)
+            {
+                logInstruction("feq");
+                setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
+            }
         }
         setPC(getPC() + 4);
         break;
