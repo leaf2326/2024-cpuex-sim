@@ -17,6 +17,8 @@ int main(int argc, char *argv[])
     Options options;
     uint64_t max_clk = 100000;
 
+    std::streambuf *oldBuffer = nullptr;
+    
     try
     {
 
@@ -101,9 +103,10 @@ int main(int argc, char *argv[])
             std::cerr << "inputFilepath: " << programFilePath << std::endl;
         }
 #endif
+
         if (options.has(options.ONLYSTDIO))
         {
-            std::cerr.rdbuf(nullptr);
+            oldBuffer = std::cerr.rdbuf(nullptr);
         }
         // プログラムシミュレート
         Simulator simulator(options, max_clk);
@@ -113,6 +116,10 @@ int main(int argc, char *argv[])
     }
     catch (const std::exception &e)
     {
+        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
+        {
+            std::cerr.rdbuf(oldBuffer);
+        }
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
