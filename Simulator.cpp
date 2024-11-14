@@ -37,6 +37,10 @@ void Simulator::setRegister(int reg, int32_t value)
     std::cerr << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
 
     registers[reg] = value;
+    if (registers[2] <= registers[3])
+    {
+        throw std::out_of_range("Stack overflow! sp=" + std::to_string(registers[2]) + " hp=" + std::to_string(registers[3]));
+    }
     // printRegisters();
 }
 int32_t Simulator::getFpRegister(int fpreg) const
@@ -74,6 +78,11 @@ void Simulator::setPC(int32_t newPC)
 
     pc = newPC;
     // printRegisters();
+}
+
+int64_t Simulator::getCLK() const
+{
+    return CLK;
 }
 
 int32_t Simulator::loadInstruction(int32_t address) const
@@ -942,7 +951,7 @@ void Simulator::runProgram(int outputRegNum)
     {
         std::cerr << "__GDB MODE__" << std::endl;
     }
-    uint32_t CLK = 0;
+    CLK = 0;
     if (options.has(options.GDB))
     {
         std::ostringstream buffer;

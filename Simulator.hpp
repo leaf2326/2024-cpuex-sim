@@ -24,9 +24,11 @@ public:
     void loadMemoryFromBinary(const std::string &programFilePath);
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
+    int64_t getCLK() const;
 
 private:
     uint64_t max_clk = 100000;
+    uint64_t CLK = 0;
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024;      // Iメモリサイズ（512KiB）
