@@ -13,8 +13,7 @@ uint32_t FPU::fsub(uint32_t x1, uint32_t x2)
     return addOrSub(x1, x2, true);
 }
 
-uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
-{
+uint32_t FPU::fmul(uint32_t x1, uint32_t x2) {
     uint32_t s1, e1, m1, s2, e2, m2;
     s1 = getSign(x1);
     e1 = getExponent(x1);
@@ -23,38 +22,30 @@ uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
     e2 = getExponent(x2);
     m2 = getMantissa(x2);
 
-    uint32_t h1, l1, h2, l2;
-    h1 = ((m1 >> 11) & 0xFFF) | (1 << 12);
-    l1 = m1 & 0x7FF;
-    h2 = ((m2 >> 11) & 0xFFF) | (1 << 12);
-    l2 = m2 & 0x7FF;
+    uint32_t h1 = ((m1 >> 11) & 0xFFF) | (1 << 12);
+    uint32_t l1 = m1 & 0x7FF;
+    uint32_t h2 = ((m2 >> 11) & 0xFFF) | (1 << 12);
+    uint32_t l2 = m2 & 0x7FF;
 
-    uint32_t sy, ey, my;
-    // Stage1
-    uint32_t hh, hl, lh;
-    hh = h1 * h2;
-    hl = h1 * l2;
-    lh = h2 * l1;
-    ey = e1 + e2 + 128;
-    sy = s1 ^ s2;
+    uint32_t hh = h1 * h2;
+    uint32_t hl = h1 * l2;
+    uint32_t lh = h2 * l1;
 
-    // Stage2
-    my = hh + (hl >> 11) + (lh >> 11) + 2;
+    uint32_t sy = s1 ^ s2;
+    uint32_t my_temp = hh + (hl >> 11) + (lh >> 11) + 2;
+    uint32_t carry = (my_temp >> 25) & 1;
 
-    // Stage3
-    uint32_t underflowbit = (ey >> 8) & 0x1;
-    uint32_t ms = 8 - std::countl_zero(my);
-    if (!underflowbit)
-    {
-        ey = 0;
-    }
-    else
-    {
-        ey += ms;
-    }
-    my = (my >> ms) & 0x7FFFFF;
+    uint32_t my = carry ? (my_temp >> 2) & 0x7FFFFF : (my_temp >> 1) & 0x7FFFFF;
 
-    return (sy << 31) | ((ey & 0xFF) << 23) | my;
+    int32_t ey_temp = static_cast<int32_t>(e1) + static_cast<int32_t>(e2) - 127 + carry;
+
+    bool underflow = (e1 == 0 || e2 == 0 || ey_temp == 0);
+    bool overflow = (e1 == 0xFF || e2 == 0xFF || ey_temp >= 255);
+
+    uint32_t ey = underflow ? 0 : (overflow ? 0 : ey_temp & 0xFF);
+    my = underflow || overflow ? 0 : my;
+
+    return (sy << 31) | (ey << 23) | my;
 }
 
 uint32_t FPU::finv(uint32_t xm)
