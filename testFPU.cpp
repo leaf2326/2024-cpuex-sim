@@ -351,7 +351,7 @@ void testFPU(FPU &fpu)
         {"ftoi", [&]
          {
              std::cin >> input1;
-             float result =
+             int32_t result =
                  std::bit_cast<int32_t>(fpu.ftoi(std::bit_cast<uint32_t>(input1)));
 
              std::cout << "ftoi (" << input1 << ") = " << result << std::endl;
@@ -390,10 +390,10 @@ void testFPU(FPU &fpu)
 int main()
 {
     FPU fpu;
-    // testFtoi(fpu);
-    // testItof(fpu);
-    // cornerCaseTestFPU(fpu);
-    // fullTestFPU(fpu);
+    testFtoi(fpu);
+    testItof(fpu);
+    cornerCaseTestFPU(fpu);
+    fullTestFPU(fpu);
     // singleLoopTestFadd(fpu);
     // singleLoopTestFsub(fpu);
     // singleLoopTestFmul(fpu);

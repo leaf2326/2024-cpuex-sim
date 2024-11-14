@@ -514,17 +514,16 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 
 void Simulator::printRegisters() const
 {
-
     std::cerr << "Registers state:" << std::endl;
     for (int i = 0; i < REG_COUNT; ++i)
     {
-        std::cerr << "x" << i << ": 0x" << std::hex << registers[i] << std::dec << std::endl;
+        std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
     }
     for (int i = 0; i < FPREG_COUNT; ++i)
     {
-        std::cerr << "fp" << i << ": 0x" << std::hex << fpRegisters[i] << std::dec << std::endl;
+        std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
     }
-    std::cerr << "PC: 0x" << std::hex << pc << std::dec << std::endl;
+    std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
 }
 
 void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
@@ -949,14 +948,16 @@ void Simulator::runProgram(int outputRegNum)
         std::ostringstream buffer;
         bool breakMode = false;
         bool isUnknownCommand = false;
+        std::stringstream gdbCommandLine;
         std::string gdbCommand;
         std::string prevGdbCommand;
+        int step = 0;
         while (true)
         {
-
-            if (!breakMode)
+            if (step == 0)
             {
-
+                gdbCommand = "";
+                gdbCommandLine.clear();
                 std::getline(std::cin, gdbCommand);
                 if (gdbCommand.empty())
                 {
@@ -966,90 +967,152 @@ void Simulator::runProgram(int outputRegNum)
 
                     std::cerr << gdbCommand << std::endl;
                 }
+                gdbCommandLine.str(gdbCommand);
+                prevGdbCommand = gdbCommand;
+                gdbCommandLine >> gdbCommand;
+                step = 1;
+                try
                 {
-                    CerrRedirect redirect(buffer);
-                    if (gdbCommand == "r")
+                    step = std::stoi(gdbCommand);
+
+                    gdbCommandLine >> gdbCommand;
+                }
+                catch (const std::invalid_argument &e)
+                {
+                }
+                catch (const std::exception &e)
+                {
+                    std::cerr << "Error: out of range" << std::endl;
+                }
+            }
+            for (int i = 0; i < step; i++)
+            {
+                if (!breakMode)
+                {
+
                     {
+                        CerrRedirect redirect(buffer);
+                        if (gdbCommand == "r")
+                        {
+                        }
+                        else
+                        {
+                            buffer.str("");
+
+                            if (gdbCommand == "l")
+                            {
+                                printProgram(false);
+                                std::cerr << std::endl;
+                            }
+                            else if (gdbCommand == "info" || gdbCommand == "i")
+                            {
+                                gdbCommandLine >> gdbCommand;
+                                if (gdbCommand == "reg" || gdbCommand == "r")
+                                {
+                                    gdbCommandLine >> gdbCommand;
+                                    int i = std::stoi(gdbCommand);
+                                    std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+                                }
+                                else if (gdbCommand == "fpreg" || gdbCommand == "f")
+                                {
+                                    gdbCommandLine >> gdbCommand;
+                                    int i = std::stoi(gdbCommand);
+                                    std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+                                }
+                                else if (gdbCommand == "pc" || gdbCommand == "p")
+                                {
+                                    std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
+                                    gdbCommandLine >> gdbCommand;
+                                }
+                                else
+                                {
+                                    printRegisters();
+                                    std::cerr << std::endl;
+                                }
+                            }
+                            else if (gdbCommand == "s")
+                            {
+                                const uint32_t instruction = loadInstruction(pc);
+
+                                std::cerr << "CLK : " << CLK << std::endl;
+#ifdef DEBUG
+                                std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+#endif // DEBUG
+
+                                printProgram(true);
+                                printInstruction(instruction);
+                                executeInstruction(instruction);
+                                CLK++;
+                                std::cerr << std::endl;
+                            }
+                            else if (gdbCommand == "c")
+                            {
+                                std::cerr << "heading to eBreak..." << std::endl;
+                                printBoundary();
+                                breakMode = true;
+                            }
+                            else if (gdbCommand == "quit" || gdbCommand == "q")
+                            {
+                                break;
+                            }
+                            else
+                            {
+
+                                isUnknownCommand = true;
+                            }
+                        }
+                    }
+                    if (isUnknownCommand)
+                    {
+                        std::cerr << "Unknown command: " << gdbCommand << std::endl;
+                        step = 1;
+                    }
+                    else
+                    {
+                        if (step == 1)
+                        {
+                            std::cerr << buffer.str();
+                        }
+                        if (breakMode)
+                        {
+
+                            buffer.str("");
+                        }
+                    }
+                    // update
+                    step--;
+                    isUnknownCommand = false;
+                }
+                while (breakMode)
+                {
+                    std::cerr << buffer.str();
+                    buffer.str("");
+                    {
+                        CerrRedirect redirect(buffer);
+                        const uint32_t instruction = loadInstruction(pc);
+
+                        std::cerr << "CLK : " << CLK << std::endl;
+#ifdef DEBUG
+                        std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+#endif // DEBUG
+                        printProgram(true);
+                        printInstruction(instruction);
+                        executeInstruction(instruction);
+                        CLK++;
+                        std::cerr << std::endl;
+                    }
+                    if (max_clk <= CLK || isBreakpoint)
+                    {
+                        if (step == 0)
+                        {
+                            std::cerr << buffer.str();
+                        }
+                        breakMode = false;
                     }
                     else
                     {
                         buffer.str("");
-                        if (gdbCommand == "l")
-                        {
-                            printProgram(false);
-                            std::cerr << std::endl;
-                        }
-                        else if (gdbCommand == "s")
-                        {
-                            const uint32_t instruction = loadInstruction(pc);
-
-                            std::cerr << "CLK : " << CLK << std::endl;
-#ifdef DEBUG
-                            std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
-#endif // DEBUG
-
-                            printProgram(true);
-                            printInstruction(instruction);
-                            executeInstruction(instruction);
-                            CLK++;
-                            std::cerr << std::endl;
-                        }
-                        else if (gdbCommand == "c")
-                        {
-                            std::cerr << "heading to eBreak..." << std::endl;
-                            printBoundary();
-                            breakMode = true;
-                        }
-                        else if (gdbCommand == "quit" || gdbCommand == "q")
-                        {
-                            break;
-                        }
-                        else
-                        {
-
-                            isUnknownCommand = true;
-                        }
                     }
-                }
-                if (isUnknownCommand)
-                {
-                    std::cerr << "Unknown command: " << gdbCommand << std::endl;
-                }
-                else
-                {
-                    std::cerr << buffer.str();
-                    if (breakMode)
-                    {
-                        buffer.str("");
-                    }
-                }
-                prevGdbCommand = gdbCommand;
-                isUnknownCommand = false;
-            }
-            else
-            {
-                {
-                    CerrRedirect redirect(buffer);
-                    const uint32_t instruction = loadInstruction(pc);
-
-                    std::cerr << "CLK : " << CLK << std::endl;
-#ifdef DEBUG
-                    std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
-#endif // DEBUG
-                    printProgram(true);
-                    printInstruction(instruction);
-                    executeInstruction(instruction);
-                    CLK++;
-                    std::cerr << std::endl;
-                }
-                if (max_clk > CLK && isBreakpoint)
-                {
-                    std::cerr << buffer.str();
-                    breakMode = false;
-                }
-                else
-                {
-                    buffer.str("");
                 }
             }
         }
