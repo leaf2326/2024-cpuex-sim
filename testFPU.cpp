@@ -352,7 +352,7 @@ void testFPU(FPU &fpu)
          {
              std::cin >> input1;
              float result =
-                 std::bit_cast<float>(fpu.ftoi(std::bit_cast<uint32_t>(input1)));
+                 std::bit_cast<int32_t>(fpu.ftoi(std::bit_cast<uint32_t>(input1)));
 
              std::cout << "ftoi (" << input1 << ") = " << result << std::endl;
          }},
@@ -360,9 +360,17 @@ void testFPU(FPU &fpu)
          {
              std::cin >> iinput;
              float result =
-                 std::bit_cast<float>(fpu.itof(iinput));
+                 std::bit_cast<float>(fpu.itof(std::bit_cast<uint32_t>(iinput)));
 
              std::cout << "itof (" << iinput << ") = " << result << std::endl;
+         }},
+         {"ffloor", [&]
+         {
+             std::cin >> input1;
+             float result =
+                 std::bit_cast<float>(fpu.ffloor(std::bit_cast<uint32_t>(input1)));
+
+             std::cout << "ffloor (" << input1 << ") = " << result << std::endl;
          }}};
     while (1)
     {
@@ -388,7 +396,7 @@ int main()
     // fullTestFPU(fpu);
     // singleLoopTestFadd(fpu);
     // singleLoopTestFsub(fpu);
-    singleLoopTestFmul(fpu);
+    // singleLoopTestFmul(fpu);
     // singleLoopTestFdiv(fpu);
     // singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;

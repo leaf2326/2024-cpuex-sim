@@ -13,7 +13,8 @@ uint32_t FPU::fsub(uint32_t x1, uint32_t x2)
     return addOrSub(x1, x2, true);
 }
 
-uint32_t FPU::fmul(uint32_t x1, uint32_t x2) {
+uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
+{
     uint32_t s1, e1, m1, s2, e2, m2;
     s1 = getSign(x1);
     e1 = getExponent(x1);
@@ -39,7 +40,7 @@ uint32_t FPU::fmul(uint32_t x1, uint32_t x2) {
 
     int32_t ey_temp = static_cast<int32_t>(e1) + static_cast<int32_t>(e2) - 127 + carry;
 
-    bool underflow = (e1 == 0 || e2 == 0 || ey_temp == 0);
+    bool underflow = (e1 == 0 || e2 == 0 || (ey_temp & 0x1FF) == 0);
     bool overflow = (e1 == 0xFF || e2 == 0xFF || ey_temp >= 255);
 
     uint32_t ey = underflow ? 0 : (overflow ? 0 : ey_temp & 0xFF);
@@ -247,10 +248,10 @@ uint32_t FPU::addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction)
 
 uint32_t FPU::ftoi(uint32_t x)
 {
-    /*
-    bool s = (x >> 31) & 1;
-    uint32_t e = (x >> 23) & 0xFF;
-    uint32_t m = x & 0x7FFFFF;
+
+    bool s = getSign(x);
+    uint32_t e = getExponent(x);
+    uint32_t m = getMantissa(x);
 
     uint32_t m_ex = (1 << 23) | m;
     m_ex <<= 8;
@@ -263,45 +264,28 @@ uint32_t FPU::ftoi(uint32_t x)
     }
 
     return s ? -static_cast<int32_t>(m_ex_shift >> 1) : static_cast<int32_t>(m_ex_shift >> 1);
-    */
-    // 簡易的実装
-    int32_t i = static_cast<int32_t>(std::bit_cast<float>(x));
-    return std::bit_cast<uint32_t>(i);
 }
 
 uint32_t FPU::itof(uint32_t x)
 {
-    // 簡易的実装
-    float f = static_cast<float>(std::bit_cast<int32_t>(x));
-    return std::bit_cast<uint32_t>(f);
-
-    /*
     if (x == 0)
         return 0;
 
-    bool sx = x < 0;
-    uint32_t xabs = sx ? -x : x;
+    bool sx = getSign(x);
+    uint32_t xabs = sx ? ~x + 1 : x;
 
-    int shifts = 0;
-    for (int i = 31; i >= 0; --i)
-    {
-        if ((xabs >> i) & 1)
-        {
-            shifts = 31 - i;
-            break;
-        }
-    }
+    int shifts = std::countl_zero(xabs) + 1;
 
     uint32_t xshift = xabs << shifts;
-    bool r = xshift & (1 << 8);
-    uint32_t my = (xshift >> 9) + (r ? 1 : 0);
+    uint32_t r = (xshift >> 8) & 1;
+    uint32_t my = (xshift >> 9) + r;
 
     uint32_t ey;
     if (shifts == 0)
     {
         ey = 0;
     }
-    else if ((xshift >> 9) == (1 << 23) && r)
+    else if ((xshift >> 9) == 1 && r)
     {
         ey = 160 - shifts;
     }
@@ -311,7 +295,6 @@ uint32_t FPU::itof(uint32_t x)
     }
 
     return (sx << 31) | (ey << 23) | (my & 0x7FFFFF);
-    */
 }
 
 uint32_t FPU::ffloor(uint32_t x)
