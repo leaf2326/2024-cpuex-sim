@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     uint64_t max_clk = 100000;
 
     std::streambuf *oldBuffer = nullptr;
-    
+
     try
     {
 
@@ -103,15 +103,38 @@ int main(int argc, char *argv[])
             std::cerr << "inputFilepath: " << programFilePath << std::endl;
         }
 #endif
-
+    }
+    catch (const std::exception &e)
+    {
+        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
+        {
+            std::cerr.rdbuf(oldBuffer);
+        }
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    Simulator simulator(options, max_clk);
+    try
+    {
         if (options.has(options.ONLYSTDIO))
         {
             oldBuffer = std::cerr.rdbuf(nullptr);
         }
         // プログラムシミュレート
-        Simulator simulator(options, max_clk);
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);
+    }
+    catch (const std::exception &e)
+    {
+        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
+        {
+            std::cerr.rdbuf(oldBuffer);
+        }
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    try
+    {
         simulator.runProgram(outputRegNum);
     }
     catch (const std::exception &e)
@@ -121,6 +144,10 @@ int main(int argc, char *argv[])
             std::cerr.rdbuf(oldBuffer);
         }
         std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "__DEBUG INFO__ " << std::endl;
+        std::cerr << "CLK : " << simulator.getCLK() << std::endl;
+        simulator.printProgram(true);
+        simulator.printRegisters();
         return 1;
     }
 

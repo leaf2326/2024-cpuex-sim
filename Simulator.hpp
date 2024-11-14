@@ -25,6 +25,9 @@ public:
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
     int64_t getCLK() const;
+    int32_t getPC() const;
+    void printRegisters() const;
+    void printProgram(bool aroundPC) const noexcept;
 
 private:
     uint64_t max_clk = 100000;
@@ -58,7 +61,6 @@ private:
     int32_t getFpRegister(int fpreg) const;
     void setFpRegister(int fpreg, int32_t fpvalue);
 
-    int32_t getPC() const;
     void setPC(int32_t newPC);
 
     int32_t loadWord(int32_t address);
@@ -67,10 +69,6 @@ private:
     void storeInstruction(int32_t address, int32_t instruction);
 
     std::string instToString(uint32_t instruction) const;
-
-    void printProgram(bool aroundPC) const noexcept;
-
-    void printRegisters() const;
 
     // 直近に書き込んだレジスタの更新
     void updatePrevLoadReg(int currLoadReg);
