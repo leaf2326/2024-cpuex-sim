@@ -2,6 +2,7 @@
 #include "ftable.hpp"
 #include <bit>
 #include <iostream>
+#include <cmath>
 
 uint32_t FPU::fadd(uint32_t x1, uint32_t x2)
 {
@@ -248,7 +249,6 @@ uint32_t FPU::addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction)
 
 uint32_t FPU::ftoi(uint32_t x)
 {
-
     bool s = getSign(x);
     uint32_t e = getExponent(x);
     uint32_t m = getMantissa(x);
@@ -256,14 +256,14 @@ uint32_t FPU::ftoi(uint32_t x)
     uint32_t m_ex = (1 << 23) | m;
     m_ex <<= 8;
 
-    uint32_t m_ex_shift = (e > 157) ? (m_ex << (e - 157)) : (m_ex >> (157 - e));
+    uint32_t m_ex_shift = std::abs((int32_t)e - 157) >= 32 ? 0 : ((e > 157) ? (m_ex << (e - 157)) : (m_ex >> (157 - e)));
 
     if (m_ex_shift & 1)
     {
         m_ex_shift += 1;
     }
 
-    return s ? -static_cast<int32_t>(m_ex_shift >> 1) : static_cast<int32_t>(m_ex_shift >> 1);
+    return s ? ~(m_ex_shift >> 1) + 1 : (m_ex_shift >> 1);
 }
 
 uint32_t FPU::itof(uint32_t x)
