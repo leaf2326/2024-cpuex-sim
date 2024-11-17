@@ -1,28 +1,23 @@
 CXX = g++
-
 CXXFLAGS = -std=c++23 -Wall -O3
-
 TARGET = simulator
-
 SRCS = Simulator.cpp Log.cpp FPU.cpp Option.cpp Util.cpp Memory.cpp
-
 OBJS = $(SRCS:.cpp=.o)
-
-DEPS = $(SRCS:.cpp=%.d)
+DEPS = $(SRCS:.cpp=.d) main.d testFPU.d
 
 all: $(TARGET)
 	ulimit -s unlimited
 
--include $(DEPS)	
+-include $(DEPS)
 
 $(TARGET): main.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp $(SRCS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) main.o $(OBJS)
 
 debug: main.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) main.cpp $(SRCS)
+	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) main.o $(OBJS)
 
 testFPU: testFPU.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o testFPU testFPU.cpp $(SRCS)
+	$(CXX) $(CXXFLAGS) -o testFPU testFPU.o $(OBJS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
