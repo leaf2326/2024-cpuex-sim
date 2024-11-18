@@ -136,6 +136,13 @@ int main(int argc, char *argv[])
     try
     {
         simulator.runProgram(outputRegNum);
+        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
+        {
+            std::cerr.rdbuf(oldBuffer);
+            std::cerr << "CLK : " << simulator.getCLK() << std::endl;
+            simulator.printProgram(true);
+            simulator.printRegisters();
+        }
     }
     catch (const std::exception &e)
     {
