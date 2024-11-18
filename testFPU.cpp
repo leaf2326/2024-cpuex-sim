@@ -24,7 +24,7 @@ const float TOLERANCE_DIV = std::pow(2, -20);
 const float TOLERANCE_SQRT = std::pow(2, -20);
 
 // テスト用に固定する値
-const float testValues[] = {0.0f, 1.0f, -1.0f}; //, std::numeric_limits<float>::max(), std::numeric_limits<float>::min()
+const float testValues[] = {0.5f, -0.5f, 1000000.0f,0.000001f}; //, std::numeric_limits<float>::max(), std::numeric_limits<float>::min()
 
 // FADD シングルループテスト
 void singleLoopTestFadd(FPU &fpu)
@@ -393,11 +393,11 @@ int main()
     testItof(fpu);
     cornerCaseTestFPU(fpu);
     fullTestFPU(fpu);
-    // singleLoopTestFadd(fpu);
-    // singleLoopTestFsub(fpu);
+    singleLoopTestFadd(fpu);
+    singleLoopTestFsub(fpu);
     singleLoopTestFmul(fpu);
-    // singleLoopTestFdiv(fpu);
-    // singleLoopTestFsqrt(fpu);
+    singleLoopTestFdiv(fpu);
+    singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;
     testFPU(fpu);
     return 0;

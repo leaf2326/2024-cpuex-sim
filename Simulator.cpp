@@ -8,7 +8,7 @@
 
 Simulator::Simulator(Options op, uint64_t maxClock)
 {
-    registers[0] = 0;                // x0
+    registers[0] = 0;                 // x0
     registers[2] = DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
@@ -592,6 +592,14 @@ void Simulator::executeInstruction(uint32_t instruction)
                 logInstruction("sub");
                 setRegister(rd, getRegister(rs1) - getRegister(rs2));
             }
+            else
+            {
+                throw std::runtime_error("Unknown instruction");
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
         }
 
         setPC(getPC() + 4);
@@ -636,6 +644,10 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("srli");
             setRegister(rd, getRegister(rs1) >> imm);
         }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
+        }
         setPC(getPC() + 4);
         break;
     }
@@ -673,6 +685,10 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             logInstruction("bge"); // 命令の記録
             isTaken = (getRegister(rs1) >= getRegister(rs2));
+        }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
         }
         branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
         break;
@@ -731,7 +747,11 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("lw"); // 命令の記録
-            setRegister(rd, dMemory.loadWord(address,true));
+            setRegister(rd, dMemory.loadWord(address, true));
+        }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
         }
         setPC(getPC() + 4);
 
@@ -759,6 +779,10 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("sw"); // 命令の記録
             dMemory.storeWord(address, getRegister(rs2));
         }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
+        }
         setPC(getPC() + 4);
         break;
     }
@@ -767,6 +791,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         // ?-type (lui)
         const uint32_t rd = getRd(instruction);
         int32_t imm = (instruction >> 12) & 0xFFFFF;
+        logInstruction("lui");
         setRegister(rd, imm << 12);
         setPC(getPC() + 4);
         break;
@@ -790,7 +815,11 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("flw"); // 命令の記録
-            setFpRegister(rd, dMemory.loadWord(address,false));
+            setFpRegister(rd, dMemory.loadWord(address, false));
+        }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
         }
         setPC(getPC() + 4);
 
@@ -817,6 +846,10 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("fsw"); // 命令の記録
             dMemory.storeWord(address, getFpRegister(rs2));
+        }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
         }
         setPC(getPC() + 4);
         break;
@@ -894,6 +927,14 @@ void Simulator::executeInstruction(uint32_t instruction)
                 logInstruction("feq");
                 setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
             }
+            else
+            {
+                throw std::runtime_error("Unknown instruction");
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Unknown instruction");
         }
         setPC(getPC() + 4);
         break;

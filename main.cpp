@@ -153,6 +153,7 @@ int main(int argc, char *argv[])
         // end - start を秒単位で計算する
         std::chrono::duration<double> elapsed2 = end - start;
         std::cerr << "Execution time: " << elapsed.count() << "ms" << std::endl;
+        std::cerr << "Instruction Per Second: " << simulator.getCLK() / elapsed.count() * 1000.0 << std::endl;
     }
     catch (const std::exception &e)
     {
