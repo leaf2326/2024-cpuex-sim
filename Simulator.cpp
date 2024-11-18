@@ -491,19 +491,10 @@ void Simulator::loadInputData(const std::string &inputFilePath)
     {
         try
         {
-            if (token.find('.') != std::string::npos)
-            {
-                // 小数として扱う場合
-                float floatValue = std::stof(token);
-                int32_t intValue = std::bit_cast<int32_t>(floatValue);
-                dMemory.inputData.push_back(intValue);
-            }
-            else
-            {
-                // 整数として扱う場合
-                int32_t intValue = std::stoi(token);
-                dMemory.inputData.push_back(intValue);
-            }
+            // 全て小数として扱って、lwの場合に整数に変換する
+            float floatValue = std::stof(token);
+            int32_t intValue = std::bit_cast<int32_t>(floatValue);
+            dMemory.inputData.push_back(intValue);
         }
         catch (const std::exception &e)
         {

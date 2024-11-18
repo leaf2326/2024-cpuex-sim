@@ -1,5 +1,6 @@
 #include "Memory.hpp"
 #include <cmath>
+#include<bit>
 
 Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t blockSize, int64_t input_addr, int64_t output_addr)
     : memorySize(memorySize), cacheSize(cacheSize), blockSize(blockSize), input_addr(input_addr), output_addr(output_addr)
@@ -76,7 +77,9 @@ int32_t Memory::loadWord(uint32_t address)
             }
             else
             {
-                temp = inputData[inputIndex];
+                float floatValue = std::bit_cast<float>(inputData[inputIndex]);
+                int32_t intValue = static_cast<int32_t>(floatValue);
+                temp = intValue;
                 std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
                 storeWord(input_addr, temp);
                 inputIndex++;
