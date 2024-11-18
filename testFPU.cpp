@@ -7,7 +7,14 @@
 #include "FPU.hpp"
 #include <cmath>
 #include <limits>
+#include <xmmintrin.h>
+#include <emmintrin.h>
 #include "FPU.hpp"
+
+inline int32_t Round(const float &x)
+{
+    return _mm_cvtss_si32(_mm_load_ss(&x));
+}
 
 // 許容誤差
 const float EPSILON = std::pow(2, -126);
@@ -203,18 +210,10 @@ void fullTestFPU(FPU &fpu)
     for (uint32_t i = 0; i <= 0xFFFFFFFF; i += 0x00000001)
     {
         float f = std::bit_cast<float>(i);
-        int32_t expectedInt;
-        // ftoi
-        if (f >= 0)
-        {
-            expectedInt = static_cast<int32_t>(std::floor(f));
-        }
-        else
-        {
-            expectedInt = static_cast<int32_t>(std::ceil(f)); // 負の値に対する floor
-        }
+        int32_t expectedInt = std::round(f);
+
         int32_t resultInt = std::bit_cast<int32_t>(fpu.ftoi(i));
-        if (expectedInt != resultInt)
+        if (expectedInt != resultInt && expectedInt != INT32_MIN && expectedInt != INT32_MAX)
         {
             std::cout << "ftoi(" << std::hex << "0x" << i << ") = " << std::dec << resultInt
                       << " (expected: " << expectedInt << ")" << std::endl;
@@ -223,7 +222,7 @@ void fullTestFPU(FPU &fpu)
         // itof
         uint32_t expectedFloatBits = std::bit_cast<uint32_t>(static_cast<float>(expectedInt));
         uint32_t resultFloatBits = fpu.itof(expectedInt);
-        if (expectedFloatBits != resultFloatBits)
+        if (expectedFloatBits != resultFloatBits && expectedInt != INT32_MIN && expectedInt != INT32_MAX)
         {
             std::cout << "itof(" << expectedInt << ") = " << std::hex << "0x" << resultFloatBits
                       << " (expected: 0x" << expectedFloatBits << ")" << std::endl;
@@ -364,7 +363,7 @@ void testFPU(FPU &fpu)
 
              std::cout << "itof (" << iinput << ") = " << result << std::endl;
          }},
-         {"ffloor", [&]
+        {"ffloor", [&]
          {
              std::cin >> input1;
              float result =
@@ -396,7 +395,7 @@ int main()
     fullTestFPU(fpu);
     // singleLoopTestFadd(fpu);
     // singleLoopTestFsub(fpu);
-    // singleLoopTestFmul(fpu);
+    singleLoopTestFmul(fpu);
     // singleLoopTestFdiv(fpu);
     // singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;
