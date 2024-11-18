@@ -18,10 +18,10 @@ public:
         LIMIT = 1 << 4,         // 00001000
         All = 0xFF,         // 11111111
     };
-    void on(uint32_t flag);
-    void off(uint32_t flag);
-    bool is(uint32_t flag) const;
-    bool has(uint32_t flag) const;
+    void on(uint32_t flag) noexcept;
+    void off(uint32_t flag) noexcept;
+    bool is(uint32_t flag) const noexcept;
+    bool has(uint32_t flag) const noexcept;
 };
 
 #endif

@@ -6,10 +6,10 @@
 #include <iomanip>
 #include <bit>
 
-Simulator::Simulator(Options op, uint64_t maxClock)
+Simulator::Simulator(Options &op, uint64_t maxClock)
 {
     registers[0] = 0;                 // x0
-    registers[2] = DMEMORY_SIZE - 16; // sp
+    registers[2] = dMemory.DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
     options = op;
@@ -33,7 +33,7 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Invalid register index");
     }
-
+    if(!options.has(options.ONLYSTDIO))
     std::cerr << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
 
     registers[reg] = value;
@@ -60,6 +60,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     {
         throw std::out_of_range("Invalid fpregister index");
     }
+    if(!options.has(options.ONLYSTDIO))
     std::cerr << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
@@ -73,7 +74,7 @@ int32_t Simulator::getPC() const
 
 void Simulator::setPC(int32_t newPC)
 {
-
+    if(!options.has(options.ONLYSTDIO))
     std::cerr << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
 
     pc = newPC;
@@ -399,17 +400,17 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     int64_t address;
     file.read(reinterpret_cast<char *>(&dataSectionSize), sizeof(dataSectionSize));
     address = 256;
-    for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); i++)
+    for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); ++i)
     {
         file.read(reinterpret_cast<char *>(&data), sizeof(data));
-        if (address < 0 || address >= DMEMORY_SIZE)
+        if (address < 0 || address >= dMemory.DMEMORY_SIZE)
         {
             throw std::out_of_range("dMemory access out of bounds");
         }
 
         dMemory.mainMemory[address / 4] = data;
         address += 4;
-        if (address >= DMEMORY_SIZE)
+        if (address >= dMemory.DMEMORY_SIZE)
         {
             throw std::out_of_range("Program size exceeds dMemory limits");
         }
@@ -441,7 +442,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
     if (aroundPC)
     {
 
-        for (int i = -1; i < 2; i++)
+        for (int i = -1; i < 2; ++i)
         {
             int32_t address = getPC() / 4 + i;
             if (address < 0 || address >= instructionCount)
@@ -462,7 +463,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
     }
     else
     {
-        for (int i = 0; i < instructionCount; i++)
+        for (int i = 0; i < instructionCount; ++i)
         {
             const uint32_t instruction = iMemory[i];
             std::cerr << i + 1 << ": " << instToString(instruction);
@@ -494,7 +495,7 @@ void Simulator::loadInputData(const std::string &inputFilePath)
             // 全て小数として扱って、lwの場合に整数に変換する
             float floatValue = std::stof(token);
             int32_t intValue = std::bit_cast<int32_t>(floatValue);
-            dMemory.inputData.push_back(intValue);
+            dMemory.inputData.emplace_back(intValue);
         }
         catch (const std::exception &e)
         {
@@ -515,11 +516,11 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 void Simulator::printRegisters() const
 {
     std::cerr << "Registers state:" << std::endl;
-    for (int i = 0; i < REG_COUNT; ++i)
+    for (int i = 0; i < REG_COUNT; i++)
     {
         std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
     }
-    for (int i = 0; i < FPREG_COUNT; ++i)
+    for (int i = 0; i < FPREG_COUNT; i++)
     {
         std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
     }
@@ -1028,7 +1029,7 @@ void Simulator::runProgram(int outputRegNum)
                     std::cerr << "Error: out of range" << std::endl;
                 }
             }
-            for (int i = 0; i < step; i++)
+            for (int i = 0; i < step; ++i)
             {
                 if (!breakMode)
                 {
@@ -1167,21 +1168,23 @@ void Simulator::runProgram(int outputRegNum)
         while (max_clk > CLK && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
-
+            if(!options.has(options.ONLYSTDIO))
             std::cerr << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
             std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
-
+            if(!options.has(options.ONLYSTDIO))
             printInstruction(instruction);
+            
             executeInstruction(instruction);
             CLK++;
         }
-
+        if(!options.has(options.ONLYSTDIO)){
         printRegisters();
         printLog();
         std::cerr << "__Cache__" << std::endl;
         dMemory.printCache();
+        }
 
         printOutput();
         if (options.has(options.REG))

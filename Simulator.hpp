@@ -20,7 +20,7 @@
 class Simulator : public Log
 {
 public:
-    Simulator(Options op, uint64_t maxClock);
+    Simulator(Options &op, uint64_t maxClock);
     void loadMemoryFromBinary(const std::string &programFilePath);
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
@@ -37,11 +37,7 @@ private:
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024;      // Iメモリサイズ（512KiB）
-    static constexpr int64_t DMEMORY_SIZE = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
-    static constexpr int64_t CACHE_SIZE = 1024 * 16;
-    static constexpr int64_t BLOCK_SIZE = 16;
-    static constexpr int64_t INPUT_ADDRESS = 100;
-    static constexpr int64_t OUTPUT_ADDRESS = 104;
+
     bool isBreakpoint;
 
     FPU fpu;
@@ -50,7 +46,7 @@ private:
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     int instructionCount = 0;
-    Memory dMemory{DMEMORY_SIZE, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS};
+    Memory dMemory{};
     uint32_t dataSectionSize = 0;
 
     // 前の命令で書き込んだレジスタ

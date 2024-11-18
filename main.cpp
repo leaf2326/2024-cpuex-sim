@@ -4,6 +4,9 @@
 #include <chrono>
 int main(int argc, char *argv[])
 {
+    std::ios::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+    
     // optionの処理
 #ifdef DEBUG
     for (int i = 0; i < argc; ++i)
