@@ -9,7 +9,7 @@ class Memory
 {
 public:
     Memory(uint64_t memorySize, size_t cacheSize, size_t blockSize, int64_t input_addr, int64_t output_addr);
-    int32_t loadWord(uint32_t address);
+    int32_t loadWord(uint32_t address, bool toInt);
     void storeWord(uint32_t address, int32_t value);
     void printCache() const;
     std::vector<int32_t> inputData{};

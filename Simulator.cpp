@@ -8,7 +8,7 @@
 
 Simulator::Simulator(Options op, uint64_t maxClock)
 {
-    registers[0] = 0;                    // x0
+    registers[0] = 0;                // x0
     registers[2] = DMEMORY_SIZE - 4; // sp
     pc = 0;
     isBreakpoint = false;
@@ -731,7 +731,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("lw"); // 命令の記録
-            setRegister(rd, dMemory.loadWord(address));
+            setRegister(rd, dMemory.loadWord(address,true));
         }
         setPC(getPC() + 4);
 
@@ -790,7 +790,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("flw"); // 命令の記録
-            setFpRegister(rd, dMemory.loadWord(address));
+            setFpRegister(rd, dMemory.loadWord(address,false));
         }
         setPC(getPC() + 4);
 
@@ -944,7 +944,7 @@ void Simulator::runProgram(int outputRegNum)
     }
     CLK = 0;
 
-    //GDB実行
+    // GDB実行
     if (options.has(options.GDB))
     {
         std::ostringstream buffer;
@@ -1120,7 +1120,7 @@ void Simulator::runProgram(int outputRegNum)
             }
         }
     }
-    //通常実行
+    // 通常実行
     else
     {
         while (max_clk > CLK && !isBreakpoint)

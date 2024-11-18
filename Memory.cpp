@@ -1,6 +1,6 @@
 #include "Memory.hpp"
 #include <cmath>
-#include<bit>
+#include <bit>
 
 Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t blockSize, int64_t input_addr, int64_t output_addr)
     : memorySize(memorySize), cacheSize(cacheSize), blockSize(blockSize), input_addr(input_addr), output_addr(output_addr)
@@ -58,7 +58,7 @@ void Memory::loadBlockToCache(uint32_t address)
     std::cerr << "Cache miss: Loaded block to cache at index 0x" << std::hex << index << " with tag 0x" << tag << std::dec << std::endl;
 }
 
-int32_t Memory::loadWord(uint32_t address)
+int32_t Memory::loadWord(uint32_t address, bool isLw)
 {
     if (address < 0 || address >= memorySize)
     {
@@ -77,9 +77,16 @@ int32_t Memory::loadWord(uint32_t address)
             }
             else
             {
-                float floatValue = std::bit_cast<float>(inputData[inputIndex]);
-                int32_t intValue = static_cast<int32_t>(floatValue);
-                temp = intValue;
+                if (isLw)
+                {
+                    float floatValue = std::bit_cast<float>(inputData[inputIndex]);
+                    int32_t intValue = static_cast<int32_t>(floatValue);
+                    temp = intValue;
+                }
+                else
+                {
+                    temp = inputData[inputIndex];
+                }
                 std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
                 storeWord(input_addr, temp);
                 inputIndex++;
