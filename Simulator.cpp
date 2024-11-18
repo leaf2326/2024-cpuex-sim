@@ -9,7 +9,7 @@
 Simulator::Simulator(Options op, uint64_t maxClock)
 {
     registers[0] = 0;                // x0
-    registers[2] = DMEMORY_SIZE - 4; // sp
+    registers[2] = DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
     options = op;
