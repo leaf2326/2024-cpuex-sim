@@ -943,6 +943,8 @@ void Simulator::runProgram(int outputRegNum)
         std::cerr << "__GDB MODE__" << std::endl;
     }
     CLK = 0;
+
+    //GDB実行
     if (options.has(options.GDB))
     {
         std::ostringstream buffer;
@@ -1101,13 +1103,14 @@ void Simulator::runProgram(int outputRegNum)
                         CLK++;
                         std::cerr << std::endl;
                     }
-                    if (max_clk <= CLK || isBreakpoint)
+                    if (isBreakpoint)
                     {
                         if (step == 0)
                         {
                             std::cerr << buffer.str();
                         }
                         breakMode = false;
+                        isBreakpoint = false;
                     }
                     else
                     {
@@ -1117,6 +1120,7 @@ void Simulator::runProgram(int outputRegNum)
             }
         }
     }
+    //通常実行
     else
     {
         while (max_clk > CLK && !isBreakpoint)
