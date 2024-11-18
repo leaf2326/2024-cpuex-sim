@@ -39,6 +39,10 @@ int main(int argc, char *argv[])
                 {
                     options.on(options.GDB);
                 }
+                else if (arg == "-cache")
+                {
+                    options.on(options.CACHE);
+                }
                 else if (arg == "-i")
                 {
                     if (i + 1 < argc)

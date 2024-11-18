@@ -15,7 +15,8 @@ public:
     std::vector<int32_t> inputData{};
     unsigned int inputIndex = 0;
     std::vector<int32_t> output{};
-   
+
+    bool availableCache = false;
     static constexpr int64_t CACHE_SIZE = 1024 * 16;
     static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t numBlocks = CACHE_SIZE / BLOCK_SIZE;

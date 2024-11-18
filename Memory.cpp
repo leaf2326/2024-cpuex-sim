@@ -33,7 +33,7 @@ void Memory::writeBack(uint32_t index)
     if (cache[index].valid && cache[index].dirty)
     {
         uint32_t baseAddress = (cache[index].tag << (indexBits + offsetBits)) | (index << offsetBits);
-        for (size_t i = 0; i < BLOCK_SIZE/4; ++i)
+        for (size_t i = 0; i < BLOCK_SIZE / 4; ++i)
         {
             mainMemory[baseAddress / 4 + i] = cache[index].data[i];
         }
@@ -95,7 +95,10 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
         }
         return temp;
     }
-
+    if (!availableCache)
+    {
+        return mainMemory[address / 4];
+    }
     uint32_t index = getIndex(address);
     uint32_t tag = getTag(address);
     uint32_t offset = getOffset(address) / sizeof(int32_t);
@@ -131,7 +134,11 @@ void Memory::storeWord(uint32_t address, int32_t value)
         mainMemory[address / 4] = value;
         return;
     }
-
+    if (!availableCache)
+    {
+        mainMemory[address / 4] = value;
+        return;
+    }
     uint32_t index = getIndex(address);
     uint32_t tag = getTag(address);
     uint32_t offset = getOffset(address) / sizeof(int32_t);

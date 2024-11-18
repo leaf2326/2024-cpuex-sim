@@ -14,6 +14,7 @@ Simulator::Simulator(Options &op, uint64_t maxClock)
     isBreakpoint = false;
     options = op;
     max_clk = maxClock;
+    dMemory.availableCache = op.has(op.CACHE);
 }
 
 int32_t Simulator::getRegister(int reg) const
