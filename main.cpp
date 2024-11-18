@@ -1,7 +1,7 @@
 #include "Simulator.hpp"
 #include "Option.hpp"
 #include <iostream>
-
+#include <chrono>
 int main(int argc, char *argv[])
 {
     // optionの処理
@@ -114,6 +114,8 @@ int main(int argc, char *argv[])
         return 1;
     }
     Simulator simulator(options, max_clk);
+    // 開始日時を取得する
+    auto start = std::chrono::system_clock::now();
     try
     {
         if (options.has(options.ONLYSTDIO))
@@ -136,13 +138,21 @@ int main(int argc, char *argv[])
     try
     {
         simulator.runProgram(outputRegNum);
+        auto end = std::chrono::system_clock::now();
+
         if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
         {
             std::cerr.rdbuf(oldBuffer);
             std::cerr << "CLK : " << simulator.getCLK() << std::endl;
             simulator.printProgram(true);
             simulator.printRegisters();
+            simulator.printLog();
         }
+        std::chrono::duration<double, std::milli> elapsed = end - start;
+
+        // end - start を秒単位で計算する
+        std::chrono::duration<double> elapsed2 = end - start;
+        std::cerr << "Execution time: " << elapsed.count() << "ms" << std::endl;
     }
     catch (const std::exception &e)
     {
@@ -155,6 +165,7 @@ int main(int argc, char *argv[])
         std::cerr << "CLK : " << simulator.getCLK() << std::endl;
         simulator.printProgram(true);
         simulator.printRegisters();
+        simulator.printLog();
         return 1;
     }
 

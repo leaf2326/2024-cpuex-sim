@@ -28,6 +28,8 @@ public:
     int32_t getPC() const;
     void printRegisters() const;
     void printProgram(bool aroundPC) const noexcept;
+    // ログの出力
+    void printLog();
 
 private:
     uint64_t max_clk = 100000;
@@ -83,9 +85,6 @@ private:
     void printInstruction(uint32_t instruction) const;
     // 命令実行
     void executeInstruction(uint32_t instruction);
-
-    // ログの出力
-    void printLog();
 
     void printOutput() const noexcept;
 };
