@@ -8,7 +8,7 @@
 
 Simulator::Simulator(Options &op, uint64_t maxClock)
 {
-    registers[0] = 0;                 // x0
+    registers[0] = 0;                         // x0
     registers[2] = dMemory.DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
@@ -33,8 +33,8 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Invalid register index");
     }
-    if(!options.has(options.ONLYSTDIO))
-    std::cerr << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+        std::cerr << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
 
     registers[reg] = value;
     if (registers[2] <= registers[3])
@@ -60,8 +60,8 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     {
         throw std::out_of_range("Invalid fpregister index");
     }
-    if(!options.has(options.ONLYSTDIO))
-    std::cerr << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+        std::cerr << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
     // printRegisters();
@@ -74,8 +74,8 @@ int32_t Simulator::getPC() const
 
 void Simulator::setPC(int32_t newPC)
 {
-    if(!options.has(options.ONLYSTDIO))
-    std::cerr << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
+    if (!options.has(options.ONLYSTDIO))
+        std::cerr << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
 
     pc = newPC;
     // printRegisters();
@@ -436,7 +436,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     std::cerr << "Completed loading memory" << std::endl;
 }
 
-void Simulator::printProgram(bool aroundPC) const noexcept
+void Simulator::printProgram(bool aroundPC, int32_t pc) const noexcept
 {
     printBoundary();
     if (aroundPC)
@@ -444,7 +444,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
 
         for (int i = -1; i < 2; ++i)
         {
-            int32_t address = getPC() / 4 + i;
+            int32_t address = pc / 4 + i;
             if (address < 0 || address >= instructionCount)
             {
                 std::cerr << "-: " << std::endl;
@@ -467,7 +467,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
         {
             const uint32_t instruction = iMemory[i];
             std::cerr << i + 1 << ": " << instToString(instruction);
-            if (i == getPC() / 4)
+            if (i == pc / 4)
             {
                 std::cerr << " ←-";
             }
@@ -1045,8 +1045,11 @@ void Simulator::runProgram(int outputRegNum)
 
                             if (gdbCommand == "l")
                             {
-                                printProgram(false);
-                                std::cerr << std::endl;
+                                if (step == 1)
+                                {
+                                    printProgram(true, getPC());
+                                    std::cerr << std::endl;
+                                }
                             }
                             else if (gdbCommand == "info" || gdbCommand == "i")
                             {
@@ -1055,44 +1058,65 @@ void Simulator::runProgram(int outputRegNum)
                                 {
                                     gdbCommandLine >> gdbCommand;
                                     int i = std::stoi(gdbCommand);
-                                    std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+                                    if (step == 1)
+                                    {
+                                        std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+                                    }
                                 }
                                 else if (gdbCommand == "fpreg" || gdbCommand == "f")
                                 {
                                     gdbCommandLine >> gdbCommand;
                                     int i = std::stoi(gdbCommand);
-                                    std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+                                    if (step == 1)
+                                    {
+                                        std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+                                    }
                                 }
                                 else if (gdbCommand == "pc" || gdbCommand == "p")
                                 {
-                                    std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
-                                    gdbCommandLine >> gdbCommand;
+                                    if (step == 1)
+                                    {
+                                        std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
+                                        gdbCommandLine >> gdbCommand;
+                                    }
                                 }
                                 else
                                 {
-                                    printRegisters();
-                                    std::cerr << std::endl;
+                                    if (step == 1)
+                                    {
+                                        printRegisters();
+                                        std::cerr << std::endl;
+                                    }
                                 }
                             }
                             else if (gdbCommand == "s")
                             {
                                 const uint32_t instruction = loadInstruction(pc);
 
-                                std::cerr << "CLK : " << CLK << std::endl;
+                                if (step == 1)
+                                {
+                                    std::cerr << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
-                                std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+                                    std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
 
-                                printProgram(true);
-                                printInstruction(instruction);
+                                    printProgram(true, getPC());
+                                    printInstruction(instruction);
+                                }
                                 executeInstruction(instruction);
                                 CLK++;
-                                std::cerr << std::endl;
+                                if (step == 1)
+                                {
+                                    std::cerr << std::endl;
+                                }
                             }
                             else if (gdbCommand == "c")
                             {
-                                std::cerr << "heading to eBreak..." << std::endl;
-                                printBoundary();
+                                if (step == 1)
+                                {
+                                    std::cerr << "heading to eBreak..." << std::endl;
+                                    printBoundary();
+                                }
                                 breakMode = true;
                             }
                             else if (gdbCommand == "quit" || gdbCommand == "q")
@@ -1108,7 +1132,10 @@ void Simulator::runProgram(int outputRegNum)
                     }
                     if (isUnknownCommand)
                     {
-                        std::cerr << "Unknown command: " << gdbCommand << std::endl;
+                        if (step == 1)
+                        {
+                            std::cerr << "Unknown command: " << gdbCommand << std::endl;
+                        }
                         step = 1;
                     }
                     else
@@ -1135,21 +1162,16 @@ void Simulator::runProgram(int outputRegNum)
                         CerrRedirect redirect(buffer);
                         const uint32_t instruction = loadInstruction(pc);
 
-                        std::cerr << "CLK : " << CLK << std::endl;
-#ifdef DEBUG
-                        std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
-#endif // DEBUG
-                        printProgram(true);
-                        printInstruction(instruction);
                         executeInstruction(instruction);
                         CLK++;
-                        std::cerr << std::endl;
                     }
                     if (isBreakpoint)
                     {
                         if (step == 0)
                         {
                             std::cerr << buffer.str();
+                            std::cerr << "Program reached ebreak at CLK: " << CLK - 1 << std::endl;
+                            std::cerr << std::endl;
                         }
                         breakMode = false;
                         isBreakpoint = false;
@@ -1168,22 +1190,23 @@ void Simulator::runProgram(int outputRegNum)
         while (max_clk > CLK && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
-            if(!options.has(options.ONLYSTDIO))
-            std::cerr << "CLK : " << CLK << std::endl;
+            if (!options.has(options.ONLYSTDIO))
+                std::cerr << "CLK : " << CLK << std::endl;
 #ifdef DEBUG
             std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
-            if(!options.has(options.ONLYSTDIO))
-            printInstruction(instruction);
-            
+            if (!options.has(options.ONLYSTDIO))
+                printInstruction(instruction);
+
             executeInstruction(instruction);
             CLK++;
         }
-        if(!options.has(options.ONLYSTDIO)){
-        printRegisters();
-        printLog();
-        std::cerr << "__Cache__" << std::endl;
-        dMemory.printCache();
+        if (!options.has(options.ONLYSTDIO))
+        {
+            printRegisters();
+            printLog();
+            std::cerr << "__Cache__" << std::endl;
+            dMemory.printCache();
         }
 
         printOutput();

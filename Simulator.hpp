@@ -27,7 +27,7 @@ public:
     int64_t getCLK() const;
     int32_t getPC() const;
     void printRegisters() const;
-    void printProgram(bool aroundPC) const noexcept;
+    void printProgram(bool aroundPC, int32_t pc) const noexcept;
     // ログの出力
     void printLog();
 
