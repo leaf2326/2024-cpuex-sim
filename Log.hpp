@@ -14,7 +14,7 @@ protected:
     int flushCount = 0;                         // パイプラインのフラッシュ回数
 
     // 命令ごとの実行回数
-    std::unordered_map<std::string, int> instructionCounts;
+    std::unordered_map<std::string, uint64_t> instructionCounts;
 
     int sumCLKCount();
 
