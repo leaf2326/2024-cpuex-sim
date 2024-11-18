@@ -436,7 +436,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     std::cerr << "Completed loading memory" << std::endl;
 }
 
-void Simulator::printProgram(bool aroundPC, int32_t pc) const noexcept
+void Simulator::printProgram(bool aroundPC) const noexcept
 {
     printBoundary();
     if (aroundPC)
@@ -444,7 +444,7 @@ void Simulator::printProgram(bool aroundPC, int32_t pc) const noexcept
 
         for (int i = -1; i < 2; ++i)
         {
-            int32_t address = pc / 4 + i;
+            int32_t address = getPC() / 4 + i;
             if (address < 0 || address >= instructionCount)
             {
                 std::cerr << "-: " << std::endl;
@@ -467,7 +467,7 @@ void Simulator::printProgram(bool aroundPC, int32_t pc) const noexcept
         {
             const uint32_t instruction = iMemory[i];
             std::cerr << i + 1 << ": " << instToString(instruction);
-            if (i == pc / 4)
+            if (i == getPC() / 4)
             {
                 std::cerr << " ←-";
             }
@@ -1047,7 +1047,7 @@ void Simulator::runProgram(int outputRegNum)
                             {
                                 if (step == 1)
                                 {
-                                    printProgram(true, getPC());
+                                    printProgram(true);
                                     std::cerr << std::endl;
                                 }
                             }
@@ -1100,7 +1100,7 @@ void Simulator::runProgram(int outputRegNum)
                                     std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
 
-                                    printProgram(true, getPC());
+                                    printProgram(true);
                                     printInstruction(instruction);
                                 }
                                 executeInstruction(instruction);
