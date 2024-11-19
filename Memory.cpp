@@ -2,14 +2,14 @@
 #include <cmath>
 #include <bit>
 
-Memory::Memory()
+Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t blockSize, int64_t input_addr, int64_t output_addr)
+    : memorySize(memorySize), cacheSize(cacheSize), blockSize(blockSize), input_addr(input_addr), output_addr(output_addr)
 {
-    offsetBits = static_cast<size_t>(std::log2(BLOCK_SIZE));
+    numBlocks = cacheSize / blockSize;
+    offsetBits = static_cast<size_t>(std::log2(blockSize));
     indexBits = static_cast<size_t>(std::log2(numBlocks));
-    for (int i = 0; i < numBlocks; ++i)
-    {
-        cache[i] = CacheBlock{false, false, 0, {}};
-    }
+    cache.resize(numBlocks, CacheBlock{false, false, 0, std::vector<int32_t>(blockSize / sizeof(int32_t))});
+    mainMemory.resize(memorySize / 4, 0);
 }
 
 uint32_t Memory::getTag(uint32_t address)
@@ -32,7 +32,7 @@ void Memory::writeBack(uint32_t index)
     if (cache[index].valid && cache[index].dirty)
     {
         uint32_t baseAddress = (cache[index].tag << (indexBits + offsetBits)) | (index << offsetBits);
-        for (size_t i = 0; i < BLOCK_SIZE / 4; ++i)
+        for (size_t i = 0; i < cache[index].data.size(); ++i)
         {
             mainMemory[baseAddress / 4 + i] = cache[index].data[i];
         }
@@ -51,7 +51,7 @@ void Memory::loadBlockToCache(uint32_t address)
     cache[index].valid = true;
     uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
 
-    for (size_t i = 0; i < BLOCK_SIZE / 4; ++i)
+    for (size_t i = 0; i < cache[index].data.size(); ++i)
     {
         cache[index].data[i] = mainMemory[baseAddress / 4 + i];
     }
@@ -60,16 +60,16 @@ void Memory::loadBlockToCache(uint32_t address)
 
 int32_t Memory::loadWord(uint32_t address, bool isLw)
 {
-    if (address < 0 || address >= DMEMORY_SIZE)
+    if (address < 0 || address >= memorySize)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
-    if (address == INPUT_ADDRESS || address == OUTPUT_ADDRESS)
+    if (address == input_addr || address == output_addr)
     {
         auto temp = mainMemory[address / 4];
-        if (address == INPUT_ADDRESS)
+        if (address == input_addr)
         {
-            std::cerr << "Input requested at INPUT_ADDRESS (0x" << std::hex << address << ")" << std::dec << std::endl;
+            std::cerr << "Input requested at input_addr (0x" << std::hex << address << ")" << std::dec << std::endl;
 
             if (inputIndex >= inputData.size())
             {
@@ -88,7 +88,7 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
                     temp = inputData[inputIndex];
                 }
                 std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
-                storeWord(INPUT_ADDRESS, temp);
+                storeWord(input_addr, temp);
                 inputIndex++;
             }
         }
@@ -117,16 +117,16 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
 
 void Memory::storeWord(uint32_t address, int32_t value)
 {
-    if (address < 0 || address >= DMEMORY_SIZE)
+    if (address < 0 || address >= memorySize)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
 
-    if (address == INPUT_ADDRESS || address == OUTPUT_ADDRESS)
+    if (address == input_addr || address == output_addr)
     {
-        if (address == OUTPUT_ADDRESS)
+        if (address == output_addr)
         {
-            std::cerr << "Output written at OUTPUT_ADDRESS (0x" << std::hex << address << "): " << value << std::dec << std::endl;
+            std::cerr << "Output written at output_addr (0x" << std::hex << address << "): " << value << std::dec << std::endl;
             std::cerr << "Output: 0x" << std::hex << mainMemory[address / 4] << std::dec << std::endl;
             output.emplace_back(value);
         }
@@ -160,7 +160,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
 void Memory::printCache() const
 {
     std::cerr << "Current Cache State:" << std::endl;
-    for (size_t i = 0; i < numBlocks; ++i)
+    for (size_t i = 0; i < cache.size(); ++i)
     {
         std::cerr << "Index 0x" << std::hex << i << std::dec << ": ";
         if (cache[i].valid)

@@ -9,7 +9,7 @@
 Simulator::Simulator(Options &op, uint64_t maxClock)
 {
     registers[0] = 0;                         // x0
-    registers[2] = dMemory.DMEMORY_SIZE - 16; // sp
+    registers[2] = DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
     options = op;
@@ -404,14 +404,14 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); ++i)
     {
         file.read(reinterpret_cast<char *>(&data), sizeof(data));
-        if (address < 0 || address >= dMemory.DMEMORY_SIZE)
+        if (address < 0 || address >= DMEMORY_SIZE)
         {
             throw std::out_of_range("dMemory access out of bounds");
         }
 
         dMemory.mainMemory[address / 4] = data;
         address += 4;
-        if (address >= dMemory.DMEMORY_SIZE)
+        if (address >= DMEMORY_SIZE)
         {
             throw std::out_of_range("Program size exceeds dMemory limits");
         }
