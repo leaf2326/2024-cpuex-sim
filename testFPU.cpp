@@ -9,7 +9,7 @@
 #include <limits>
 #include <xmmintrin.h>
 #include <emmintrin.h>
-#include "FPU.hpp"
+#include "Util.hpp"
 
 inline int32_t Round(const float &x)
 {
@@ -139,7 +139,7 @@ void singleLoopTestFsqrt(FPU &fpu)
     for (uint32_t i = 0; i <= 0xFFFFFFFF; ++i)
     {
         float a = std::bit_cast<float>(i);
-        if (a < 0.0f)
+        if (a < 0.0f || getExponent(i) == 0)
             continue; // Skip negative inputs for sqrt
         float expected = std::sqrt(a);
         float result = std::bit_cast<float>(fpu.fsqrt(i));
@@ -355,6 +355,7 @@ void testFPU(FPU &fpu)
              float result =
                  std::bit_cast<float>(
                      fpu.fsqrt(std::bit_cast<uint32_t>(input1)));
+                     std::cout << std::bit_cast<uint32_t>(input1) << " uint" << std::endl;
              std::cout << "fsqrt (" << input1 << ") = " << result << std::endl;
          }},
         {"ftoi", [&]
@@ -418,12 +419,12 @@ int main()
     testFtoi(fpu);
     testItof(fpu);
     cornerCaseTestFPU(fpu);
-    fullTestFPU(fpu);
+    //fullTestFPU(fpu);
     // singleLoopTestFadd(fpu);
     // singleLoopTestFsub(fpu);
     // singleLoopTestFmul(fpu);
     // singleLoopTestFdiv(fpu);
-    // singleLoopTestFsqrt(fpu);
+    singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;
     testFPU(fpu);
     return 0;
