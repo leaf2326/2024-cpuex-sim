@@ -4,7 +4,6 @@
 
 Memory::Memory()
 {
-
     offsetBits = static_cast<size_t>(std::log2(BLOCK_SIZE));
     indexBits = static_cast<size_t>(std::log2(numBlocks));
     for (int i = 0; i < numBlocks; ++i)

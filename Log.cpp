@@ -20,9 +20,9 @@ void Log::logStall(int stallType)
 {
     nStallCount[stallType]++;
 }
-int Log::sumCLKCount()
+uint64_t Log::sumCLKCount()
 {
-    int CLK = 0;
+    uint64_t CLK = 0;
     // 命令の数だけ加算
     CLK += totalInstructions;
     // ストールの数だけ加算

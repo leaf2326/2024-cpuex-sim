@@ -17,15 +17,16 @@ public:
     std::vector<int32_t> output{};
 
     bool availableCache = false;
+
+    static constexpr int64_t DMEMORY_SIZE = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
+    int32_t mainMemory[DMEMORY_SIZE / 4]{};
+
+private:
     static constexpr int64_t CACHE_SIZE = 1024 * 16;
     static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t numBlocks = CACHE_SIZE / BLOCK_SIZE;
     static constexpr int64_t INPUT_ADDRESS = 100;
     static constexpr int64_t OUTPUT_ADDRESS = 104;
-     static constexpr int64_t DMEMORY_SIZE = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
-    int32_t mainMemory[DMEMORY_SIZE / 4]{};
-
-private:
     struct CacheBlock
     {
         bool valid = false;

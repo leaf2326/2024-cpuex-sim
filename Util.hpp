@@ -15,7 +15,6 @@ uint32_t getExponent(uint32_t x) noexcept;
 uint32_t getMantissa(uint32_t x) noexcept;
 void printBoundary();
 
-// cerrの出力を一時的にリダイレクトするためのクラス
 class CerrRedirect {
 public:
     CerrRedirect(std::ostream& newStream);

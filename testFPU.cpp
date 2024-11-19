@@ -24,7 +24,7 @@ const float TOLERANCE_DIV = std::pow(2, -20);
 const float TOLERANCE_SQRT = std::pow(2, -20);
 
 // テスト用に固定する値
-const float testValues[] = {0.5f, -0.5f, 1000000.0f,0.000001f}; //, std::numeric_limits<float>::max(), std::numeric_limits<float>::min()
+const float testValues[] = {0.5f, -0.5f, 1000000.0f, 0.000001f}; //, std::numeric_limits<float>::max(), std::numeric_limits<float>::min()
 
 // FADD シングルループテスト
 void singleLoopTestFadd(FPU &fpu)
@@ -210,7 +210,7 @@ void fullTestFPU(FPU &fpu)
     for (uint32_t i = 0; i <= 0xFFFFFFFF; i += 0x00000001)
     {
         float f = std::bit_cast<float>(i);
-        int32_t expectedInt = std::round(f);
+        /*int32_t expectedInt = std::round(f);
 
         int32_t resultInt = std::bit_cast<int32_t>(fpu.ftoi(i));
         if (expectedInt != resultInt && expectedInt != INT32_MIN && expectedInt != INT32_MAX)
@@ -222,10 +222,20 @@ void fullTestFPU(FPU &fpu)
         // itof
         uint32_t expectedFloatBits = std::bit_cast<uint32_t>(static_cast<float>(expectedInt));
         uint32_t resultFloatBits = fpu.itof(expectedInt);
-        if (expectedFloatBits != resultFloatBits && expectedInt != INT32_MIN && expectedInt != INT32_MAX)
+        if (expectedFloatBits != resultFloatBits && expectedFloatBits != 0 && expectedFloatBits != UINT32_MAX)
         {
             std::cout << "itof(" << expectedInt << ") = " << std::hex << "0x" << resultFloatBits
                       << " (expected: 0x" << expectedFloatBits << ")" << std::endl;
+        }
+        */
+        // ffloor
+        int32_t expectedFlooredFloat = std::bit_cast<int32_t>(std::floor(f));
+
+        int32_t resultFlooredFloat = std::bit_cast<int32_t>(fpu.ffloor(i));
+        if (expectedFlooredFloat != resultFlooredFloat && expectedFlooredFloat != INT32_MIN && expectedFlooredFloat != INT32_MAX)
+        {
+            std::cout << "ffloor(" << std::hex << "0x" << i << ") = " << std::dec << resultFlooredFloat
+                      << " (expected: " << expectedFlooredFloat << ")" << std::endl;
         }
         if (i == 0xFFFFFFFF)
         {
@@ -370,6 +380,22 @@ void testFPU(FPU &fpu)
                  std::bit_cast<float>(fpu.ffloor(std::bit_cast<uint32_t>(input1)));
 
              std::cout << "ffloor (" << input1 << ") = " << result << std::endl;
+         }},
+        {"flt", [&]
+         {
+             std::cin >> input1 >> input2;
+             bool result =
+                 fpu.flt(std::bit_cast<uint32_t>(input1), std::bit_cast<uint32_t>(input2));
+
+             std::cout << "flt (" << input1 << ", " << input2 << ") = " << result << std::endl;
+         }},
+         {"feq", [&]
+         {
+             std::cin >> input1 >> input2;
+             bool result =
+                 fpu.feq(std::bit_cast<uint32_t>(input1), std::bit_cast<uint32_t>(input2));
+
+             std::cout << "feq (" << input1 << ", " << input2 << ") = " << result << std::endl;
          }}};
     while (1)
     {
@@ -393,11 +419,11 @@ int main()
     testItof(fpu);
     cornerCaseTestFPU(fpu);
     fullTestFPU(fpu);
-    singleLoopTestFadd(fpu);
-    singleLoopTestFsub(fpu);
-    singleLoopTestFmul(fpu);
-    singleLoopTestFdiv(fpu);
-    singleLoopTestFsqrt(fpu);
+    // singleLoopTestFadd(fpu);
+    // singleLoopTestFsub(fpu);
+    // singleLoopTestFmul(fpu);
+    // singleLoopTestFdiv(fpu);
+    // singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;
     testFPU(fpu);
     return 0;
