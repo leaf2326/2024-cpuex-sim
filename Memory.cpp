@@ -10,6 +10,7 @@ Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t blockSize, int64_t 
     indexBits = static_cast<size_t>(std::log2(numBlocks));
     cache.resize(numBlocks, CacheBlock{false, false, 0, std::vector<int32_t>(blockSize / sizeof(int32_t))});
     mainMemory.resize(memorySize / 4, 0);
+    isInitialized.resize(memorySize / 4, 0);
 }
 
 uint32_t Memory::getTag(uint32_t address)
@@ -63,6 +64,10 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
     if (address < 0 || address >= memorySize)
     {
         throw std::out_of_range("dMemory access out of bounds");
+    }
+    if (!isInitialized[address / 4] && address != input_addr)
+    {
+        throw std::out_of_range("Access to uninitialized dMemory part");
     }
     if (address == input_addr || address == output_addr)
     {
@@ -121,7 +126,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
-
+    isInitialized[address / 4] = true;
     if (address == input_addr || address == output_addr)
     {
         if (address == output_addr)

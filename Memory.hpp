@@ -19,6 +19,7 @@ public:
     bool availableCache = false;
 
     std::vector<int32_t> mainMemory{};
+    std::vector<bool> isInitialized{};
 
 private:
     struct CacheBlock

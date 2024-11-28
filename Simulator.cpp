@@ -408,7 +408,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         {
             throw std::out_of_range("dMemory access out of bounds");
         }
-
+        dMemory.isInitialized[address /4] = true;
         dMemory.mainMemory[address / 4] = data;
         address += 4;
         if (address >= DMEMORY_SIZE)
