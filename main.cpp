@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
-    
+
     // optionの処理
 #ifdef DEBUG
     for (int i = 0; i < argc; ++i)
@@ -155,12 +155,15 @@ int main(int argc, char *argv[])
             simulator.printRegisters();
             simulator.printLog();
         }
-        std::chrono::duration<double, std::milli> elapsed = end - start;
+        if (!options.has(options.GDB))
+        {
+            std::chrono::duration<double, std::milli> elapsed = end - start;
 
-        // end - start を秒単位で計算する
-        std::chrono::duration<double> elapsed2 = end - start;
-        std::cerr << "Execution time: " << elapsed.count() << "ms" << std::endl;
-        std::cerr << "Instruction Per Second: " << simulator.getCLK() / elapsed.count() * 1000.0 << std::endl;
+            // end - start を秒単位で計算する
+            std::chrono::duration<double> elapsed2 = end - start;
+            std::cerr << "Execution time: " << elapsed.count() << "ms" << std::endl;
+            std::cerr << "Instruction Per Second: " << simulator.getCLK() / elapsed.count() * 1000.0 << std::endl;
+        }
     }
     catch (const std::exception &e)
     {

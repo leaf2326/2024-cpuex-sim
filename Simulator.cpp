@@ -8,7 +8,7 @@
 
 Simulator::Simulator(Options &op, uint64_t maxClock)
 {
-    registers[0] = 0;                         // x0
+    registers[0] = 0;                 // x0
     registers[2] = DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
@@ -990,6 +990,7 @@ void Simulator::runProgram(int outputRegNum)
     // GDB実行
     if (options.has(options.GDB))
     {
+        bool isQuit = false;
         std::ostringstream buffer;
         bool breakMode = false;
         bool isUnknownCommand = false;
@@ -1122,6 +1123,7 @@ void Simulator::runProgram(int outputRegNum)
                             }
                             else if (gdbCommand == "quit" || gdbCommand == "q")
                             {
+                                isQuit = true;
                                 break;
                             }
                             else
@@ -1182,6 +1184,10 @@ void Simulator::runProgram(int outputRegNum)
                         buffer.str("");
                     }
                 }
+            }
+            if (isQuit)
+            {
+                break;
             }
         }
     }
