@@ -44,7 +44,7 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Stack overflow! sp=" + std::to_string(registers[2]) + " hp=" + std::to_string(registers[3]));
     }
-    // printRegisters();
+    // printRegisters(ALLREG);
 }
 int32_t Simulator::getFpRegister(int fpreg) const
 {
@@ -67,7 +67,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
         std::cerr << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
-    // printRegisters();
+    // printRegisters(ALLREG);
 }
 
 int32_t Simulator::getPC() const
@@ -81,7 +81,7 @@ void Simulator::setPC(int32_t newPC)
         std::cerr << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
 
     pc = newPC;
-    // printRegisters();
+    // printRegisters(ALLREG)
 }
 
 int64_t Simulator::getCLK() const
@@ -516,18 +516,30 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 #endif
 }
 
-void Simulator::printRegisters() const
+void Simulator::printRegisters(int regType) const
 {
-    std::cerr << "Registers state:" << std::endl;
-    for (int i = 0; i < REG_COUNT; i++)
+    if (regType == PC || regType == ALLREG)
     {
-        std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+        std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
     }
-    for (int i = 0; i < FPREG_COUNT; i++)
+
+    if (regType == REG || regType == ALLREG)
     {
-        std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+        std::cerr << "Registers state:" << std::endl;
+        for (int i = 0; i < REG_COUNT; i++)
+        {
+            std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+        }
     }
-    std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
+
+    if (regType == FPREG || regType == ALLREG)
+    {
+        std::cerr << "FpRegisters state:" << std::endl;
+        for (int i = 0; i < FPREG_COUNT; i++)
+        {
+            std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+        }
+    }
 }
 
 void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
@@ -1061,18 +1073,28 @@ void Simulator::runProgram(int outputRegNum)
                                 if (gdbCommand == "reg" || gdbCommand == "r")
                                 {
                                     gdbCommandLine >> gdbCommand;
-                                    int i = std::stoi(gdbCommand);
-                                    if (step == 1)
+                                    //info regの後に何もない場合、gdbCommandは不変
+                                    if (gdbCommand == "reg" || gdbCommand == "r")
                                     {
+                                        printRegisters(REG);
+                                    }
+                                    else if (step == 1)
+                                    {
+                                        int i = std::stoi(gdbCommand);
                                         std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
                                     }
                                 }
                                 else if (gdbCommand == "fpreg" || gdbCommand == "f")
                                 {
                                     gdbCommandLine >> gdbCommand;
-                                    int i = std::stoi(gdbCommand);
-                                    if (step == 1)
+                                    //info fpregの後に何もない場合、gdbCommandは不変
+                                    if (gdbCommand == "fpreg" || gdbCommand == "f")
                                     {
+                                        printRegisters(REG);
+                                    }
+                                    else if (step == 1)
+                                    {
+                                        int i = std::stoi(gdbCommand);
                                         std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
                                     }
                                 }
@@ -1080,15 +1102,14 @@ void Simulator::runProgram(int outputRegNum)
                                 {
                                     if (step == 1)
                                     {
-                                        std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
-                                        gdbCommandLine >> gdbCommand;
+                                        printRegisters(PC);
                                     }
                                 }
                                 else
                                 {
                                     if (step == 1)
                                     {
-                                        printRegisters();
+                                        printRegisters(ALLREG);
                                         std::cerr << std::endl;
                                     }
                                 }
@@ -1212,14 +1233,14 @@ void Simulator::runProgram(int outputRegNum)
         }
         if (!options.has(options.ONLYSTDIO))
         {
-            printRegisters();
+            printRegisters(ALLREG);
             printLog();
             std::cerr << "__Cache__" << std::endl;
             dMemory.printCache();
         }
 
         printOutput();
-        if (options.has(options.REG))
+        if (options.has(options.OUTPUTREG))
         {
             // 0-31はレジスタに対応
             if (outputRegNum >= 0 && outputRegNum < REG_COUNT)

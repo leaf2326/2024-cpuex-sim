@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
                     if (i + 1 < argc)
                     {
                         outputRegNum = std::stoi(argv[i + 1]);
-                        options.on(options.REG);
+                        options.on(options.OUTPUTREG);
                         ++i;
                     }
                     else
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
             std::cerr.rdbuf(oldBuffer);
             std::cerr << "CLK : " << simulator.getCLK() << std::endl;
             simulator.printProgram(true);
-            simulator.printRegisters();
+            simulator.printRegisters(ALLREG);
             simulator.printLog();
         }
         if (!options.has(options.GDB))
@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
         std::cerr << "__DEBUG INFO__ " << std::endl;
         std::cerr << "CLK : " << simulator.getCLK() << std::endl;
         simulator.printProgram(true);
-        simulator.printRegisters();
+        simulator.printRegisters(ALLREG);
         simulator.printLog();
         return 1;
     }

@@ -16,6 +16,10 @@
 
 #define NULLREG -1
 #define NOLOADREG -2 // NOLOADREG != NULLREG
+#define ALLREG 0
+#define PC 1
+#define REG 2
+#define FPREG 3
 
 class Simulator : public Log
 {
@@ -28,7 +32,7 @@ public:
     void runProgram(int outputRegNum);
     int64_t getCLK() const;
     int32_t getPC() const;
-    void printRegisters() const;
+    void printRegisters(int regType) const;
     void printProgram(bool aroundPC) const noexcept;
     // ログの出力
     void printLog();
