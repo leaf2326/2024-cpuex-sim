@@ -32,7 +32,8 @@ make
 | `-i <filepath>` | 入力ファイルのパスを`<filepath>`に指定 |
 | `-gdb` | ステップ実行とかできる。`-onlystdio`との併用は不可 |
 | `-reg <RegNum>` | 特定のレジスタの値を標準出力に出力。RegNumは0-31がx0-x31、32-63がfp0-fp31に対応 |
-| `-limit <maxClock>` | 実行するクロックの最大値を`maxClock`に変更する。uint64_tの範囲まで |
+| `-limit <maxClock>` | 実行するクロックの最大値を`maxClock`に変更する。型はuint64_t |
+| `-memory <dMemorySize>` | DRAMのサイズを`dMemorySize(MiB)`に変更する。|
 
 `gdb`モードの時のコマンド一覧
 | コマンド | 説明 |
