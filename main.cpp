@@ -18,7 +18,9 @@ int main(int argc, char *argv[])
     std::string inputFilePath = "sld/contest.sld";
     int outputRegNum = -1;
     Options options;
-    uint64_t max_clk = 100000;
+
+    uint64_t max_clk = 1000000;
+    uint64_t dMemory_size = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
 
     std::streambuf *oldBuffer = nullptr;
 
@@ -54,6 +56,20 @@ int main(int argc, char *argv[])
                     else
                     {
                         throw std::runtime_error("Filepath is required. Expected: $ -i <filepath>");
+                    }
+                }
+                else if (arg == "-memory")
+                {
+                    if (i + 1 < argc)
+                    {
+                        dMemory_size = std::stoi(argv[i + 1]) * 1024 * 1024;
+                        options.on(options.MEMORY);
+                        ++i;
+                        std::cerr << "DMEMORY_SIZE:" << dMemory_size << std::endl;
+                    }
+                    else
+                    {
+                        throw std::runtime_error("dMemorySize is required. Expected: $ -memory <dMemorySize>(MiB)");
                     }
                 }
                 else if (arg == "-limit")
@@ -120,7 +136,7 @@ int main(int argc, char *argv[])
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
-    Simulator simulator(options, max_clk);
+    Simulator simulator(options, max_clk, dMemory_size);
     // 開始日時を取得する
     auto start = std::chrono::system_clock::now();
     try
@@ -142,6 +158,7 @@ int main(int argc, char *argv[])
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
+
     try
     {
         simulator.runProgram(outputRegNum);

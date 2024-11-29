@@ -6,8 +6,10 @@
 #include <iomanip>
 #include <bit>
 
-Simulator::Simulator(Options &op, uint64_t maxClock)
+Simulator::Simulator(Options &op, uint64_t maxClock, uint64_t dMemory_size)
+    : dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
 {
+    DMEMORY_SIZE = dMemory_size;
     registers[0] = 0;                 // x0
     registers[2] = DMEMORY_SIZE - 16; // sp
     pc = 0;
@@ -398,7 +400,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
 #endif // DEBUG
     uint32_t instruction;
     uint32_t data;
-    int64_t address;
+    uint64_t address;
     file.read(reinterpret_cast<char *>(&dataSectionSize), sizeof(dataSectionSize));
     address = 256;
     for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); ++i)
@@ -408,7 +410,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         {
             throw std::out_of_range("dMemory access out of bounds");
         }
-        dMemory.isInitialized[address /4] = true;
+        dMemory.isInitialized[address / 4] = true;
         dMemory.mainMemory[address / 4] = data;
         address += 4;
         if (address >= DMEMORY_SIZE)

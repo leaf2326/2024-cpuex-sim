@@ -20,8 +20,8 @@ public:
 
     std::vector<int32_t> mainMemory{};
     std::vector<bool> isInitialized{};
-
-private:
+   
+   private:
     struct CacheBlock
     {
         bool valid = false;
