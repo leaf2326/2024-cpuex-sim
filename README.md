@@ -31,9 +31,11 @@ make
 | `-onlystdio` | 実行時のOutputのみ表示する |
 | `-i <filepath>` | 入力ファイルのパスを`<filepath>`に指定 |
 | `-gdb` | ステップ実行とかできる。`-onlystdio`との併用は不可 |
-| `-reg <RegNum>` | 特定のレジスタの値を標準出力に出力。RegNumは0-31がx0-x31、32-63がfp0-fp31に対応 |
+| `-reg <RegNum>` | 特定のレジスタの値を標準出力に出力。`<RegNum>`は0-31が`x0-x31`、32-63が`fp0-fp31`に対応 |
 | `-limit <maxClock>` | 実行するクロックの最大値を`maxClock`に変更する。型はuint64_t |
 | `-memory <dMemorySize>` | DRAMのサイズを`dMemorySize(MiB)`に変更する。|
+| `-cache` | キャッシュメモリありで実行する。実行速度は低下する。|
+| `-icount` | 実行後、命令メモリに格納されたそれぞれの命令の隣に何回実行されたかを書いて出力する。|
 
 `gdb`モードの時のコマンド一覧
 | コマンド | 説明 |
