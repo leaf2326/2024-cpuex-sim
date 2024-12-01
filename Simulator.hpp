@@ -7,6 +7,7 @@
 #include "FPU.hpp"
 #include "Memory.hpp"
 #include <array>
+#include <vector>
 #include <cstdint>
 #include <unordered_map>
 #include <functional>
@@ -33,9 +34,11 @@ public:
     int64_t getCLK() const;
     int32_t getPC() const;
     void printRegisters(int regType) const;
+    void printInstAddrCounts();
     void printProgram(bool aroundPC) const noexcept;
     // ログの出力
     void printLog();
+    void printCacheHitMissCounts();
 
 private:
     uint64_t max_clk = 100000;
@@ -54,7 +57,7 @@ private:
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
     std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
-    int instructionCount = 0;
+    int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
 

@@ -45,6 +45,10 @@ int main(int argc, char *argv[])
                 {
                     options.on(options.CACHE);
                 }
+                else if (arg == "-icount")
+                {
+                    options.on(options.ICOUNT);
+                }
                 else if (arg == "-i")
                 {
                     if (i + 1 < argc)
@@ -171,6 +175,14 @@ int main(int argc, char *argv[])
             simulator.printProgram(true);
             simulator.printRegisters(ALLREG);
             simulator.printLog();
+            if (options.has(options.CACHE))
+            {
+                simulator.printCacheHitMissCounts();
+            }
+            if (options.has(options.ICOUNT))
+            {
+                simulator.printInstAddrCounts();
+            }
         }
         if (!options.has(options.GDB))
         {
@@ -194,6 +206,14 @@ int main(int argc, char *argv[])
         simulator.printProgram(true);
         simulator.printRegisters(ALLREG);
         simulator.printLog();
+        if (options.has(options.CACHE))
+        {
+            simulator.printCacheHitMissCounts();
+        }
+        if (options.has(options.ICOUNT))
+        {
+            simulator.printInstAddrCounts();
+        }
         return 1;
     }
 

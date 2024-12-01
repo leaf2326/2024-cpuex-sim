@@ -1,5 +1,8 @@
 #include "Log.hpp"
 
+void Log::logInstAddr(uint32_t address){
+    instAddrCounts[address]++;
+}
 void Log::logInstruction(const std::string &instructionName)
 {
     totalInstructions++;

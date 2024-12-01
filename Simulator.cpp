@@ -429,7 +429,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
             throw std::out_of_range("Program size exceeds iMemory limits");
         }
     }
-    instructionCount = address / 4;
+    instructionSize = address / 4;
     /*
     for (int i = 0; i < address / 4; i++)
     {
@@ -438,17 +438,26 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     */
     std::cerr << "Completed loading memory" << std::endl;
 }
-
+void Simulator::printInstAddrCounts()
+{
+     std::cerr << "__Instructions__" << std::endl;
+    std::cerr << "[iMEM Address] [Count]: [Instruction]" << std::endl;
+    for (int i = 0; i < instructionSize; ++i)
+    {
+        const uint32_t instruction = iMemory[i];
+        std::cerr << std::hex << "[0x" << i * 4 << std::dec << "] [" << instAddrCounts[i] << "]:" << instToString(instruction);
+        std::cerr << std::endl;
+    }
+}
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
     printBoundary();
     if (aroundPC)
     {
-
         for (int i = -1; i < 2; ++i)
         {
             int32_t address = getPC() / 4 + i;
-            if (address < 0 || address >= instructionCount)
+            if (address < 0 || address >= instructionSize)
             {
                 std::cerr << "-: " << std::endl;
             }
@@ -466,7 +475,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
     }
     else
     {
-        for (int i = 0; i < instructionCount; ++i)
+        for (int i = 0; i < instructionSize; ++i)
         {
             const uint32_t instruction = iMemory[i];
             std::cerr << i + 1 << ": " << instToString(instruction);
@@ -581,6 +590,7 @@ void Simulator::printInstruction(uint32_t instruction) const
 
 void Simulator::executeInstruction(uint32_t instruction)
 {
+    logInstAddr(getPC() / 4);
     int currLoadReg = NULLREG;
     const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
@@ -979,7 +989,9 @@ void Simulator::printLog()
 {
     Log::printLog();
 }
-
+void Simulator::printCacheHitMissCounts(){
+    dMemory.printHitMissCounts();
+}
 void Simulator::printOutput() const noexcept
 {
     for (const auto &o : dMemory.output)
@@ -1073,7 +1085,7 @@ void Simulator::runProgram(int outputRegNum)
                                 if (gdbCommand == "reg" || gdbCommand == "r")
                                 {
                                     gdbCommandLine >> gdbCommand;
-                                    //info regの後に何もない場合、gdbCommandは不変
+                                    // info regの後に何もない場合、gdbCommandは不変
                                     if (gdbCommand == "reg" || gdbCommand == "r")
                                     {
                                         printRegisters(REG);
@@ -1087,7 +1099,7 @@ void Simulator::runProgram(int outputRegNum)
                                 else if (gdbCommand == "fpreg" || gdbCommand == "f")
                                 {
                                     gdbCommandLine >> gdbCommand;
-                                    //info fpregの後に何もない場合、gdbCommandは不変
+                                    // info fpregの後に何もない場合、gdbCommandは不変
                                     if (gdbCommand == "fpreg" || gdbCommand == "f")
                                     {
                                         printRegisters(REG);
@@ -1227,7 +1239,6 @@ void Simulator::runProgram(int outputRegNum)
 #endif // DEBUG
             if (!options.has(options.ONLYSTDIO))
                 printInstruction(instruction);
-
             executeInstruction(instruction);
             CLK++;
         }
@@ -1235,8 +1246,15 @@ void Simulator::runProgram(int outputRegNum)
         {
             printRegisters(ALLREG);
             printLog();
-            std::cerr << "__Cache__" << std::endl;
-            dMemory.printCache();
+            if (options.has(options.ICOUNT))
+            {
+                printInstAddrCounts();
+            }
+            if (options.has(options.CACHE))
+            {
+                dMemory.printHitMissCounts();
+                dMemory.printCacheState();
+            }
         }
 
         printOutput();

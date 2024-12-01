@@ -17,7 +17,8 @@ public:
         OUTPUTREG = 1 << 3,       // 00001000
         LIMIT = 1 << 4,     // 00010000
         CACHE = 1 << 5,     // 00100000
-        MEMORY = 1 << 6,    // 00100000
+        MEMORY = 1 << 6,    // 01000000
+        ICOUNT = 1 << 7,    // 10000000
         All = 0xFF,         // 11111111
     };
     void on(uint32_t flag) noexcept;
