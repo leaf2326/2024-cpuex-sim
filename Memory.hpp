@@ -11,7 +11,7 @@ public:
     Memory(uint64_t memorySize, size_t cacheSize, size_t blockSize, int64_t input_addr, int64_t output_addr);
     int32_t loadWord(uint32_t address, bool toInt);
     void storeWord(uint32_t address, int32_t value);
-    void printCache() const;
+    void printCacheState() const;
     std::vector<int32_t> inputData{};
     unsigned int inputIndex = 0;
     std::vector<int32_t> output{};
@@ -20,8 +20,10 @@ public:
 
     std::vector<int32_t> mainMemory{};
     std::vector<bool> isInitialized{};
-   
-   private:
+
+    void printHitMissCounts() const;
+
+private:
     struct CacheBlock
     {
         bool valid = false;
@@ -47,6 +49,9 @@ public:
     uint32_t getOffset(uint32_t address);
     void writeBack(uint32_t index);
     void loadBlockToCache(uint32_t address);
+
+    uint64_t hitCount = 0;
+    uint64_t missCount = 0;
 };
 
 #endif

@@ -109,11 +109,13 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
 
     if (cache[index].valid && cache[index].tag == tag)
     {
+        ++hitCount;
         std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
         return cache[index].data[offset];
     }
     else
     {
+        ++missCount;
         std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
         loadBlockToCache(address);
         return cache[index].data[offset];
@@ -149,12 +151,14 @@ void Memory::storeWord(uint32_t address, int32_t value)
 
     if (cache[index].valid && cache[index].tag == tag)
     {
+        ++hitCount;
         std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
         cache[index].data[offset] = value;
         cache[index].dirty = true;
     }
     else
     {
+        ++missCount;
         std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
         loadBlockToCache(address);
         cache[index].data[offset] = value;
@@ -162,7 +166,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
     }
 }
 
-void Memory::printCache() const
+void Memory::printCacheState() const
 {
     std::cerr << "Current Cache State:" << std::endl;
     for (size_t i = 0; i < cache.size(); ++i)
@@ -182,4 +186,12 @@ void Memory::printCache() const
         }
         std::cerr << std::dec << std::endl;
     }
+}
+
+void Memory::printHitMissCounts() const
+{
+
+    std::cerr << "__Cache__" << std::endl;
+    std::cerr << "Cache Hit Count: " << hitCount << std::endl;
+    std::cerr << "Cache Miss Count: " << missCount << std::endl;
 }
