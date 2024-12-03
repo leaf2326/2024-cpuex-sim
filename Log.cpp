@@ -1,6 +1,11 @@
 #include "Log.hpp"
+#include <iomanip>
+#include <algorithm>
+#include <utility>
+#include <vector>
 
-void Log::logInstAddr(uint32_t address){
+void Log::logInstAddr(uint32_t address)
+{
     instAddrCounts[address]++;
 }
 void Log::logInstruction(const std::string &instructionName)
@@ -45,12 +50,19 @@ void Log::printLog()
     std::cerr << "__Start printLog__" << std::endl;
     std::cerr << "Total instructions executed: " << totalInstructions << std::endl;
 
-    std::cerr << "Instruction counts:" << std::endl;
-    for (const auto &pair : instructionCounts)
+    std::cerr << "__Instruction counts__" << std::endl;
     {
-        std::cerr << "  " << pair.first << ": " << pair.second << std::endl;
+        std::vector<std::pair<uint64_t,std::string>> v;
+        for (const auto &p : instructionCounts)
+        {
+            v.push_back(std::make_pair(p.second, p.first));
+        }
+        sort(v.rbegin(), v.rend());
+        for (const auto &p : v)
+        {
+            std::cerr << std::setw(8) << p.second + ":" << std::setw(15) << p.first << std::endl;
+        }
     }
-
     std::cerr << "Branch predictions: " << branchPredCount << std::endl;
     std::cerr << "Flushes due to branch misprediction: " << flushCount << std::endl;
     if (nStallCount.empty())

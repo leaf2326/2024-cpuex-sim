@@ -6,6 +6,7 @@ int main(int argc, char *argv[])
 {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
+    std::cerr << std::showbase;
 
     // optionの処理
 #ifdef DEBUG
@@ -171,7 +172,7 @@ int main(int argc, char *argv[])
         if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
         {
             std::cerr.rdbuf(oldBuffer);
-            std::cerr << "CLK : " << simulator.getCLK() << std::endl;
+            std::cerr << "Step : " << simulator.getCLK() << std::endl;
             simulator.printProgram(true);
             simulator.printRegisters(ALLREG);
             simulator.printLog();
@@ -202,7 +203,7 @@ int main(int argc, char *argv[])
         }
         std::cerr << "Error: " << e.what() << std::endl;
         std::cerr << "__DEBUG INFO__ " << std::endl;
-        std::cerr << "CLK : " << simulator.getCLK() << std::endl;
+        std::cerr << "Step : " << simulator.getCLK() << std::endl;
         simulator.printProgram(true);
         simulator.printRegisters(ALLREG);
         simulator.printLog();

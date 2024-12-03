@@ -37,7 +37,7 @@ void Simulator::setRegister(int reg, int32_t value)
         throw std::out_of_range("Invalid register index");
     }
     if (!options.has(options.ONLYSTDIO))
-        std::cerr << "Register x" << reg << " changed from 0x" << std::hex << registers[reg] << " to 0x" << value << std::dec << std::endl;
+        std::cerr << "Register x" << reg << " changed from " << std::hex << registers[reg] << " to " << value << std::dec << std::endl;
 
     registers[reg] = value;
     if (registers[2] <= registers[3])
@@ -64,7 +64,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
         throw std::out_of_range("Invalid fpregister index");
     }
     if (!options.has(options.ONLYSTDIO))
-        std::cerr << "fpRegister fp" << fpreg << " changed from 0x" << std::hex << fpRegisters[fpreg] << " to 0x" << fpvalue << std::dec << std::endl;
+        std::cerr << "fpRegister fp" << fpreg << " changed from " << std::hex << fpRegisters[fpreg] << " to " << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
     // printRegisters(ALLREG);
@@ -78,7 +78,7 @@ int32_t Simulator::getPC() const
 void Simulator::setPC(int32_t newPC)
 {
     if (!options.has(options.ONLYSTDIO))
-        std::cerr << "PC changed from 0x" << std::hex << pc << " to 0x" << newPC << std::dec << std::endl;
+        std::cerr << "PC changed from " << std::hex << pc << " to " << newPC << std::dec << std::endl;
 
     pc = newPC;
     // printRegisters(ALLREG)
@@ -106,7 +106,7 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
     }
 #ifdef DEBUG
 
-    std::cerr << "0x" << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
+    std::cerr << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
 
 #endif // DEBUG
     iMemory[address / 4] = instruction;
@@ -249,7 +249,7 @@ std::string Simulator::instToString(uint32_t instruction) const
     {
         const uint32_t rd = getRd(instruction);
         int32_t imm = (instruction >> 12) & 0xFFFFF;
-        sstr << "lui x" << rd << ", 0x" << std::hex << imm << std::dec;
+        sstr << "lui x" << rd << ", " << std::hex << imm << std::dec;
     }
     case 0x23:
     {
@@ -440,13 +440,16 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
 }
 void Simulator::printInstAddrCounts()
 {
-     std::cerr << "__Instructions__" << std::endl;
-    std::cerr << "[iMEM Address] [Count]: [Instruction]" << std::endl;
+    std::cerr << "__Instructions__" << std::endl;
+    std::cerr << std::setw(15) << "[iMEM Address]"
+              << std::setw(15) << "[Count]:"
+              << std::setw(15) << "Instruction" << std::endl;
     for (int i = 0; i < instructionSize; ++i)
     {
         const uint32_t instruction = iMemory[i];
-        std::cerr << std::hex << "[0x" << i * 4 << std::dec << "] [" << instAddrCounts[i] << "]:" << instToString(instruction);
-        std::cerr << std::endl;
+        std::cerr << std::setw(15) << std::hex << i * 4 << std::dec
+                  << std::setw(14) << instAddrCounts[i] << ":  "
+                  << instToString(instruction) << std::endl;
     }
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
@@ -527,26 +530,32 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 
 void Simulator::printRegisters(int regType) const
 {
+    std::cerr << std::showbase;
     if (regType == PC || regType == ALLREG)
     {
-        std::cerr << "PC: 0x" << std::hex << getPC() << std::dec << " (" << getPC() << ")" << std::endl;
+        std::cerr << std::setw(8) << "PC:"
+                  << std::setw(15) << std::hex << getPC()
+                  << std::setw(15) << std::dec << "(" + std::to_string(getPC()) + ")" << std::endl;
     }
-
     if (regType == REG || regType == ALLREG)
     {
-        std::cerr << "Registers state:" << std::endl;
+        std::cerr << "__Registers state__" << std::endl;
         for (int i = 0; i < REG_COUNT; i++)
         {
-            std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+            std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
+                      << std::setw(15) << std::hex << getRegister(i)
+                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
         }
     }
 
     if (regType == FPREG || regType == ALLREG)
     {
-        std::cerr << "FpRegisters state:" << std::endl;
+        std::cerr << "__FpRegisters state__" << std::endl;
         for (int i = 0; i < FPREG_COUNT; i++)
         {
-            std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+            std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
+                      << std::setw(15) << std::hex << getFpRegister(i)
+                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")" << std::endl;
         }
     }
 }
@@ -989,7 +998,8 @@ void Simulator::printLog()
 {
     Log::printLog();
 }
-void Simulator::printCacheHitMissCounts(){
+void Simulator::printCacheHitMissCounts()
+{
     dMemory.printHitMissCounts();
 }
 void Simulator::printOutput() const noexcept
@@ -1093,7 +1103,7 @@ void Simulator::runProgram(int outputRegNum)
                                     else if (step == 1)
                                     {
                                         int i = std::stoi(gdbCommand);
-                                        std::cerr << "x" << i << ": 0x" << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+                                        std::cerr << "x" << i << ": " << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
                                     }
                                 }
                                 else if (gdbCommand == "fpreg" || gdbCommand == "f")
@@ -1107,7 +1117,7 @@ void Simulator::runProgram(int outputRegNum)
                                     else if (step == 1)
                                     {
                                         int i = std::stoi(gdbCommand);
-                                        std::cerr << "fp" << i << ": 0x" << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+                                        std::cerr << "fp" << i << ": " << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
                                     }
                                 }
                                 else if (gdbCommand == "pc" || gdbCommand == "p")
@@ -1132,7 +1142,7 @@ void Simulator::runProgram(int outputRegNum)
 
                                 if (step == 1)
                                 {
-                                    std::cerr << "CLK : " << CLK << std::endl;
+                                    std::cerr << "Step : " << CLK << std::endl;
 #ifdef DEBUG
                                     std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
@@ -1208,7 +1218,7 @@ void Simulator::runProgram(int outputRegNum)
                         if (step == 0)
                         {
                             std::cerr << buffer.str();
-                            std::cerr << "Program reached ebreak at CLK: " << CLK - 1 << std::endl;
+                            std::cerr << "Program reached ebreak at Step: " << CLK - 1 << std::endl;
                             std::cerr << std::endl;
                         }
                         breakMode = false;
@@ -1233,7 +1243,7 @@ void Simulator::runProgram(int outputRegNum)
         {
             const uint32_t instruction = loadInstruction(pc);
             if (!options.has(options.ONLYSTDIO))
-                std::cerr << "CLK : " << CLK << std::endl;
+                std::cerr << "Step : " << CLK << std::endl;
 #ifdef DEBUG
             std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
@@ -1263,12 +1273,12 @@ void Simulator::runProgram(int outputRegNum)
             // 0-31はレジスタに対応
             if (outputRegNum >= 0 && outputRegNum < REG_COUNT)
             {
-                std::cout << "x" << outputRegNum << ": 0x" << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
+                std::cout << "x" << outputRegNum << ": " << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
             }
             // 32以上はfpレジスタに対応
             else if (outputRegNum >= REG_COUNT && outputRegNum < REG_COUNT + FPREG_COUNT)
             {
-                std::cout << "fp" << outputRegNum - REG_COUNT << ": 0x" << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
+                std::cout << "fp" << outputRegNum - REG_COUNT << ": " << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
             }
             else
             {
