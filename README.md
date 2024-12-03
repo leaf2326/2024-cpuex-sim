@@ -61,4 +61,4 @@ make
 
 `make testFPU`をすると、`main.cpp`ではなく`testFPU.cpp`が実行される。FPUのテストはこっちでやる予定。
 
-`CLK`が`maxClock(デフォルトは100000)`に達するか`ebreak`が呼ばれると停止する
+`CLK`が`maxClock(デフォルトはUINT64_MAX)`に達するか`ebreak`が呼ばれると停止する

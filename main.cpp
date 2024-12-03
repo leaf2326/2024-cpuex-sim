@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     int outputRegNum = -1;
     Options options;
 
-    uint64_t max_clk = 1000000;
+    uint64_t max_clk = UINT64_MAX;
     uint64_t dMemory_size = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
 
     std::streambuf *oldBuffer = nullptr;
