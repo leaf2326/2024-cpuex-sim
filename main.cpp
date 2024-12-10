@@ -7,7 +7,6 @@ int main(int argc, char *argv[])
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
     std::cerr << std::showbase;
-
     // optionの処理
 #ifdef DEBUG
     for (int i = 0; i < argc; ++i)
@@ -23,8 +22,6 @@ int main(int argc, char *argv[])
     uint64_t max_clk = UINT64_MAX;
     uint64_t dMemory_size = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
 
-    std::streambuf *oldBuffer = nullptr;
-
     try
     {
 
@@ -36,7 +33,7 @@ int main(int argc, char *argv[])
             {
                 if (arg == "-onlystdio")
                 {
-                    options.on(options.ONLYSTDIO);
+                    throw std::runtime_error("-onlystdio is deprecated");
                 }
                 else if (arg == "-gdb")
                 {
@@ -124,7 +121,6 @@ int main(int argc, char *argv[])
         }
 #ifdef DEBUG
         std::cerr << "programFilepath: " << programFilePath << std::endl;
-        std::cerr << "Option -onlystdio is enabled." << std::endl;
         if (options.has(options.I))
         {
             std::cerr << "Option -i is enabled." << std::endl;
@@ -134,87 +130,45 @@ int main(int argc, char *argv[])
     }
     catch (const std::exception &e)
     {
-        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
-        {
-            std::cerr.rdbuf(oldBuffer);
-        }
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
     Simulator simulator(options, max_clk, dMemory_size);
-    // 開始日時を取得する
+    // 開始日時を取得
+
     auto start = std::chrono::system_clock::now();
+
+    // プログラムシミュレートの準備
     try
     {
-        if (options.has(options.ONLYSTDIO))
-        {
-            oldBuffer = std::cerr.rdbuf(nullptr);
-        }
-        // プログラムシミュレート
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);
     }
     catch (const std::exception &e)
     {
-        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
-        {
-            std::cerr.rdbuf(oldBuffer);
-        }
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
 
+    // シミュレート開始
     try
     {
         simulator.runProgram(outputRegNum);
         auto end = std::chrono::system_clock::now();
+        if(!options.has(options.GDB))
+        simulator.printLog();
 
-        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
-        {
-            std::cerr.rdbuf(oldBuffer);
-            std::cerr << "Step : " << simulator.getCLK() << std::endl;
-            simulator.printProgram(true);
-            simulator.printRegisters(ALLREG);
-            simulator.printLog();
-            if (options.has(options.CACHE))
-            {
-                simulator.printCacheHitMissCounts();
-            }
-            if (options.has(options.ICOUNT))
-            {
-                simulator.printInstAddrCounts();
-            }
-        }
-        if (!options.has(options.GDB))
-        {
-            std::chrono::duration<double, std::milli> elapsed = end - start;
+        std::chrono::duration<double, std::milli> elapsed = end - start;
 
-            // end - start を秒単位で計算する
-            std::chrono::duration<double> elapsed2 = end - start;
-            std::cerr << "Execution time: " << elapsed.count() << "ms" << std::endl;
-            std::cerr << "Instruction Per Second: " << simulator.getCLK() / elapsed.count() * 1000.0 << std::endl;
-        }
+        // end - start を秒単位で計算
+        std::chrono::duration<double> elapsed2 = end - start;
+        std::cerr << "Simulator Execution time: " << elapsed.count() << "ms" << std::endl;
     }
     catch (const std::exception &e)
     {
-        if (options.has(options.ONLYSTDIO) && oldBuffer != nullptr)
-        {
-            std::cerr.rdbuf(oldBuffer);
-        }
         std::cerr << "Error: " << e.what() << std::endl;
         std::cerr << "__DEBUG INFO__ " << std::endl;
-        std::cerr << "Step : " << simulator.getCLK() << std::endl;
-        simulator.printProgram(true);
-        simulator.printRegisters(ALLREG);
         simulator.printLog();
-        if (options.has(options.CACHE))
-        {
-            simulator.printCacheHitMissCounts();
-        }
-        if (options.has(options.ICOUNT))
-        {
-            simulator.printInstAddrCounts();
-        }
         return 1;
     }
 

@@ -31,26 +31,28 @@ public:
     void loadMemoryFromBinary(const std::string &programFilePath);
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
-    int64_t getCLK() const;
+    int64_t getStep() const;
     int32_t getPC() const;
     void printRegisters(int regType) const;
-    void printInstAddrCounts();
-    void printProgram(bool aroundPC) const noexcept;
     // ログの出力
     void printLog();
-    void printCacheHitMissCounts();
 
 private:
-    uint64_t max_clk = 100000;
-    uint64_t CLK = 0;
+    uint64_t max_clk = UINT64_MAX;
+    uint64_t step = 0;
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;
-    static constexpr int64_t IMEMORY_SIZE = 512 * 1024;      // Iメモリサイズ（512KiB）
+    static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（512KiB）
     static constexpr int64_t CACHE_SIZE = 1024 * 16;
     static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t INPUT_ADDRESS = 100;
     static constexpr int64_t OUTPUT_ADDRESS = 104;
+    static constexpr double CPUFREQUENCY = 16000000;
     bool isBreakpoint;
+    bool currentInstIsLoadOrStore = false;
+    bool prevInstIsLoadOrStore = false;
+    uint64_t loadStoreSequence = 0;
+    uint64_t hazardRAW = 0;
 
     FPU fpu;
     std::array<int32_t, REG_COUNT> registers{};
@@ -93,6 +95,10 @@ private:
     void printInstruction(uint32_t instruction) const;
     // 命令実行
     void executeInstruction(uint32_t instruction);
+
+    void printInstAddrCounts();
+    void printProgram(bool aroundPC) const noexcept;
+    void printCacheHitMissCounts() const;
 
     void printOutput() const noexcept;
 };

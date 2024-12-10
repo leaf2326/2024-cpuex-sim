@@ -17,6 +17,7 @@ Simulator::Simulator(Options &op, uint64_t maxClock, uint64_t dMemory_size)
     options = op;
     max_clk = maxClock;
     dMemory.availableCache = op.has(op.CACHE);
+    dMemory.availableLog = op.has(op.GDB);
 }
 
 int32_t Simulator::getRegister(int reg) const
@@ -36,7 +37,7 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Invalid register index");
     }
-    if (!options.has(options.ONLYSTDIO))
+    if (options.has(options.GDB))
         std::cerr << "Register x" << reg << " changed from " << std::hex << registers[reg] << " to " << value << std::dec << std::endl;
 
     registers[reg] = value;
@@ -63,7 +64,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     {
         throw std::out_of_range("Invalid fpregister index");
     }
-    if (!options.has(options.ONLYSTDIO))
+    if (options.has(options.GDB))
         std::cerr << "fpRegister fp" << fpreg << " changed from " << std::hex << fpRegisters[fpreg] << " to " << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
@@ -77,16 +78,16 @@ int32_t Simulator::getPC() const
 
 void Simulator::setPC(int32_t newPC)
 {
-    if (!options.has(options.ONLYSTDIO))
+    if (options.has(options.GDB))
         std::cerr << "PC changed from " << std::hex << pc << " to " << newPC << std::dec << std::endl;
 
     pc = newPC;
     // printRegisters(ALLREG)
 }
 
-int64_t Simulator::getCLK() const
+int64_t Simulator::getStep() const
 {
-    return CLK;
+    return step;
 }
 
 int32_t Simulator::loadInstruction(int32_t address) const
@@ -105,9 +106,7 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
         throw std::out_of_range("iMemory access out of bounds");
     }
 #ifdef DEBUG
-
     std::cerr << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
-
 #endif // DEBUG
     iMemory[address / 4] = instruction;
 }
@@ -430,12 +429,6 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         }
     }
     instructionSize = address / 4;
-    /*
-    for (int i = 0; i < address / 4; i++)
-    {
-        std::cerr << std::dec << "iMemory[" << i << "] is 0b" << std::bitset<32>(iMemory[i]) << std::endl;
-    }
-    */
     std::cerr << "Completed loading memory" << std::endl;
 }
 void Simulator::printInstAddrCounts()
@@ -443,12 +436,12 @@ void Simulator::printInstAddrCounts()
     std::cerr << "__Instructions__" << std::endl;
     std::cerr << std::setw(15) << "[iMEM Address]"
               << std::setw(15) << "[Count]:"
-              << std::setw(15) << "Instruction" << std::endl;
+              << std::setw(19) << "Instruction" << std::endl;
     for (int i = 0; i < instructionSize; ++i)
     {
         const uint32_t instruction = iMemory[i];
         std::cerr << std::setw(15) << std::hex << i * 4 << std::dec
-                  << std::setw(14) << instAddrCounts[i] << ":  "
+                  << std::setw(14) << instAddrCounts[i] << ":        "
                   << instToString(instruction) << std::endl;
     }
 }
@@ -530,7 +523,6 @@ void Simulator::loadInputData(const std::string &inputFilePath)
 
 void Simulator::printRegisters(int regType) const
 {
-    std::cerr << std::showbase;
     if (regType == PC || regType == ALLREG)
     {
         std::cerr << std::setw(8) << "PC:"
@@ -566,7 +558,7 @@ void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
     // 1命令前にロードしたレジスタであるかを検出
     if (rs1 == prevLoadReg || rs2 == prevLoadReg)
     {
-        logStall(1);
+        hazardRAW++;
     }
 }
 
@@ -594,7 +586,8 @@ inline void Simulator::updatePrevLoadReg(int currLoadReg)
 
 void Simulator::printInstruction(uint32_t instruction) const
 {
-    std::cerr << "Executing: " << instToString(instruction) << std::endl;
+    if (options.has(options.GDB))
+        std::cerr << "Executing: " << instToString(instruction) << std::endl;
 }
 
 void Simulator::executeInstruction(uint32_t instruction)
@@ -783,6 +776,11 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("lw"); // 命令の記録
             setRegister(rd, dMemory.loadWord(address, true));
+            if (prevInstIsLoadOrStore)
+            {
+                loadStoreSequence++;
+            }
+            currentInstIsLoadOrStore = true;
         }
         else
         {
@@ -813,6 +811,11 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("sw"); // 命令の記録
             dMemory.storeWord(address, getRegister(rs2));
+            if (prevInstIsLoadOrStore)
+            {
+                loadStoreSequence++;
+            }
+            currentInstIsLoadOrStore = true;
         }
         else
         {
@@ -851,6 +854,11 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("flw"); // 命令の記録
             setFpRegister(rd, dMemory.loadWord(address, false));
+            if (prevInstIsLoadOrStore)
+            {
+                loadStoreSequence++;
+            }
+            currentInstIsLoadOrStore = true;
         }
         else
         {
@@ -881,6 +889,11 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("fsw"); // 命令の記録
             dMemory.storeWord(address, getFpRegister(rs2));
+            if (prevInstIsLoadOrStore)
+            {
+                loadStoreSequence++;
+            }
+            currentInstIsLoadOrStore = true;
         }
         else
         {
@@ -898,55 +911,68 @@ void Simulator::executeInstruction(uint32_t instruction)
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
 
-        detectPrevLoad(rs1, rs2);
-
         if (funct7 == 0x00)
         {
+
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction("fadd");
             setFpRegister(rd, fpu.fadd(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (funct7 == 0x04)
         {
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction("fsub");
             setFpRegister(rd, fpu.fsub(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (funct7 == 0x08)
         {
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction("fmul");
             setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (funct7 == 0x0C)
         {
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction("fdiv");
             setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (funct7 == 0x60)
         {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("ftoi");
             setRegister(rd, fpu.ftoi(getFpRegister(rs1)));
         }
         else if (funct7 == 0x68)
         {
+
+            detectPrevLoad(rs1, NOLOADREG);
             logInstruction("itof");
             setFpRegister(rd, fpu.itof(getRegister(rs1)));
         }
         else if (funct7 == 0x2C)
         {
+
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("fsqrt");
             setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
         }
         else if (funct7 == 0x7C)
         {
+
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("fmv");
             setFpRegister(rd, getFpRegister(rs1));
         }
         else if (funct7 == 0x78)
         {
+
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("ffloor");
             setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
         }
         else if (funct7 == 0x74)
         {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("fneg");
             setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
         }
@@ -954,11 +980,14 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             if (funct3 == 0x1)
             {
+
+                detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
                 logInstruction("flt");
                 setRegister(rd, fpu.flt(getFpRegister(rs1), getFpRegister(rs2)));
             }
             else if (funct3 == 0x2)
             {
+                detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
                 logInstruction("feq");
                 setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
             }
@@ -989,19 +1018,53 @@ void Simulator::executeInstruction(uint32_t instruction)
     default:
         throw std::runtime_error("Unknown instruction");
     }
-
+    prevInstIsLoadOrStore = currentInstIsLoadOrStore;
+    currentInstIsLoadOrStore = false;
     updatePrevLoadReg(currLoadReg);
+}
+
+void Simulator::printCacheHitMissCounts() const
+{
+    std::cerr << "__Cache__" << std::endl;
+    std::cerr << "Cache Hit Count: " << dMemory.getHitCount() << std::endl;
+    std::cerr << "Cache Miss Count: " << dMemory.getMissCount() << std::endl;
 }
 
 // ログの出力
 void Simulator::printLog()
 {
+    uint64_t estimatedClock = 0;
+    std::cerr << "Step : " << getStep() << std::endl;
+    printProgram(true);
+    printRegisters(ALLREG);
+    if (options.has(options.ICOUNT))
+    {
+        printInstAddrCounts();
+    }
     Log::printLog();
+    std::cerr << "Detected RAW hazard: " << hazardRAW << std::endl;
+    if (options.has(options.CACHE))
+    {
+        printCacheHitMissCounts();
+    }
+    std::cerr << "jal + jalr: " << instructionCounts["jal"] + instructionCounts["jalr"] << std::endl;
+    std::cerr << "Sequencial load and store: " << loadStoreSequence << std::endl;
+    estimatedClock += 4;
+    estimatedClock += totalInstructions;
+    estimatedClock += (instructionCounts["jal"] + instructionCounts["jalr"]) * 2;
+    estimatedClock += dMemory.getHitCount();
+    estimatedClock += dMemory.getMissCount() * 14;
+    estimatedClock += hazardRAW;
+    estimatedClock += flushCount * 2;
+    estimatedClock += loadStoreSequence;
+
+    std::cerr << "Estimated clock: " << estimatedClock << std::endl;
+    double estimatedTime = estimatedClock / CPUFREQUENCY;
+    std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
+    std::cerr << "Estimated instruction per clock: " << totalInstructions / (double)estimatedClock << std::endl;
+    std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
 }
-void Simulator::printCacheHitMissCounts()
-{
-    dMemory.printHitMissCounts();
-}
+
 void Simulator::printOutput() const noexcept
 {
     for (const auto &o : dMemory.output)
@@ -1021,7 +1084,7 @@ void Simulator::runProgram(int outputRegNum)
     {
         std::cerr << "__GDB MODE__" << std::endl;
     }
-    CLK = 0;
+    step = 0;
 
     // GDB実行
     if (options.has(options.GDB))
@@ -1033,10 +1096,10 @@ void Simulator::runProgram(int outputRegNum)
         std::stringstream gdbCommandLine;
         std::string gdbCommand;
         std::string prevGdbCommand;
-        int step = 0;
+        int rep = 0;
         while (true)
         {
-            if (step == 0)
+            if (rep == 0)
             {
                 gdbCommand = "";
                 gdbCommandLine.clear();
@@ -1052,22 +1115,23 @@ void Simulator::runProgram(int outputRegNum)
                 gdbCommandLine.str(gdbCommand);
                 prevGdbCommand = gdbCommand;
                 gdbCommandLine >> gdbCommand;
-                step = 1;
+                rep = 1;
                 try
                 {
-                    step = std::stoi(gdbCommand);
+                    rep = std::stoi(gdbCommand);
 
                     gdbCommandLine >> gdbCommand;
                 }
                 catch (const std::invalid_argument &e)
                 {
+                    // この場合はstoiにint化できる文字列が渡されていない
                 }
                 catch (const std::exception &e)
                 {
                     std::cerr << "Error: out of range" << std::endl;
                 }
             }
-            for (int i = 0; i < step; ++i)
+            for (int i = 0; i < rep; ++i)
             {
                 if (!breakMode)
                 {
@@ -1083,7 +1147,7 @@ void Simulator::runProgram(int outputRegNum)
 
                             if (gdbCommand == "l")
                             {
-                                if (step == 1)
+                                if (rep == 1)
                                 {
                                     printProgram(true);
                                     std::cerr << std::endl;
@@ -1100,36 +1164,40 @@ void Simulator::runProgram(int outputRegNum)
                                     {
                                         printRegisters(REG);
                                     }
-                                    else if (step == 1)
+                                    else if (rep == 1)
                                     {
                                         int i = std::stoi(gdbCommand);
-                                        std::cerr << "x" << i << ": " << std::hex << getRegister(i) << std::dec << " (" << std::bit_cast<int32_t>(getRegister(i)) << ")" << std::endl;
+                                        std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
+                                                  << std::setw(15) << std::hex << getRegister(i)
+                                                  << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
                                     }
                                 }
-                                else if (gdbCommand == "fpreg" || gdbCommand == "f")
+                                else if (gdbCommand == "fpreg" || gdbCommand == "f"||gdbCommand == "fp")
                                 {
                                     gdbCommandLine >> gdbCommand;
                                     // info fpregの後に何もない場合、gdbCommandは不変
-                                    if (gdbCommand == "fpreg" || gdbCommand == "f")
+                                    if (gdbCommand == "fpreg" || gdbCommand == "f" ||gdbCommand == "fp")
                                     {
                                         printRegisters(REG);
                                     }
-                                    else if (step == 1)
+                                    else if (rep == 1)
                                     {
                                         int i = std::stoi(gdbCommand);
-                                        std::cerr << "fp" << i << ": " << std::hex << getFpRegister(i) << std::dec << " (" << std::bit_cast<float>(getFpRegister(i)) << ")" << std::endl;
+                                        std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
+                                                  << std::setw(15) << std::hex << getFpRegister(i)
+                                                  << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")" << std::endl;
                                     }
                                 }
                                 else if (gdbCommand == "pc" || gdbCommand == "p")
                                 {
-                                    if (step == 1)
+                                    if (rep == 1)
                                     {
                                         printRegisters(PC);
                                     }
                                 }
                                 else
                                 {
-                                    if (step == 1)
+                                    if (rep == 1)
                                     {
                                         printRegisters(ALLREG);
                                         std::cerr << std::endl;
@@ -1140,9 +1208,9 @@ void Simulator::runProgram(int outputRegNum)
                             {
                                 const uint32_t instruction = loadInstruction(pc);
 
-                                if (step == 1)
+                                if (rep == 1)
                                 {
-                                    std::cerr << "Step : " << CLK << std::endl;
+                                    std::cerr << "Step : " << step << std::endl;
 #ifdef DEBUG
                                     std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
@@ -1151,15 +1219,15 @@ void Simulator::runProgram(int outputRegNum)
                                     printInstruction(instruction);
                                 }
                                 executeInstruction(instruction);
-                                CLK++;
-                                if (step == 1)
+                                step++;
+                                if (rep == 1)
                                 {
                                     std::cerr << std::endl;
                                 }
                             }
                             else if (gdbCommand == "c")
                             {
-                                if (step == 1)
+                                if (rep == 1)
                                 {
                                     std::cerr << "heading to eBreak..." << std::endl;
                                     printBoundary();
@@ -1180,15 +1248,15 @@ void Simulator::runProgram(int outputRegNum)
                     }
                     if (isUnknownCommand)
                     {
-                        if (step == 1)
+                        if (rep == 1)
                         {
                             std::cerr << "Unknown command: " << gdbCommand << std::endl;
                         }
-                        step = 1;
+                        rep = 1;
                     }
                     else
                     {
-                        if (step == 1)
+                        if (rep == 1)
                         {
                             std::cerr << buffer.str();
                         }
@@ -1199,7 +1267,7 @@ void Simulator::runProgram(int outputRegNum)
                         }
                     }
                     // update
-                    step--;
+                    rep--;
                     isUnknownCommand = false;
                 }
                 while (breakMode)
@@ -1211,14 +1279,14 @@ void Simulator::runProgram(int outputRegNum)
                         const uint32_t instruction = loadInstruction(pc);
 
                         executeInstruction(instruction);
-                        CLK++;
+                        step++;
                     }
                     if (isBreakpoint)
                     {
-                        if (step == 0)
+                        if (rep == 0)
                         {
                             std::cerr << buffer.str();
-                            std::cerr << "Program reached ebreak at Step: " << CLK - 1 << std::endl;
+                            std::cerr << "Program reached ebreak at Step: " << step - 1 << std::endl;
                             std::cerr << std::endl;
                         }
                         breakMode = false;
@@ -1239,35 +1307,13 @@ void Simulator::runProgram(int outputRegNum)
     // 通常実行
     else
     {
-        while (max_clk > CLK && !isBreakpoint)
+        while (max_clk > step && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
-            if (!options.has(options.ONLYSTDIO))
-                std::cerr << "Step : " << CLK << std::endl;
-#ifdef DEBUG
-            std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
-#endif // DEBUG
-            if (!options.has(options.ONLYSTDIO))
-                printInstruction(instruction);
             executeInstruction(instruction);
-            CLK++;
-        }
-        if (!options.has(options.ONLYSTDIO))
-        {
-            printRegisters(ALLREG);
-            printLog();
-            if (options.has(options.ICOUNT))
-            {
-                printInstAddrCounts();
-            }
-            if (options.has(options.CACHE))
-            {
-                dMemory.printHitMissCounts();
-                dMemory.printCacheState();
-            }
+            step++;
         }
 
-        printOutput();
         if (options.has(options.OUTPUTREG))
         {
             // 0-31はレジスタに対応
@@ -1285,6 +1331,7 @@ void Simulator::runProgram(int outputRegNum)
                 throw std::out_of_range("-reg <RegNum>: RegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
             }
         }
+        printOutput();
     }
 
     std::cerr << "__Simulator Terminated__" << std::endl;

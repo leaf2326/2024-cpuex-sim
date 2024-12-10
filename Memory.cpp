@@ -38,7 +38,10 @@ void Memory::writeBack(uint32_t index)
             mainMemory[baseAddress / 4 + i] = cache[index].data[i];
         }
         cache[index].dirty = false;
-        std::cerr << "Write-back occurred for index 0x" << std::hex << index << std::dec << std::endl;
+        if (availableLog)
+        {
+            std::cerr << "Write-back occurred for index 0x" << std::hex << index << std::dec << std::endl;
+        }
     }
 }
 
@@ -56,7 +59,10 @@ void Memory::loadBlockToCache(uint32_t address)
     {
         cache[index].data[i] = mainMemory[baseAddress / 4 + i];
     }
-    std::cerr << "Cache miss: Loaded block to cache at index 0x" << std::hex << index << " with tag 0x" << tag << std::dec << std::endl;
+    if (availableLog)
+    {
+        std::cerr << "Cache miss: Loaded block to cache at index 0x" << std::hex << index << " with tag 0x" << tag << std::dec << std::endl;
+    }
 }
 
 int32_t Memory::loadWord(uint32_t address, bool isLw)
@@ -74,8 +80,10 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
         auto temp = mainMemory[address / 4];
         if (address == input_addr)
         {
-            std::cerr << "Input requested at input_addr (0x" << std::hex << address << ")" << std::dec << std::endl;
-
+            if (availableLog)
+            {
+                std::cerr << "Input requested at input_addr (0x" << std::hex << address << ")" << std::dec << std::endl;
+            }
             if (inputIndex >= inputData.size())
             {
                 throw std::out_of_range("No more input data available");
@@ -92,7 +100,10 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
                 {
                     temp = inputData[inputIndex];
                 }
-                std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
+                if (availableLog)
+                {
+                    std::cerr << "Input: 0x" << std::hex << temp << std::dec << std::endl;
+                }
                 storeWord(input_addr, temp);
                 inputIndex++;
             }
@@ -110,13 +121,19 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
     if (cache[index].valid && cache[index].tag == tag)
     {
         ++hitCount;
-        std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+        if (availableLog)
+        {
+            std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+        }
         return cache[index].data[offset];
     }
     else
     {
         ++missCount;
-        std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+        if (availableLog)
+        {
+            std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+        }
         loadBlockToCache(address);
         return cache[index].data[offset];
     }
@@ -133,8 +150,11 @@ void Memory::storeWord(uint32_t address, int32_t value)
     {
         if (address == output_addr)
         {
-            std::cerr << "Output written at output_addr (0x" << std::hex << address << "): " << value << std::dec << std::endl;
-            std::cerr << "Output: 0x" << std::hex << mainMemory[address / 4] << std::dec << std::endl;
+            if (availableLog)
+            {
+                std::cerr << "Output written at output_addr (0x" << std::hex << address << "): " << value << std::dec << std::endl;
+                std::cerr << "Output: 0x" << std::hex << mainMemory[address / 4] << std::dec << std::endl;
+            }
             output.emplace_back(value);
         }
         mainMemory[address / 4] = value;
@@ -152,18 +172,34 @@ void Memory::storeWord(uint32_t address, int32_t value)
     if (cache[index].valid && cache[index].tag == tag)
     {
         ++hitCount;
+        if (availableLog)
+        {
         std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+        }
         cache[index].data[offset] = value;
         cache[index].dirty = true;
     }
     else
     {
         ++missCount;
+        if (availableLog)
+        {
         std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+        }
         loadBlockToCache(address);
         cache[index].data[offset] = value;
         cache[index].dirty = true;
     }
+}
+
+uint64_t Memory::getHitCount() const
+{
+    return hitCount;
+}
+
+uint64_t Memory::getMissCount() const
+{
+    return missCount;
 }
 
 void Memory::printCacheState() const
@@ -186,12 +222,4 @@ void Memory::printCacheState() const
         }
         std::cerr << std::dec << std::endl;
     }
-}
-
-void Memory::printHitMissCounts() const
-{
-
-    std::cerr << "__Cache__" << std::endl;
-    std::cerr << "Cache Hit Count: " << hitCount << std::endl;
-    std::cerr << "Cache Miss Count: " << missCount << std::endl;
 }

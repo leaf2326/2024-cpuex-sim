@@ -11,7 +11,7 @@ public:
     Options();
     enum MODE
     {
-        ONLYSTDIO = 1 << 0, // 00000001
+        RESERVED_NUMBER = 1 << 0, // 00000001
         GDB = 1 << 1,       // 00000010
         I = 1 << 2,         // 00000100
         OUTPUTREG = 1 << 3,       // 00001000

@@ -28,6 +28,7 @@ void Log::logStall(int stallType)
 {
     nStallCount[stallType]++;
 }
+/*
 uint64_t Log::sumCLKCount()
 {
     uint64_t CLK = 0;
@@ -44,6 +45,7 @@ uint64_t Log::sumCLKCount()
     CLK += 4;
     return CLK;
 }
+*/
 
 void Log::printLog()
 {
@@ -65,6 +67,7 @@ void Log::printLog()
     }
     std::cerr << "Branch predictions: " << branchPredCount << std::endl;
     std::cerr << "Flushes due to branch misprediction: " << flushCount << std::endl;
+    /*
     if (nStallCount.empty())
     {
         std::cerr << "No n-cycle stalls detected!" << std::endl;
@@ -76,5 +79,7 @@ void Log::printLog()
             std::cerr << pair.first << "-cycle stalls: " << pair.second << std::endl;
         }
     }
-    std::cerr << "Clock cycle: " << sumCLKCount() << std::endl;
+    */
+    std::cerr << "jal + jalr: " << instructionCounts["jal"]+instructionCounts["jalr"] << std::endl;
+
 }
