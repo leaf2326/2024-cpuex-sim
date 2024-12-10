@@ -17,7 +17,7 @@ Simulator::Simulator(Options &op, uint64_t maxClock, uint64_t dMemory_size)
     options = op;
     max_clk = maxClock;
     dMemory.availableCache = op.has(op.CACHE);
-    dMemory.availableLog = op.has(op.GDB);
+    dMemory.availableLog = op.has(op.GDB) || op.has(op.DEBUG);
 }
 
 int32_t Simulator::getRegister(int reg) const
@@ -37,7 +37,7 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Invalid register index");
     }
-    if (options.has(options.GDB))
+    if (options.has(options.GDB) || options.has(options.DEBUG))
         std::cerr << "Register x" << reg << " changed from " << std::hex << registers[reg] << " to " << value << std::dec << std::endl;
 
     registers[reg] = value;
@@ -64,7 +64,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     {
         throw std::out_of_range("Invalid fpregister index");
     }
-    if (options.has(options.GDB))
+    if (options.has(options.GDB) || options.has(options.DEBUG))
         std::cerr << "fpRegister fp" << fpreg << " changed from " << std::hex << fpRegisters[fpreg] << " to " << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
@@ -78,7 +78,7 @@ int32_t Simulator::getPC() const
 
 void Simulator::setPC(int32_t newPC)
 {
-    if (options.has(options.GDB))
+    if (options.has(options.GDB) || options.has(options.DEBUG))
         std::cerr << "PC changed from " << std::hex << pc << " to " << newPC << std::dec << std::endl;
 
     pc = newPC;
@@ -586,7 +586,7 @@ inline void Simulator::updatePrevLoadReg(int currLoadReg)
 
 void Simulator::printInstruction(uint32_t instruction) const
 {
-    if (options.has(options.GDB))
+    if (options.has(options.GDB) || options.has(options.DEBUG))
         std::cerr << "Executing: " << instToString(instruction) << std::endl;
 }
 
@@ -1172,11 +1172,11 @@ void Simulator::runProgram(int outputRegNum)
                                                   << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
                                     }
                                 }
-                                else if (gdbCommand == "fpreg" || gdbCommand == "f"||gdbCommand == "fp")
+                                else if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
                                 {
                                     gdbCommandLine >> gdbCommand;
                                     // info fpregの後に何もない場合、gdbCommandは不変
-                                    if (gdbCommand == "fpreg" || gdbCommand == "f" ||gdbCommand == "fp")
+                                    if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
                                     {
                                         printRegisters(REG);
                                     }

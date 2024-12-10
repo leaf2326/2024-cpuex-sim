@@ -28,6 +28,7 @@ make
 
 | オプション | 説明 |
 | --- | --- |
+| `-onlystdio` | *(deprecated)* 実行時のOutputのみ表示する |
 | `-i <filepath>` | 入力ファイルのパスを`<filepath>`に指定 |
 | `-gdb` | ステップ実行とかできる。`-onlystdio`との併用は不可 |
 | `-reg <RegNum>` | 特定のレジスタの値を標準出力に出力。`<RegNum>`は0-31が`x0-x31`、32-63が`fp0-fp31`に対応 |
@@ -35,7 +36,7 @@ make
 | `-memory <dMemorySize>` | DRAMのサイズを`dMemorySize(MiB)`に変更する。|
 | `-cache` | キャッシュメモリありで実行する。実行速度は低下する。|
 | `-icount` | 実行後、命令メモリに格納されたそれぞれの命令の隣に何回実行されたかを書いて出力する。|
-| `-onlystdio` | *(deprecated)* 実行時のOutputのみ表示する |
+| `-debug` | ログを多めに表示する。長いプログラムだと大量に出力されるので注意。 |
 
 `gdb`モードの時のコマンド一覧
 | コマンド | 説明 |

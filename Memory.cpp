@@ -174,7 +174,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
         ++hitCount;
         if (availableLog)
         {
-        std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+            std::cerr << "Cache hit at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
         }
         cache[index].data[offset] = value;
         cache[index].dirty = true;
@@ -184,7 +184,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
         ++missCount;
         if (availableLog)
         {
-        std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
+            std::cerr << "Cache miss at index 0x" << std::hex << index << " for address 0x" << address << std::dec << std::endl;
         }
         loadBlockToCache(address);
         cache[index].data[offset] = value;

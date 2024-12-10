@@ -11,15 +11,15 @@ public:
     Options();
     enum MODE
     {
-        RESERVED_NUMBER = 1 << 0, // 00000001
-        GDB = 1 << 1,       // 00000010
-        I = 1 << 2,         // 00000100
+        DEBUG = 1 << 0, // 00000001
+        GDB = 1 << 1,             // 00000010
+        I = 1 << 2,               // 00000100
         OUTPUTREG = 1 << 3,       // 00001000
-        LIMIT = 1 << 4,     // 00010000
-        CACHE = 1 << 5,     // 00100000
-        MEMORY = 1 << 6,    // 01000000
-        ICOUNT = 1 << 7,    // 10000000
-        All = 0xFF,         // 11111111
+        LIMIT = 1 << 4,           // 00010000
+        CACHE = 1 << 5,           // 00100000
+        MEMORY = 1 << 6,          // 01000000
+        ICOUNT = 1 << 7,          // 10000000
+        All = 0xFF,               // 11111111
     };
     void on(uint32_t flag) noexcept;
     void off(uint32_t flag) noexcept;

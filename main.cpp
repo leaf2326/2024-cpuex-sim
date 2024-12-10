@@ -35,6 +35,10 @@ int main(int argc, char *argv[])
                 {
                     throw std::runtime_error("-onlystdio is deprecated");
                 }
+                else if (arg == "-debug")
+                {
+                    options.on(options.DEBUG);
+                }
                 else if (arg == "-gdb")
                 {
                     options.on(options.GDB);
@@ -155,8 +159,8 @@ int main(int argc, char *argv[])
     {
         simulator.runProgram(outputRegNum);
         auto end = std::chrono::system_clock::now();
-        if(!options.has(options.GDB))
-        simulator.printLog();
+        if (!options.has(options.GDB))
+            simulator.printLog();
 
         std::chrono::duration<double, std::milli> elapsed = end - start;
 

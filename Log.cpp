@@ -80,6 +80,4 @@ void Log::printLog()
         }
     }
     */
-    std::cerr << "jal + jalr: " << instructionCounts["jal"]+instructionCounts["jalr"] << std::endl;
-
 }
