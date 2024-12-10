@@ -1046,6 +1046,9 @@ void Simulator::printLog()
     if (options.has(options.CACHE))
     {
         printCacheHitMissCounts();
+        if(options.has(options.DEBUG)){
+            dMemory.printCacheState();
+        }
     }
     std::cerr << "jal + jalr: " << instructionCounts["jal"] + instructionCounts["jalr"] << std::endl;
     std::cerr << "Sequencial load and store: " << loadStoreSequence << std::endl;
