@@ -433,7 +433,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
 }
 void Simulator::printInstAddrCounts()
 {
-    std::cerr << "__Instructions__" << std::endl;
+    std::cerr << "________Instructions________" << std::endl;
     std::cerr << std::setw(15) << "[iMEM Address]"
               << std::setw(15) << "[Count]:"
               << std::setw(19) << "Instruction" << std::endl;
@@ -531,7 +531,7 @@ void Simulator::printRegisters(int regType) const
     }
     if (regType == REG || regType == ALLREG)
     {
-        std::cerr << "__Registers state__" << std::endl;
+        std::cerr << "________Registers state________" << std::endl;
         for (int i = 0; i < REG_COUNT; i++)
         {
             std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
@@ -542,7 +542,7 @@ void Simulator::printRegisters(int regType) const
 
     if (regType == FPREG || regType == ALLREG)
     {
-        std::cerr << "__FpRegisters state__" << std::endl;
+        std::cerr << "________FpRegisters state________" << std::endl;
         for (int i = 0; i < FPREG_COUNT; i++)
         {
             std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
@@ -1025,7 +1025,6 @@ void Simulator::executeInstruction(uint32_t instruction)
 
 void Simulator::printCacheHitMissCounts() const
 {
-    std::cerr << "__Cache__" << std::endl;
     std::cerr << "Cache Hit Count: " << dMemory.getHitCount() << std::endl;
     std::cerr << "Cache Miss Count: " << dMemory.getMissCount() << std::endl;
 }
@@ -1046,12 +1045,15 @@ void Simulator::printLog()
     if (options.has(options.CACHE))
     {
         printCacheHitMissCounts();
-        if(options.has(options.DEBUG)){
+        if (options.has(options.DEBUG))
+        {
             dMemory.printCacheState();
         }
     }
     std::cerr << "jal + jalr: " << instructionCounts["jal"] + instructionCounts["jalr"] << std::endl;
     std::cerr << "Sequencial load and store: " << loadStoreSequence << std::endl;
+
+    std::cerr << "________Estimation from data________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
     estimatedClock += (instructionCounts["jal"] + instructionCounts["jalr"]) * 2;
@@ -1080,12 +1082,12 @@ void Simulator::printOutput() const noexcept
 void Simulator::runProgram(int outputRegNum)
 {
 #ifdef DEBUG
-    std::cerr << "__DEBUG_MODE__" << std::endl;
+    std::cerr << "________DEBUG_MODE________" << std::endl;
 #endif // DEBUG
-    std::cerr << "__Simulating Program__" << std::endl;
+    std::cerr << "________Simulating Program________" << std::endl;
     if (options.has(options.GDB))
     {
-        std::cerr << "__GDB MODE__" << std::endl;
+        std::cerr << "________GDB MODE________" << std::endl;
     }
     step = 0;
 
@@ -1317,6 +1319,7 @@ void Simulator::runProgram(int outputRegNum)
             step++;
         }
 
+        std::cerr << "________Simulation Ended________" << std::endl;
         if (options.has(options.OUTPUTREG))
         {
             // 0-31はレジスタに対応
@@ -1336,6 +1339,4 @@ void Simulator::runProgram(int outputRegNum)
         }
         printOutput();
     }
-
-    std::cerr << "__Simulator Terminated__" << std::endl;
 }

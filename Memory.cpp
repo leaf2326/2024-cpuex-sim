@@ -204,7 +204,7 @@ uint64_t Memory::getMissCount() const
 
 void Memory::printCacheState() const
 {
-    std::cerr << "Current Cache State:" << std::endl;
+    std::cerr << "________Current Cache State________" << std::endl;
     for (size_t i = 0; i < cache.size(); ++i)
     {
         std::cerr << "Index " << std::hex << i << std::dec << ": ";

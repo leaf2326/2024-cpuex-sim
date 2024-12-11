@@ -162,6 +162,7 @@ int main(int argc, char *argv[])
         if (!options.has(options.GDB))
             simulator.printLog();
 
+        std::cerr << "________Simulator Terminated________" << std::endl;
         std::chrono::duration<double, std::milli> elapsed = end - start;
 
         // end - start を秒単位で計算
@@ -175,6 +176,5 @@ int main(int argc, char *argv[])
         simulator.printLog();
         return 1;
     }
-
     return 0;
 }

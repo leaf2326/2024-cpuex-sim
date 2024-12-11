@@ -49,10 +49,10 @@ uint64_t Log::sumCLKCount()
 
 void Log::printLog()
 {
-    std::cerr << "__Start printLog__" << std::endl;
+    std::cerr << "________Start printLog________" << std::endl;
     std::cerr << "Total instructions executed: " << totalInstructions << std::endl;
 
-    std::cerr << "__Instruction counts__" << std::endl;
+    std::cerr << "Instruction counts: " << std::endl;
     {
         std::vector<std::pair<uint64_t,std::string>> v;
         for (const auto &p : instructionCounts)
