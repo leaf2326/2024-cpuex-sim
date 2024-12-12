@@ -141,22 +141,15 @@ int main(int argc, char *argv[])
     // 開始日時を取得
 
     auto start = std::chrono::system_clock::now();
-
+    bool runningProgram = false;
     // プログラムシミュレートの準備
     try
     {
         simulator.loadInputData(inputFilePath);
         simulator.loadMemoryFromBinary(programFilePath);
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
-    }
 
-    // シミュレート開始
-    try
-    {
+        // シミュレート開始
+        runningProgram = true;
         simulator.runProgram(outputRegNum);
         auto end = std::chrono::system_clock::now();
         if (!options.has(options.GDB))
@@ -167,13 +160,16 @@ int main(int argc, char *argv[])
 
         // end - start を秒単位で計算
         std::chrono::duration<double> elapsed2 = end - start;
-        std::cerr << "Simulator Execution time: " << elapsed.count() << "ms" << std::endl;
+        std::cerr << "Simulator Execution time: " << elapsed.count() / 1000.0 << "sec" << std::endl;
     }
     catch (const std::exception &e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
-        std::cerr << "__DEBUG INFO__ " << std::endl;
-        simulator.printLog();
+        if (runningProgram)
+        {
+            std::cerr << "__DEBUG INFO__ " << std::endl;
+            simulator.printLog();
+        }
         return 1;
     }
     return 0;
