@@ -1,26 +1,29 @@
 CXX = g++
 CXXFLAGS = -std=c++23 -Wall -O3
 TARGET = simulator
-SRCS = Simulator.cpp Log.cpp FPU.cpp Option.cpp Util.cpp Memory.cpp
-OBJS = $(SRCS:.cpp=.o)
-DEPS = $(SRCS:.cpp=.d) main.d testFPU.d
+SRCDIR = src
+OBJDIR = build
+SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Option.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp
+OBJS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRCS))
+DEPS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.d, $(SRCS)) $(OBJDIR)/main.d $(OBJDIR)/testFPU.d
 
 all: $(TARGET)
 	ulimit -s unlimited
 
 -include $(DEPS)
 
-$(TARGET): main.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) main.o $(OBJS)
+$(TARGET): $(OBJDIR)/main.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJDIR)/main.o $(OBJS)
 
-debug: main.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) main.o $(OBJS)
+debug: $(OBJDIR)/main.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(OBJDIR)/main.o $(OBJS)
 
-testFPU: testFPU.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o testFPU testFPU.o $(OBJS)
+testFPU: $(OBJDIR)/testFPU.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -o testFPU $(OBJDIR)/testFPU.o $(OBJS)
 
-%.o: %.cpp
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+	@mkdir -p $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(DEPS) *.log *.err testFPU
+	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU main.o testFPU.o

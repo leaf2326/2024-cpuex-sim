@@ -1,0 +1,10 @@
+build
+
+*.log
+*.err
+
+simulator
+testFPU
+
+.vscode
+sld
