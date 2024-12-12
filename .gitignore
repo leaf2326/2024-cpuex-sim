@@ -7,5 +7,5 @@ simulator
 testFPU
 
 .vscode
-discordWebhook.txt
+*.txt
 sld
