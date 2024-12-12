@@ -50,6 +50,7 @@ private:
     static constexpr double CPUFREQUENCY = 16000000;
 
     static constexpr int NUM_ENTRIES = 128; // 2^7エントリ
+    static constexpr int PHT_DEFAULT = 2;
     std::vector<uint8_t> patternHistoryTable;  // 2-bit飽和カウンタ
     
     bool isBreakpoint;

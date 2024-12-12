@@ -7,7 +7,7 @@
 #include <bit>
 
 Simulator::Simulator(Options &op, uint64_t maxStep, uint64_t dMemory_size)
-    : patternHistoryTable(NUM_ENTRIES, 2), dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
+    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
 {
     DMEMORY_SIZE = dMemory_size;
     registers[0] = 0;                 // x0
