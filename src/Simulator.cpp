@@ -17,7 +17,8 @@ Simulator::Simulator(Options &op, uint64_t maxStep, uint64_t dMemory_size)
     options = op;
     maxStep = maxStep;
     dMemory.availableCache = op.has(op.CACHE);
-    dMemory.availableLog = op.has(op.GDB) || op.has(op.DEBUG);
+    availableLog = op.has(op.GDB) || op.has(op.DEBUG);
+    dMemory.availableLog = availableLog;
 }
 
 int32_t Simulator::getRegister(int reg) const
@@ -37,7 +38,7 @@ void Simulator::setRegister(int reg, int32_t value)
     {
         throw std::out_of_range("Invalid register index");
     }
-    if (options.has(options.GDB) || options.has(options.DEBUG))
+    if (availableLog)
         std::cerr << "Register x" << reg << " changed from " << std::hex << registers[reg] << " to " << value << std::dec << std::endl;
 
     registers[reg] = value;
@@ -64,7 +65,7 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     {
         throw std::out_of_range("Invalid fpregister index");
     }
-    if (options.has(options.GDB) || options.has(options.DEBUG))
+    if (availableLog)
         std::cerr << "fpRegister fp" << fpreg << " changed from " << std::hex << fpRegisters[fpreg] << " to " << fpvalue << std::dec << std::endl;
 
     fpRegisters[fpreg] = fpvalue;
@@ -78,7 +79,7 @@ int32_t Simulator::getPC() const
 
 void Simulator::setPC(int32_t newPC)
 {
-    if (options.has(options.GDB) || options.has(options.DEBUG))
+    if (availableLog)
         std::cerr << "PC changed from " << std::hex << pc << " to " << newPC << std::dec << std::endl;
 
     pc = newPC;
@@ -572,6 +573,7 @@ uint32_t Simulator::getIndex(uint32_t pc) const
 
 void Simulator::updateCounter(uint8_t &counter, bool isTaken)
 {
+
     if (isTaken)
     {
         if (counter < 3)
@@ -592,15 +594,26 @@ bool Simulator::predict(uint8_t counter) const
 // 分岐予測
 void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
 {
-    uint32_t index = getIndex(pc);
-    bool predictedTaken = predict(patternHistoryTable[index]);
+    uint32_t index = getIndex(getPC());
+    uint8_t previousCounter = patternHistoryTable[index];
+    if (availableLog)
+        std::cerr << "PC: " << getPC()
+                  << ", Prediction: " << (previousCounter >= 2 ? (previousCounter == 3 ? "Strongly Taken" : "Weakly Taken") : (previousCounter == 0 ? "Strongly UnTaken" : "Weakly UnTaken"))
+                  << ", Actual: " << (isTaken ? "Taken" : "UnTaken") << std::endl;
+
+    bool predictedTaken = predict(previousCounter);
     logBranchPrediction();
-
     // フラッシュ
-
     if (predictedTaken != isTaken)
     {
+        if (availableLog)
+            std::cerr << "Pipeline flushed due to misprediction." << std::endl;
         logFlush();
+    }
+    else
+    {
+        if (availableLog)
+            std::cerr << "Prediction matched!" << std::endl;
     }
 
     if (isTaken)
@@ -612,6 +625,8 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
         setPC(getPC() + 4);
     }
     updateCounter(patternHistoryTable[index], isTaken);
+    if (availableLog)
+        std::cerr << "PHT Index " << index << ": Counter Value Changed from " << static_cast<int>(previousCounter) << " to " << static_cast<int>(patternHistoryTable[index]) << std::endl;
 }
 
 inline void Simulator::updatePrevLoadReg(int currLoadReg)
@@ -621,7 +636,7 @@ inline void Simulator::updatePrevLoadReg(int currLoadReg)
 
 void Simulator::printInstruction(uint32_t instruction) const
 {
-    if (options.has(options.GDB) || options.has(options.DEBUG))
+    if (availableLog)
         std::cerr << "Executing: " << instToString(instruction) << std::endl;
 }
 

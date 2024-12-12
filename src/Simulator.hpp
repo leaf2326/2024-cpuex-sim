@@ -72,6 +72,8 @@ private:
     Options options;
     uint32_t output_num;
 
+    bool availableLog = false;
+
     int32_t getRegister(int reg) const;
     void setRegister(int reg, int32_t value);
     int32_t getFpRegister(int fpreg) const;
