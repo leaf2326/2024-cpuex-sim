@@ -7,7 +7,7 @@
 #include <bit>
 
 Simulator::Simulator(Options &op, uint64_t maxStep, uint64_t dMemory_size)
-    : dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
+    : patternHistoryTable(NUM_ENTRIES, 2), dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
 {
     DMEMORY_SIZE = dMemory_size;
     registers[0] = 0;                 // x0
@@ -562,21 +562,56 @@ void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
     }
 }
 
-// 分岐予測(常にUntaken)
-void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
+uint32_t Simulator::getIndex(uint32_t pc) const
 {
-    logBranchPrediction();
+    // pc[15:9] ^ pc[8:2]
+    uint32_t upper = (pc >> 9) & 0x7F;
+    uint32_t lower = (pc >> 2) & 0x7F;
+    return upper ^ lower;
+}
 
-    // 分岐が実際に取られた場合はパイプラインをフラッシュ
+void Simulator::updateCounter(uint8_t &counter, bool isTaken)
+{
     if (isTaken)
     {
+        if (counter < 3)
+            ++counter;
+    }
+    else
+    {
+        if (counter > 0)
+            --counter;
+    }
+}
+
+bool Simulator::predict(uint8_t counter) const
+{
+    return counter >= 2; // counter = 2 or 3 then Taken
+}
+
+// 分岐予測
+void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
+{
+    uint32_t index = getIndex(pc);
+    bool predictedTaken = predict(patternHistoryTable[index]);
+    logBranchPrediction();
+
+    // フラッシュ
+
+    if (predictedTaken != isTaken)
+    {
         logFlush();
+    }
+
+    if (isTaken)
+    {
         setPC(getPC() + imm);
     }
     else
     {
         setPC(getPC() + 4);
     }
+    updateCounter(patternHistoryTable[index], isTaken);
 }
 
 inline void Simulator::updatePrevLoadReg(int currLoadReg)
@@ -1025,8 +1060,11 @@ void Simulator::executeInstruction(uint32_t instruction)
 
 void Simulator::printCacheHitMissCounts() const
 {
-    std::cerr << "Cache Hit Count: " << dMemory.getHitCount() << std::endl;
-    std::cerr << "Cache Miss Count: " << dMemory.getMissCount() << std::endl;
+    const uint64_t hitCount = dMemory.getHitCount();
+    const uint64_t missCount = dMemory.getMissCount();
+    std::cerr << "Cache Hit Count: " << hitCount << std::endl;
+    std::cerr << "Cache Miss Count: " << missCount << std::endl;
+    std::cerr << "Cache Hit Rate: " << (double)hitCount / (double)(hitCount + missCount) << std::endl;
 }
 
 // ログの出力

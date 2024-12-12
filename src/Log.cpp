@@ -54,7 +54,7 @@ void Log::printLog()
 
     std::cerr << "Instruction counts: " << std::endl;
     {
-        std::vector<std::pair<uint64_t,std::string>> v;
+        std::vector<std::pair<uint64_t, std::string>> v;
         for (const auto &p : instructionCounts)
         {
             v.push_back(std::make_pair(p.second, p.first));
@@ -65,8 +65,9 @@ void Log::printLog()
             std::cerr << std::setw(8) << p.second + ":" << std::setw(15) << p.first << std::endl;
         }
     }
-    std::cerr << "Branch predictions: " << branchPredCount << std::endl;
-    std::cerr << "Flushes due to branch misprediction: " << flushCount << std::endl;
+    std::cerr << "Total Branch predictions: " << branchPredCount << std::endl;
+    std::cerr << "Number of Branch Prediction Misses: " << flushCount << std::endl;
+    std::cerr << "Branch Prediction Accuracy: " << (double)(branchPredCount - flushCount) / (double)branchPredCount << std::endl;
     /*
     if (nStallCount.empty())
     {
