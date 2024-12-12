@@ -98,6 +98,7 @@ sudo apt-get install libssl-dev
 
 ## 注意点
 - シミュレーションは命令実行数である`step`数が`maxStep`（デフォルト: `UINT64_MAX`）に達するか、`ebreak` で停止。
+- 分岐予測には2^7エントリのBimodal Predictorを使用。
 - Discord通知を利用する場合、Webhook URLを `discordWebhook.txt` に記載。
 
 ---
