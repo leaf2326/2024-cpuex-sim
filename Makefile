@@ -1,9 +1,10 @@
 CXX = g++
 CXXFLAGS = -std=c++23 -Wall -O3
+LDFLAGS = -lssl -lcrypto
 TARGET = simulator
 SRCDIR = src
 OBJDIR = build
-SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Option.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp
+SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Option.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp $(SRCDIR)/DiscordNotifier.cpp
 OBJS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRCS))
 DEPS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.d, $(SRCS)) $(OBJDIR)/main.d $(OBJDIR)/testFPU.d
 
@@ -13,17 +14,17 @@ all: $(TARGET)
 -include $(DEPS)
 
 $(TARGET): $(OBJDIR)/main.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJDIR)/main.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJDIR)/main.o $(OBJS) $(LDFLAGS)
 
 debug: $(OBJDIR)/main.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(OBJDIR)/main.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(OBJDIR)/main.o $(OBJS) $(LDFLAGS)
 
 testFPU: $(OBJDIR)/testFPU.o $(OBJS)
-	$(CXX) $(CXXFLAGS) -o testFPU $(OBJDIR)/testFPU.o $(OBJS)
+	$(CXX) $(CXXFLAGS) -o testFPU $(OBJDIR)/testFPU.o $(OBJS) $(LDFLAGS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
 
 clean:
-	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU main.o testFPU.o
+	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU

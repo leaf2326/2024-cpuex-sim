@@ -38,7 +38,7 @@ public:
     void printLog();
 
 private:
-    uint64_t max_clk = UINT64_MAX;
+    uint64_t maxStep = UINT64_MAX;
     uint64_t step = 0;
     static constexpr int REG_COUNT = 32;
     static constexpr int FPREG_COUNT = 32;

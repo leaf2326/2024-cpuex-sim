@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <bit>
 
-Simulator::Simulator(Options &op, uint64_t maxClock, uint64_t dMemory_size)
+Simulator::Simulator(Options &op, uint64_t maxStep, uint64_t dMemory_size)
     : dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
 {
     DMEMORY_SIZE = dMemory_size;
@@ -15,7 +15,7 @@ Simulator::Simulator(Options &op, uint64_t maxClock, uint64_t dMemory_size)
     pc = 0;
     isBreakpoint = false;
     options = op;
-    max_clk = maxClock;
+    maxStep = maxStep;
     dMemory.availableCache = op.has(op.CACHE);
     dMemory.availableLog = op.has(op.GDB) || op.has(op.DEBUG);
 }
@@ -492,7 +492,7 @@ void Simulator::loadInputData(const std::string &inputFilePath)
     std::ifstream file(inputFilePath);
     if (!file)
     {
-        throw std::runtime_error("Could not open input file" + inputFilePath);
+        throw std::runtime_error("Could not open input file: " + inputFilePath);
     }
 
     std::string token;
@@ -1312,7 +1312,7 @@ void Simulator::runProgram(int outputRegNum)
     // 通常実行
     else
     {
-        while (max_clk > step && !isBreakpoint)
+        while (maxStep > step && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
             executeInstruction(instruction);

@@ -1,5 +1,6 @@
 #include "Simulator.hpp"
 #include "Option.hpp"
+#include "DiscordNotifier.hpp"
 #include <iostream>
 #include <chrono>
 int main(int argc, char *argv[])
@@ -7,19 +8,20 @@ int main(int argc, char *argv[])
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
     std::cerr << std::showbase;
-    // optionの処理
+
 #ifdef DEBUG
     for (int i = 0; i < argc; ++i)
     {
         std::cerr << "argv[" << i << "]: " << argv[i] << std::endl;
     }
 #endif
+
     std::string programFilePath;
     std::string inputFilePath = "sld/contest.sld";
     int outputRegNum = -1;
     Options options;
 
-    uint64_t max_clk = UINT64_MAX;
+    uint64_t maxStep = UINT64_MAX;
     uint64_t dMemory_size = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
 
     try
@@ -38,6 +40,10 @@ int main(int argc, char *argv[])
                 else if (arg == "-debug")
                 {
                     options.on(options.DEBUG);
+                }
+                else if (arg == "-notify")
+                {
+                    options.on(options.NOTIFY);
                 }
                 else if (arg == "-gdb")
                 {
@@ -82,7 +88,7 @@ int main(int argc, char *argv[])
                 {
                     if (i + 1 < argc)
                     {
-                        max_clk = std::stoi(argv[i + 1]);
+                        maxStep = std::stoi(argv[i + 1]);
                         options.on(options.LIMIT);
                         ++i;
                     }
@@ -137,7 +143,7 @@ int main(int argc, char *argv[])
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
-    Simulator simulator(options, max_clk, dMemory_size);
+    Simulator simulator(options, maxStep, dMemory_size);
     // 開始日時を取得
 
     auto start = std::chrono::system_clock::now();
@@ -161,6 +167,10 @@ int main(int argc, char *argv[])
         // end - start を秒単位で計算
         std::chrono::duration<double> elapsed2 = end - start;
         std::cerr << "Simulator Execution time: " << elapsed.count() / 1000.0 << "sec" << std::endl;
+        if (options.has(options.NOTIFY))
+        {
+            sendDiscordNotification("Simulator Execution time: " + std::to_string(elapsed.count() / 1000.0) + "sec");
+        }
     }
     catch (const std::exception &e)
     {
@@ -169,6 +179,10 @@ int main(int argc, char *argv[])
         {
             std::cerr << "__DEBUG INFO__ " << std::endl;
             simulator.printLog();
+        }
+        if (options.has(options.NOTIFY))
+        {
+            sendDiscordNotification(std::string("Simulator Error: ") + e.what());
         }
         return 1;
     }
