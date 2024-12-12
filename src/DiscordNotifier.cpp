@@ -22,7 +22,7 @@ std::string readWebhookUrl(const std::string& filePath) {
     return webhookUrl;
 }
 
-// Discord通知を送信する
+// Discord通知を送信
 void sendDiscordNotification(const std::string& message) {
     try {
         const std::string webhookUrl = readWebhookUrl("discordWebhook.txt");
