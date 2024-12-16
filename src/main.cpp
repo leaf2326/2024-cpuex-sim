@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
     std::cerr << "Input file path: " << options.inputFilePath << std::endl;
     std::cerr << "Max steps: " << options.maxStep << std::endl;
-    std::cerr << "Memory size: " << options.memorySize << " MiB\n";
+    std::cerr << "Memory size: " << options.memorySize/1024/1024 << " MiB\n";
 
     if (options.enableCache) {
         std::cerr << "Cache memory enabled.\n";

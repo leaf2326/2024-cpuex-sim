@@ -21,14 +21,14 @@ OptionHandler::OptionHandler()
     desc.add_options()
         ("help,h", "Show help message")
         ("input,i", po::value<std::string>(&inputFilePath)->default_value(inputFilePath), "Input file path")
-        ("notify", po::bool_switch(&enableNotify), "Send notification to Discord Webhook after execution (Webhook URL in 'discordWebhook.txt')")
-        ("reg", po::value<int>(&outputRegNum)->default_value(outputRegNum), "Specify register to output (0-31: x0-x31, 32-63: fp0-fp31)")
-        ("limit", po::value<uint64_t>(&maxStep)->default_value(maxStep), "Set max instruction count")
-        ("memory", po::value<uint64_t>(&memorySize)->default_value(memorySize), "Set DRAM size in MiB")
-        ("cache", po::bool_switch(&enableCache), "Enable cache memory (may reduce performance)")
+        ("notify,n", po::bool_switch(&enableNotify), "Send notification to Discord Webhook after execution (Webhook URL in 'discordWebhook.txt')")
+        ("reg,r", po::value<int>(&outputRegNum)->default_value(outputRegNum), "Specify register to output (0-31: x0-x31, 32-63: fp0-fp31)")
+        ("limit,l", po::value<uint64_t>(&maxStep)->default_value(maxStep), "Set max instruction count")
+        ("memory,m", po::value<uint64_t>(&memorySize)->default_value(memorySize), "Set DRAM size in MiB")
+        ("cache,c", po::bool_switch(&enableCache), "Enable cache memory (may reduce performance)")
         ("icount", po::bool_switch(&enableICount), "Output each instruction's count in memory")
-        ("debug", po::bool_switch(&enableDebug), "Enable verbose logging (intended for short code execution))")
-        ("gdb", po::bool_switch(&enableGDB), "Enable GDB-like debugging");
+        ("debug,d", po::bool_switch(&enableDebug), "Enable verbose logging (intended for short code execution))")
+        ("gdb,g", po::bool_switch(&enableGDB), "Enable GDB-like debugging");
 }
 
 // 引数解析メソッド
