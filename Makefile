@@ -4,9 +4,13 @@ LDFLAGS = -lssl -lcrypto
 TARGET = simulator
 SRCDIR = src
 OBJDIR = build
-SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Option.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp $(SRCDIR)/DiscordNotifier.cpp
+SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp $(SRCDIR)/DiscordNotifier.cpp $(SRCDIR)/OptionHandler.cpp
 OBJS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRCS))
-DEPS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.d, $(SRCS)) $(OBJDIR)/main.d $(OBJDIR)/testFPU.d
+
+# 依存ファイル
+DEPS = $(OBJS:.o=.d) $(OBJDIR)/main.d $(OBJDIR)/testFPU.d
+CXXFLAGS += -Iinclude
+LDFLAGS += -Llib -lboost_program_options
 
 all: $(TARGET)
 	ulimit -s unlimited
@@ -27,4 +31,4 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
 
 clean:
-	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU
+	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU 
