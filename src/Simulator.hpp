@@ -3,7 +3,7 @@
 
 #include "Log.hpp"
 #include "Util.hpp"
-#include "Option.hpp"
+#include "OptionHandler.hpp"
 #include "FPU.hpp"
 #include "Memory.hpp"
 #include <array>
@@ -25,7 +25,7 @@
 class Simulator : public Log
 {
 public:
-    Simulator(Options &op, uint64_t maxClock, uint64_t dMemorySize);
+    Simulator(OptionHandler &op);
     uint64_t DMEMORY_SIZE;
 
     void loadMemoryFromBinary(const std::string &programFilePath);
@@ -70,8 +70,12 @@ private:
 
     // 前の命令で書き込んだレジスタ
     int prevLoadReg = NULLREG;
-    Options options;
     uint32_t output_num;
+
+    bool enableCache;
+    bool enableICount;
+    bool enableDebug;
+    bool enableGDB;
 
     bool availableLog = false;
 

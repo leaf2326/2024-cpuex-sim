@@ -6,18 +6,21 @@
 #include <iomanip>
 #include <bit>
 
-Simulator::Simulator(Options &op, uint64_t maxStep, uint64_t dMemory_size)
-    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(dMemory_size, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
+Simulator::Simulator(OptionHandler &op)
+    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
 {
-    DMEMORY_SIZE = dMemory_size;
+    DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                 // x0
     registers[2] = DMEMORY_SIZE - 16; // sp
     pc = 0;
     isBreakpoint = false;
-    options = op;
-    maxStep = maxStep;
-    dMemory.availableCache = op.has(op.CACHE);
-    availableLog = op.has(op.GDB) || op.has(op.DEBUG);
+    enableCache = op.enableCache;
+    enableICount = op.enableDebug;
+    enableDebug = op.enableDebug;
+    enableGDB = op.enableGDB;
+    maxStep = op.maxStep;
+    dMemory.availableCache = op.enableCache;
+    availableLog = op.enableGDB || op.enableDebug;
     dMemory.availableLog = availableLog;
 }
 
@@ -1089,16 +1092,16 @@ void Simulator::printLog()
     std::cerr << "Step : " << getStep() << std::endl;
     printProgram(true);
     printRegisters(ALLREG);
-    if (options.has(options.ICOUNT))
+    if (enableICount)
     {
         printInstAddrCounts();
     }
     Log::printLog();
     std::cerr << "Detected RAW hazard: " << hazardRAW << std::endl;
-    if (options.has(options.CACHE))
+    if (enableCache)
     {
         printCacheHitMissCounts();
-        if (options.has(options.DEBUG))
+        if (enableDebug)
         {
             dMemory.printCacheState();
         }
@@ -1138,14 +1141,14 @@ void Simulator::runProgram(int outputRegNum)
     std::cerr << "________DEBUG_MODE________" << std::endl;
 #endif // DEBUG
     std::cerr << "________Simulating Program________" << std::endl;
-    if (options.has(options.GDB))
+    if (enableGDB)
     {
         std::cerr << "________GDB MODE________" << std::endl;
     }
     step = 0;
 
     // GDB実行
-    if (options.has(options.GDB))
+    if (enableGDB)
     {
         bool isQuit = false;
         std::ostringstream buffer;
@@ -1373,7 +1376,7 @@ void Simulator::runProgram(int outputRegNum)
         }
 
         std::cerr << "________Simulation Ended________" << std::endl;
-        if (options.has(options.OUTPUTREG))
+        if (outputRegNum >= 0)
         {
             // 0-31はレジスタに対応
             if (outputRegNum >= 0 && outputRegNum < REG_COUNT)

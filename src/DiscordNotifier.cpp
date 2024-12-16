@@ -1,13 +1,15 @@
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "DiscordNotifier.hpp"
-#include "../lib/httplib.h"
+#include "../include/httplib.h"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 
-std::string readWebhookUrl(const std::string& filePath) {
+std::string readWebhookUrl(const std::string &filePath)
+{
     std::ifstream file(filePath);
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         throw std::runtime_error("can't open webhook file: " + filePath);
     }
 
@@ -15,7 +17,8 @@ std::string readWebhookUrl(const std::string& filePath) {
     std::getline(file, webhookUrl);
     file.close();
 
-    if (webhookUrl.empty()) {
+    if (webhookUrl.empty())
+    {
         throw std::runtime_error("No webhook URL in specified file.");
     }
 
@@ -23,8 +26,10 @@ std::string readWebhookUrl(const std::string& filePath) {
 }
 
 // Discord通知を送信
-void sendDiscordNotification(const std::string& message) {
-    try {
+void sendDiscordNotification(const std::string &message)
+{
+    try
+    {
         const std::string webhookUrl = readWebhookUrl("discordWebhook.txt");
 
         std::string host = "discord.com";
@@ -37,15 +42,21 @@ void sendDiscordNotification(const std::string& message) {
 
         auto res = cli.Post(path.c_str(), payload, "application/json");
 
-        if (res && res->status == 204) {
+        if (res && res->status == 204)
+        {
             std::cerr << "Notification sent successfully!" << std::endl;
-        } else {
+        }
+        else
+        {
             std::cerr << "Failed to send notification." << std::endl;
-            if (res) {
+            if (res)
+            {
                 std::cerr << "Status code: " << res->status << std::endl;
             }
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Error: " << e.what() << std::endl;
     }
 }

@@ -1,149 +1,36 @@
 #include "Simulator.hpp"
-#include "Option.hpp"
 #include "DiscordNotifier.hpp"
+#include "OptionHandler.hpp"
 #include <iostream>
 #include <chrono>
+
 int main(int argc, char *argv[])
 {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
     std::cerr << std::showbase;
 
-#ifdef DEBUG
-    for (int i = 0; i < argc; ++i)
-    {
-        std::cerr << "argv[" << i << "]: " << argv[i] << std::endl;
+    OptionHandler options;
+    options.parse(argc, argv);
+
+    std::cerr << "Input file path: " << options.inputFilePath << std::endl;
+    std::cerr << "Max steps: " << options.maxStep << std::endl;
+    std::cerr << "Memory size: " << options.memorySize << " MiB\n";
+
+    if (options.enableCache) {
+        std::cerr << "Cache memory enabled.\n";
     }
-#endif
-
-    std::string programFilePath;
-    std::string inputFilePath = "sld/contest.sld";
-    int outputRegNum = -1;
-    Options options;
-
-    uint64_t maxStep = UINT64_MAX;
-    uint64_t dMemory_size = 4 * 1024 * 1024; // Dメモリサイズ（4MiB）
-
-    try
-    {
-
-        for (int i = 1; i < argc; ++i)
-        {
-            std::string arg = argv[i];
-
-            if (arg[0] == '-')
-            {
-                if (arg == "-onlystdio")
-                {
-                    throw std::runtime_error("-onlystdio is deprecated");
-                }
-                else if (arg == "-debug")
-                {
-                    options.on(options.DEBUG);
-                }
-                else if (arg == "-notify")
-                {
-                    options.on(options.NOTIFY);
-                }
-                else if (arg == "-gdb")
-                {
-                    options.on(options.GDB);
-                }
-                else if (arg == "-cache")
-                {
-                    options.on(options.CACHE);
-                }
-                else if (arg == "-icount")
-                {
-                    options.on(options.ICOUNT);
-                }
-                else if (arg == "-i")
-                {
-                    if (i + 1 < argc)
-                    {
-                        inputFilePath = argv[i + 1];
-                        options.on(options.I);
-                        ++i;
-                    }
-                    else
-                    {
-                        throw std::runtime_error("Filepath is required. Expected: $ -i <filepath>");
-                    }
-                }
-                else if (arg == "-memory")
-                {
-                    if (i + 1 < argc)
-                    {
-                        dMemory_size = std::stoi(argv[i + 1]) * 1024 * 1024;
-                        options.on(options.MEMORY);
-                        ++i;
-                        std::cerr << "DMEMORY_SIZE:" << dMemory_size << std::endl;
-                    }
-                    else
-                    {
-                        throw std::runtime_error("dMemorySize is required. Expected: $ -memory <dMemorySize>(MiB)");
-                    }
-                }
-                else if (arg == "-limit")
-                {
-                    if (i + 1 < argc)
-                    {
-                        maxStep = std::stoi(argv[i + 1]);
-                        options.on(options.LIMIT);
-                        ++i;
-                    }
-                    else
-                    {
-                        throw std::runtime_error("maxClock is required. Expected: $ -limit <maxClock>");
-                    }
-                }
-                else if (arg == "-reg")
-                {
-                    if (i + 1 < argc)
-                    {
-                        outputRegNum = std::stoi(argv[i + 1]);
-                        options.on(options.OUTPUTREG);
-                        ++i;
-                    }
-                    else
-                    {
-                        throw std::runtime_error("the number of output register is required. Expected: $ -reg <outputRegNum>");
-                    }
-                }
-                else
-                {
-                    throw std::runtime_error("Unknown option " + arg);
-                }
-            }
-            else if (programFilePath.empty())
-            {
-                programFilePath = arg;
-            }
-            else
-            {
-                throw std::invalid_argument("Too many arguments. Expected: $ ./simulator <filepath>");
-            }
-        }
-
-        if (programFilePath.empty())
-        {
-            throw std::runtime_error("Filepath is required. Expected: $ ./simulator <filepath>");
-        }
-#ifdef DEBUG
-        std::cerr << "programFilepath: " << programFilePath << std::endl;
-        if (options.has(options.I))
-        {
-            std::cerr << "Option -i is enabled." << std::endl;
-            std::cerr << "inputFilepath: " << programFilePath << std::endl;
-        }
-#endif
+    if (options.enableICount) {
+        std::cerr << "Instruction count output enabled.\n";
     }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
+    if (options.enableDebug) {
+        std::cerr << "Debug mode enabled.\n";
     }
-    Simulator simulator(options, maxStep, dMemory_size);
+    if (options.enableGDB) {
+        std::cerr << "GDB-like debugging enabled.\n";
+    }
+
+    Simulator simulator(options);
     // 開始日時を取得
 
     auto start = std::chrono::system_clock::now();
@@ -151,14 +38,14 @@ int main(int argc, char *argv[])
     // プログラムシミュレートの準備
     try
     {
-        simulator.loadInputData(inputFilePath);
-        simulator.loadMemoryFromBinary(programFilePath);
+        simulator.loadInputData(options.inputFilePath);
+        simulator.loadMemoryFromBinary(options.programFilePath);
 
         // シミュレート開始
         runningProgram = true;
-        simulator.runProgram(outputRegNum);
+        simulator.runProgram(options.outputRegNum);
         auto end = std::chrono::system_clock::now();
-        if (!options.has(options.GDB))
+        if (not options.enableGDB)
             simulator.printLog();
 
         std::cerr << "________Simulator Terminated________" << std::endl;
@@ -167,7 +54,7 @@ int main(int argc, char *argv[])
         // end - start を秒単位で計算
         std::chrono::duration<double> elapsed2 = end - start;
         std::cerr << "Simulator Execution time: " << elapsed.count() / 1000.0 << "sec" << std::endl;
-        if (options.has(options.NOTIFY))
+        if (options.enableNotify)
         {
             sendDiscordNotification("Simulator Execution time: " + std::to_string(elapsed.count() / 1000.0) + "sec");
         }
@@ -180,7 +67,7 @@ int main(int argc, char *argv[])
             std::cerr << "__DEBUG INFO__ " << std::endl;
             simulator.printLog();
         }
-        if (options.has(options.NOTIFY))
+        if (options.enableNotify)
         {
             sendDiscordNotification(std::string("Simulator Error: ") + e.what());
         }
