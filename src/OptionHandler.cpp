@@ -15,7 +15,6 @@ OptionHandler::OptionHandler()
       enableGDB(false),
       options("simulator") {
 
-    // オプション定義
     options.add_options()
         ("h,help", "Show help message")
         ("FILE", "Program file path", cxxopts::value<std::string>(programFilePath))
@@ -32,12 +31,10 @@ OptionHandler::OptionHandler()
     options.parse_positional({ "FILE" });
 }
 
-// 引数解析メソッド
 void OptionHandler::parse(int argc, char* argv[]) {
     try {
         auto const result = options.parse(argc, argv);
 
-        // ヘルプオプションが指定された場合
         if (result.count("help")) {
             std::cerr << options.help({}) << std::endl;
             exit(0);
@@ -45,7 +42,6 @@ void OptionHandler::parse(int argc, char* argv[]) {
         
         memorySize *= 1024 * 1024;
         
-        // デバッグモードの説明
         if (enableDebug) {
             std::cerr << "Debug mode enabled: Verbose logging will be displayed.\n"
                       << "Note: This mode is intended for short code execution due to high output volume.\n";

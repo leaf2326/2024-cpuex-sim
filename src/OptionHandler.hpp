@@ -7,13 +7,10 @@
 
 class OptionHandler {
 public:
-    // コンストラクタ
     OptionHandler();
 
-    // 引数解析メソッド
     void parse(int argc, char* argv[]);
 
-    // オプション値へのアクセス用メンバ
     std::string inputFilePath;
     std::string programFilePath;
     int outputRegNum;

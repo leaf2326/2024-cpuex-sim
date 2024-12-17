@@ -21,6 +21,3 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
-
-This project uses Boost.ProgramOptions, which is licensed under the Boost Software License 1.0.
-See lib/boost/LICENSE_1_0.txt for details.
