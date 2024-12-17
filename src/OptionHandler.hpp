@@ -3,7 +3,7 @@
 
 #include <string>
 #include <cstdint>
-#include <boost/program_options.hpp>
+#include "../include/cxxopts.hpp"
 
 class OptionHandler {
 public:
@@ -29,7 +29,7 @@ public:
     static constexpr uint64_t DEFAULT_MEMORY_SIZE = 4 * 1024 * 1024; //4MiB (Default dMemory Size)
 
 private:
-    boost::program_options::options_description desc;
+    cxxopts::Options options;
 };
 
 #endif

@@ -4,8 +4,6 @@
 #include <stdexcept>
 #include <limits>
 
-namespace po = boost::program_options;
-
 OptionHandler::OptionHandler()
     : inputFilePath("sld/contest.sld"),
       outputRegNum(-1),
@@ -15,49 +13,47 @@ OptionHandler::OptionHandler()
       enableICount(false),
       enableDebug(false),
       enableGDB(false),
-      desc("Command Line Options") {
+      options("simulator") {
 
     // オプション定義
-    desc.add_options()
-        ("help,h", "Show help message")
-        ("input,i", po::value<std::string>(&inputFilePath)->default_value(inputFilePath), "Input file path")
-        ("notify,n", po::bool_switch(&enableNotify), "Send notification to Discord Webhook after execution (Webhook URL in 'discordWebhook.txt')")
-        ("reg,r", po::value<int>(&outputRegNum)->default_value(outputRegNum), "Specify register to output (0-31: x0-x31, 32-63: fp0-fp31)")
-        ("limit,l", po::value<uint64_t>(&maxStep)->default_value(maxStep), "Set max instruction count")
-        ("memory,m", po::value<uint64_t>(&memorySize)->default_value(memorySize), "Set DRAM size in MiB")
-        ("cache,c", po::bool_switch(&enableCache), "Enable cache memory (may reduce performance)")
-        ("icount", po::bool_switch(&enableICount), "Output each instruction's count in memory")
-        ("debug,d", po::bool_switch(&enableDebug), "Enable verbose logging (intended for short code execution))")
-        ("gdb,g", po::bool_switch(&enableGDB), "Enable GDB-like debugging");
+    options.add_options()
+        ("h,help", "Show help message")
+        ("FILE", "Program file path", cxxopts::value<std::string>(programFilePath))
+        ("i,input", "Input file path", cxxopts::value<std::string>(inputFilePath)->default_value("sld/contest.sld"))
+        ("n,notify", "Send notification to Discord Webhook after execution (Webhook URL in 'discordWebhook.txt')",cxxopts::value<bool>(enableNotify))
+        ("r,reg", "Specify register to output (0-31: x0-x31, 32-63: fp0-fp31)", cxxopts::value<int>(outputRegNum))
+        ("l,limit", "Set max instruction count", cxxopts::value<uint64_t>(maxStep)->default_value(std::to_string(DEFAULT_MAX_STEP)))
+        ("m,memory", "Set DRAM size in MiB", cxxopts::value<uint64_t>(memorySize)->default_value(std::to_string(DEFAULT_MEMORY_SIZE/1024/1024)))
+        ("c,cache", "Enable cache memory (may reduce performance)", cxxopts::value<bool>(enableCache))
+        ("icount", "Output each instruction's count in memory", cxxopts::value<bool>(enableICount))
+        ("d,debug", "Enable verbose logging (intended for short code execution))", cxxopts::value<bool>(enableDebug))
+        ("g,gdb", "Enable GDB-like debugging", cxxopts::value<bool>(enableGDB));
+        
+    options.parse_positional({ "FILE" });
 }
 
 // 引数解析メソッド
 void OptionHandler::parse(int argc, char* argv[]) {
     try {
-        po::variables_map vm;
-        auto const parsing_result = po::parse_command_line(argc, argv, desc);
-        po::store(parsing_result, vm);
-
-        po::notify(vm);
+        auto const result = options.parse(argc, argv);
 
         // ヘルプオプションが指定された場合
-        if (vm.count("help")) {
-            std::cerr << desc << std::endl;
+        if (result.count("help")) {
+            std::cerr << options.help({}) << std::endl;
             exit(0);
         }
-
+        
+        memorySize *= 1024 * 1024;
+        
         // デバッグモードの説明
         if (enableDebug) {
             std::cerr << "Debug mode enabled: Verbose logging will be displayed.\n"
                       << "Note: This mode is intended for short code execution due to high output volume.\n";
         }
-
-    for (auto const& str : collect_unrecognized(parsing_result.options, po::include_positional)) {
-        programFilePath = str;
-        break;
     }
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+    catch (cxxopts::OptionException &e) {
+		std::cerr << options.help({}) << std::endl;
+		std::cerr <<"Error" << e.what() << std::endl;
         exit(1);
-    }
+	}
 }

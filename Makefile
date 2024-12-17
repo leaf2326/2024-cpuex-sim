@@ -9,8 +9,6 @@ OBJS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRCS))
 
 # 依存ファイル
 DEPS = $(OBJS:.o=.d) $(OBJDIR)/main.d $(OBJDIR)/testFPU.d
-CXXFLAGS += -Iinclude
-LDFLAGS += -Llib -lboost_program_options
 
 all: $(TARGET)
 	ulimit -s unlimited
