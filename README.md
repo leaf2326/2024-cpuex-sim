@@ -111,6 +111,6 @@ sudo apt-get install libssl-dev
   Lightweight C++ HTTP/HTTPS library.  
   Licensed under the [MIT License](https://github.com/yhirose/cpp-httplib/blob/master/LICENSE).
 
-- [Boost.ProgramOptions](https://www.boost.org/)  
-  A library for program option parsing and handling.  
-  Licensed under the [Boost Software License 1.0](https://www.boost.org/users/license.html).
+- [cxxopts](https://github.com/jarro2783/cxxopts)  
+  Lightweight C++ option parser library. 
+  Licensed under the [MIT License](https://github.com/jarro2783/cxxopts/blob/master/LICENSE).
