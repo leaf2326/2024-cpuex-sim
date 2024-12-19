@@ -54,7 +54,7 @@ sudo apt-get install libssl-dev
 | `-r [ --reg ] <RegNum>`      | 特定のレジスタ値を出力。`<RegNum>` は 0-31（`x0-x31`）、32-63（`fp0-fp31`） |
 | `-l [ --limit ] <maxStep>`  | 最大実行命令数を指定（デフォルト: `UINT64_MAX`）                   |
 | `-m [ --memory ] <size>`     | DRAMサイズを指定（単位: MiB、デフォルト: 4MiB）                                      |
-| `-c [ --cache ] <numWay>`    | キャッシュメモリを有効化し、Way数を指定（1の場合はDirect Mapped) |
+| `-c [ --cache ] <numWay>`    | キャッシュメモリを有効化し、Way数を指定（1の場合はDirect Mapped） |
 | `--icount`            | 命令メモリに存在する各命令とその実行回数を出力する                       |
 | `--istats`            |  実行された命令の特殊な統計を出力する。`addi`の即値0や`lw`/`sw`のオフセット分布など                       |
 | `-d [ --debug ]`             | 詳細なログを表示（大量の出力が発生する可能性あり）                |
