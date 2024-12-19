@@ -19,6 +19,7 @@ public:
     bool enableNotify;
     bool enableCache;
     bool enableICount;
+    bool enableIStats;
     bool enableDebug;
     bool enableGDB;
 

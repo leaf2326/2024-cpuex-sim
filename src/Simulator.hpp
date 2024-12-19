@@ -59,6 +59,12 @@ private:
     uint64_t loadStoreSequence = 0;
     uint64_t hazardRAW = 0;
 
+    uint64_t mviCount = 0;
+    uint64_t lwNegativeCount = 0;
+    uint64_t lwNonNegativeCount = 0;
+    uint64_t swNegativeCount = 0;
+    uint64_t swNonNegativeCount = 0;
+
     FPU fpu;
     std::array<int32_t, REG_COUNT> registers{};
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
@@ -74,6 +80,7 @@ private:
 
     bool enableCache;
     bool enableICount;
+    bool enableIStats;
     bool enableDebug;
     bool enableGDB;
 
@@ -112,6 +119,7 @@ private:
     void executeInstruction(uint32_t instruction);
 
     void printInstAddrCounts();
+    void printInstStats() const;
     void printProgram(bool aroundPC) const noexcept;
     void printCacheHitMissCounts() const;
 

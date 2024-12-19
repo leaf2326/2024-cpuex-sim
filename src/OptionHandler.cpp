@@ -5,10 +5,7 @@
 #include <limits>
 
 OptionHandler::OptionHandler()
-    : inputFilePath("sld/contest.sld"),
-      outputRegNum(-1),
-      maxStep(DEFAULT_MAX_STEP),
-      memorySize(DEFAULT_MEMORY_SIZE),
+    : outputRegNum(-1),
       enableCache(false),
       enableICount(false),
       enableDebug(false),
@@ -25,6 +22,7 @@ OptionHandler::OptionHandler()
         ("m,memory", "Set DRAM size in MiB", cxxopts::value<uint64_t>(memorySize)->default_value(std::to_string(DEFAULT_MEMORY_SIZE/1024/1024)))
         ("c,cache", "Enable cache memory (may reduce performance)", cxxopts::value<bool>(enableCache))
         ("icount", "Output each instruction's count in memory", cxxopts::value<bool>(enableICount))
+        ("istats", "Outputs statistics about executed instructions, focusing on `addi` with immediate 0 and `lw`/`sw` offset distributions", cxxopts::value<bool>(enableIStats))
         ("d,debug", "Enable verbose logging (intended for short code execution))", cxxopts::value<bool>(enableDebug))
         ("g,gdb", "Enable GDB-like debugging", cxxopts::value<bool>(enableGDB));
         

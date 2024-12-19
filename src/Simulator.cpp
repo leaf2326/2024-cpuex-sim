@@ -16,6 +16,7 @@ Simulator::Simulator(OptionHandler &op)
     isBreakpoint = false;
     enableCache = op.enableCache;
     enableICount = op.enableDebug;
+    enableIStats = op.enableIStats;
     enableDebug = op.enableDebug;
     enableGDB = op.enableGDB;
     maxStep = op.maxStep;
@@ -449,6 +450,15 @@ void Simulator::printInstAddrCounts()
                   << instToString(instruction) << std::endl;
     }
 }
+void Simulator::printInstStats() const
+{
+    std::cerr << "________Offset Stats________" << std::endl;
+    std::cerr << "Number of `addi` with immediate 0 (mvi): " << mviCount << std::endl;
+    std::cerr << "Number of `lw` with negative offsets: " << lwNegativeCount << std::endl;
+    std::cerr << "Number of `lw` with non-negative offsets: " << lwNonNegativeCount << std::endl;
+    std::cerr << "Number of `sw` with negative offsets: " << swNegativeCount << std::endl;
+    std::cerr << "Number of `sw` with non-negative offsets: " << swNonNegativeCount << std::endl;
+}
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
     printBoundary();
@@ -705,6 +715,10 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (funct3 == 0x0)
         {
             logInstruction("addi");
+            if (imm == 0)
+            {
+                mviCount++;
+            }
             setRegister(rd, getRegister(rs1) + imm);
         }
         else if (funct3 == 0x1)
@@ -828,6 +842,14 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("lw"); // 命令の記録
+            if (imm >= 0)
+            {
+                lwNonNegativeCount++;
+            }
+            else
+            {
+                lwNegativeCount++;
+            }
             setRegister(rd, dMemory.loadWord(address, true));
             if (prevInstIsLoadOrStore)
             {
@@ -863,6 +885,14 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("sw"); // 命令の記録
+            if (imm >= 0)
+            {
+                swNonNegativeCount++;
+            }
+            else
+            {
+                swNegativeCount++;
+            }
             dMemory.storeWord(address, getRegister(rs2));
             if (prevInstIsLoadOrStore)
             {
@@ -1096,6 +1126,10 @@ void Simulator::printLog()
     {
         printInstAddrCounts();
     }
+     if (enableIStats)
+    {
+         printInstStats();
+    }
     Log::printLog();
     std::cerr << "Detected RAW hazard: " << hazardRAW << std::endl;
     if (enableCache)
@@ -1108,7 +1142,6 @@ void Simulator::printLog()
     }
     std::cerr << "jal + jalr: " << instructionCounts["jal"] + instructionCounts["jalr"] << std::endl;
     std::cerr << "Sequencial load and store: " << loadStoreSequence << std::endl;
-
     std::cerr << "________Estimation from data________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
