@@ -51,14 +51,15 @@ sudo apt-get install libssl-dev
 | `-h [ --help ]`      | ヘルプを表示                |
 | `-i [ --input ] <filepath>`      | 入力ファイルを指定（デフォルト: `sld/contest.sld`）                |
 | `--notify`            | 実行終了時にDiscord Webhookへ通知を送信する。Webhook URLは `discordWebhook.txt` に記載 |
-| `--reg <RegNum>`      | 特定のレジスタ値を出力。`<RegNum>` は 0-31（`x0-x31`）、32-63（`fp0-fp31`） |
-| `--limit <maxStep>`  | 最大実行命令数を指定（デフォルト: `UINT64_MAX`）                   |
-| `--memory <size>`     | DRAMサイズを指定（単位: MiB、デフォルト: 4MiB）                                      |
-| `--cache`             | キャッシュメモリを有効化（実行速度は低下する）                    |
+| `-r [ --reg ] <RegNum>`      | 特定のレジスタ値を出力。`<RegNum>` は 0-31（`x0-x31`）、32-63（`fp0-fp31`） |
+| `-l [ --limit ] <maxStep>`  | 最大実行命令数を指定（デフォルト: `UINT64_MAX`）                   |
+| `-m [ --memory ] <size>`     | DRAMサイズを指定（単位: MiB、デフォルト: 4MiB）                                      |
+| `-c [ --cache ] <numWay>`    | キャッシュメモリを有効化し、Way数を指定（1の場合はDirect Mapped) |
 | `--icount`            | 命令メモリに存在する各命令とその実行回数を出力する                       |
-| `--debug`             | 詳細なログを表示（大量の出力が発生する可能性あり）                |
+| `--istats`            |  実行された命令の特殊な統計を出力する。`addi`の即値0や`lw`/`sw`のオフセット分布など                       |
+| `-d [ --debug ]`             | 詳細なログを表示（大量の出力が発生する可能性あり）                |
 | `-onlystdio`         | **(廃止)** 実行時のOutputのみを表示                     |
-| `--gdb`               | GDBのような機能を有効化    |
+| `-g [ --gdb ]`               | GDBのような機能を有効化    |
 
 ---
 
