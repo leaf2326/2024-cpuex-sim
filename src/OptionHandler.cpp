@@ -24,7 +24,7 @@ OptionHandler::OptionHandler()
         ("m,memory", "Set DRAM size in MiB", cxxopts::value<uint64_t>(memorySize)->default_value(std::to_string(DEFAULT_MEMORY_SIZE/1024/1024)))
         ("c,cache", "Enable cache memory with configurable associativity. Specify the number of ways for set-associative cache (1 for direct-mapped).", cxxopts::value<int>(cacheNumWay))
         ("icount", "Output each instruction's count in memory", cxxopts::value<bool>(enableICount))
-        ("istats", "Outputs statistics about executed instructions, focusing on `addi` with immediate 0 and `lw`/`sw` offset distributions", cxxopts::value<bool>(enableIStats))
+        ("istats", "Outputs statistics about executed instructions, focusing on `mv`, `mvi`, and `lw`/`sw` offset distributions.", cxxopts::value<bool>(enableIStats))
         ("d,debug", "Enable verbose logging (intended for short code execution))", cxxopts::value<bool>(enableDebug))
         ("g,gdb", "Enable GDB-like debugging", cxxopts::value<bool>(enableGDB));
         

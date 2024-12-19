@@ -59,6 +59,7 @@ private:
     uint64_t loadStoreSequence = 0;
     uint64_t hazardRAW = 0;
 
+    uint64_t mvCount = 0;
     uint64_t mviCount = 0;
     uint64_t lwNegativeCount = 0;
     uint64_t lwNonNegativeCount = 0;

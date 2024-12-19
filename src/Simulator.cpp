@@ -452,12 +452,13 @@ void Simulator::printInstAddrCounts()
 }
 void Simulator::printInstStats() const
 {
-    std::cerr << std::left << std::setw(18) << "________Instruction Stats________" << std::endl;
-    std::cerr << std::left << std::setw(18) << "Number of `addi`" << std::setw(29) << " with immediate 0 (mvi): " << mviCount << std::endl;
-    std::cerr << std::left << std::setw(18) << "Number of `lw`" << std::setw(29) << " with negative offsets: " << lwNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(18) << "Number of `lw`" << std::setw(29) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(18) << "Number of `sw`" << std::setw(29) << " with negative offsets: " << swNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(18) << "Number of `sw`" << std::setw(29) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
+    std::cerr << "________Instruction Stats________" << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `addi`" <<std::right<< std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right<<std::setw(28) << " with register x0 (mvi): " << mviCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right<<std::setw(28) << " with negative offsets: " << lwNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right<<std::setw(28) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right<<std::setw(28) << " with negative offsets: " << swNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right<<std::setw(28) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
@@ -715,7 +716,12 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (funct3 == 0x0)
         {
             logInstruction("addi");
+            // count mv, mvi
             if (imm == 0)
+            {
+                mvCount++;
+            }
+            if (rs1 == 0)
             {
                 mviCount++;
             }
@@ -1404,7 +1410,8 @@ void Simulator::runProgram(int outputRegNum)
         while (maxStep > step && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
-            if(enableDebug){
+            if (enableDebug)
+            {
                 printInstruction(instruction);
             }
             executeInstruction(instruction);
