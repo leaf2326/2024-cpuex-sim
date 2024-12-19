@@ -7,7 +7,7 @@
 #include <bit>
 
 Simulator::Simulator(OptionHandler &op)
-    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS)
+    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS, (op.cacheNumWay == 1), (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                 // x0
@@ -452,12 +452,12 @@ void Simulator::printInstAddrCounts()
 }
 void Simulator::printInstStats() const
 {
-    std::cerr << "________Offset Stats________" << std::endl;
-    std::cerr << "Number of `addi` with immediate 0 (mvi): " << mviCount << std::endl;
-    std::cerr << "Number of `lw` with negative offsets: " << lwNegativeCount << std::endl;
-    std::cerr << "Number of `lw` with non-negative offsets: " << lwNonNegativeCount << std::endl;
-    std::cerr << "Number of `sw` with negative offsets: " << swNegativeCount << std::endl;
-    std::cerr << "Number of `sw` with non-negative offsets: " << swNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(18) << "________Instruction Stats________" << std::endl;
+    std::cerr << std::left << std::setw(18) << "Number of `addi`" << std::setw(29) << " with immediate 0 (mvi): " << mviCount << std::endl;
+    std::cerr << std::left << std::setw(18) << "Number of `lw`" << std::setw(29) << " with negative offsets: " << lwNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(18) << "Number of `lw`" << std::setw(29) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(18) << "Number of `sw`" << std::setw(29) << " with negative offsets: " << swNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(18) << "Number of `sw`" << std::setw(29) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
@@ -1126,9 +1126,9 @@ void Simulator::printLog()
     {
         printInstAddrCounts();
     }
-     if (enableIStats)
+    if (enableIStats)
     {
-         printInstStats();
+        printInstStats();
     }
     Log::printLog();
     std::cerr << "Detected RAW hazard: " << hazardRAW << std::endl;
@@ -1404,6 +1404,9 @@ void Simulator::runProgram(int outputRegNum)
         while (maxStep > step && !isBreakpoint)
         {
             const uint32_t instruction = loadInstruction(pc);
+            if(enableDebug){
+                printInstruction(instruction);
+            }
             executeInstruction(instruction);
             step++;
         }

@@ -16,6 +16,7 @@ public:
     int outputRegNum;
     uint64_t maxStep;
     uint64_t memorySize;
+    int cacheNumWay;
     bool enableNotify;
     bool enableCache;
     bool enableICount;
