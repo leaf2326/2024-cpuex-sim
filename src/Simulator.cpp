@@ -465,6 +465,7 @@ void Simulator::printInstStats() const
     std::cerr << std::left << std::setw(17) << "Number of `flw`" << std::right << std::setw(28) << " with non-negative offsets: " << flwNonNegativeCount << std::endl;
     std::cerr << std::left << std::setw(17) << "Number of `fsw`" << std::right << std::setw(28) << " with negative offsets: " << fswNegativeCount << std::endl;
     std::cerr << std::left << std::setw(17) << "Number of `fsw`" << std::right << std::setw(28) << " with non-negative offsets: " << fswNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `flw`" << std::right << std::setw(28) << " of immediate value: " << flwImmCount << std::endl;
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
@@ -948,6 +949,10 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("flw"); // 命令の記録
+            if (rs1 == 0 && imm < 512 && imm >= 256)
+            {
+                flwImmCount++;
+            }
             if (imm >= 0)
             {
                 flwNonNegativeCount++;
@@ -1188,11 +1193,13 @@ void Simulator::printLog()
 
 void Simulator::printOutput() const noexcept
 {
+    std::ofstream outputfile(outputFilePath);
     for (const auto &o : dMemory.output)
     {
         char output_c = o & 0xFF;
-        std::cout << output_c;
+        outputfile << output_c;
     }
+    outputfile.close();
 }
 
 void Simulator::runProgram(int outputRegNum)

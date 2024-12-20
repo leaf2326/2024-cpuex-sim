@@ -70,6 +70,7 @@ private:
     uint64_t lwNonNegativeCount = 0;
     uint64_t swNegativeCount = 0;
     uint64_t swNonNegativeCount = 0;
+    uint64_t flwImmCount = 0;
 
     FPU fpu;
     std::array<int32_t, REG_COUNT> registers{};
