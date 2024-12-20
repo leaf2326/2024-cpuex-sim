@@ -455,7 +455,7 @@ void Simulator::printInstAddrCounts()
 void Simulator::printInstStats() const
 {
     std::cerr << "________Instruction Stats________" << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right << std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `add`" << std::right << std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
     std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right << std::setw(28) << " with register x0 (mvi): " << mviCount << std::endl;
     std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right << std::setw(28) << " with negative offsets: " << lwNegativeCount << std::endl;
     std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right << std::setw(28) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
@@ -679,6 +679,10 @@ void Simulator::executeInstruction(uint32_t instruction)
             if (funct7 == 0x00)
             {
                 logInstruction("add");
+                if (rs1 == 0 || rs2 == 0)
+                {
+                    mvCount++;
+                }
                 setRegister(rd, getRegister(rs1) + getRegister(rs2));
             }
             else if (funct7 == 0x20)
@@ -718,11 +722,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (funct3 == 0x0)
         {
             logInstruction("addi");
-            // count mv, mvi
-            if (imm == 0)
-            {
-                mvCount++;
-            }
+            // count mvi
             if (rs1 == 0)
             {
                 mviCount++;
@@ -1172,6 +1172,7 @@ void Simulator::printOutput() const noexcept
     for (const auto &o : dMemory.output)
     {
         char output_c = o & 0xFF;
+        std::cout << output_c;
     }
 }
 
@@ -1421,7 +1422,8 @@ void Simulator::runProgram(int outputRegNum)
                 step++;
             }
         }
-        else{
+        else
+        {
             pbar::pbar bar(outputSize, 100);
             bar.set_description("[Simulation]");
             bar.init();
