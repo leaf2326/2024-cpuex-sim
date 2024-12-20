@@ -287,7 +287,7 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
         {
             std::cerr << "Cache miss at set index " << " for address " << std::hex << address << std::dec << std::endl;
         }
-        
+
         size_t victimIndex = findLRUVictim(setIndex);
         loadBlockToCache(address);
         return setAssociativeCache[setIndex][victimIndex].data[offset];
@@ -309,6 +309,9 @@ void Memory::storeWord(uint32_t address, int32_t value)
             {
                 std::cerr << "Output written at output_addr (" << std::hex << address << "): " << value << std::dec << std::endl;
                 std::cerr << "Output: " << std::hex << mainMemory[address / 4] << std::dec << std::endl;
+            }
+            if(char(value & 0xFF) == '\n'){
+                lineOutputCount++;
             }
             output.emplace_back(value);
         }
@@ -372,7 +375,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
         {
             std::cerr << "Cache miss at set index " << setIndex << " for address " << std::hex << address << std::dec << std::endl;
         }
-        
+
         size_t victimIndex = findLRUVictim(setIndex);
         loadBlockToCache(address);
         setAssociativeCache[setIndex][victimIndex].data[offset] = value;

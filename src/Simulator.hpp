@@ -48,6 +48,7 @@ private:
     static constexpr int64_t INPUT_ADDRESS = 100;
     static constexpr int64_t OUTPUT_ADDRESS = 104;
     static constexpr double CPUFREQUENCY = 16000000;
+    uint64_t outputSize;
 
     static constexpr int NUM_ENTRIES = 128; // 2^7エントリ
     static constexpr int PHT_DEFAULT = 2;

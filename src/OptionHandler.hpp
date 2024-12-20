@@ -22,6 +22,7 @@ public:
     bool enableICount;
     bool enableIStats;
     bool enableDebug;
+    uint64_t imageSize;
     bool enableGDB;
 
     static constexpr uint64_t DEFAULT_MAX_STEP = UINT64_MAX;

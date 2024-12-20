@@ -5,6 +5,7 @@
 #include <bitset>
 #include <iomanip>
 #include <bit>
+#include "../include/pbar.hpp"
 
 Simulator::Simulator(OptionHandler &op)
     : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS, (op.cacheNumWay == 1), (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
@@ -18,6 +19,7 @@ Simulator::Simulator(OptionHandler &op)
     enableICount = op.enableDebug;
     enableIStats = op.enableIStats;
     enableDebug = op.enableDebug;
+    outputSize = op.imageSize * op.imageSize + 2;
     enableGDB = op.enableGDB;
     maxStep = op.maxStep;
     dMemory.availableCache = op.enableCache;
@@ -453,12 +455,12 @@ void Simulator::printInstAddrCounts()
 void Simulator::printInstStats() const
 {
     std::cerr << "________Instruction Stats________" << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `addi`" <<std::right<< std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right<<std::setw(28) << " with register x0 (mvi): " << mviCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right<<std::setw(28) << " with negative offsets: " << lwNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right<<std::setw(28) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right<<std::setw(28) << " with negative offsets: " << swNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right<<std::setw(28) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right << std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right << std::setw(28) << " with register x0 (mvi): " << mviCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right << std::setw(28) << " with negative offsets: " << lwNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right << std::setw(28) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right << std::setw(28) << " with negative offsets: " << swNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right << std::setw(28) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
@@ -1170,7 +1172,6 @@ void Simulator::printOutput() const noexcept
     for (const auto &o : dMemory.output)
     {
         char output_c = o & 0xFF;
-        std::cout << output_c;
     }
 }
 
@@ -1407,15 +1408,41 @@ void Simulator::runProgram(int outputRegNum)
     // 通常実行
     else
     {
-        while (maxStep > step && !isBreakpoint)
+        if (outputSize <= 2)
         {
-            const uint32_t instruction = loadInstruction(pc);
-            if (enableDebug)
+            while (maxStep > step && !isBreakpoint)
             {
-                printInstruction(instruction);
+                const uint32_t instruction = loadInstruction(pc);
+                if (enableDebug)
+                {
+                    printInstruction(instruction);
+                }
+                executeInstruction(instruction);
+                step++;
             }
-            executeInstruction(instruction);
-            step++;
+        }
+        else{
+            pbar::pbar bar(outputSize, 100);
+            bar.set_description("[Simulation]");
+            bar.init();
+            bar.enable_recalc_console_width(1);
+            uint64_t prevLineOutputCount = 0;
+            while (maxStep > step && !isBreakpoint)
+            {
+                const uint32_t instruction = loadInstruction(pc);
+                if (enableDebug)
+                {
+                    printInstruction(instruction);
+                }
+                executeInstruction(instruction);
+                step++;
+
+                if (prevLineOutputCount != dMemory.lineOutputCount)
+                {
+                    bar.tick();
+                }
+                prevLineOutputCount = dMemory.lineOutputCount;
+            }
         }
 
         std::cerr << "________Simulation Ended________" << std::endl;

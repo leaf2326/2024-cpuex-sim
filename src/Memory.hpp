@@ -26,10 +26,12 @@ public:
 
     bool availableCache = false;
     bool availableLog = true;
-
+    
+    uint64_t lineOutputCount = 0;
+    
     std::vector<int32_t> mainMemory{};
     std::vector<bool> isInitialized{};
-
+    
 private:
     struct CacheBlock
     {
@@ -49,7 +51,6 @@ private:
     const int64_t input_addr;
     const int64_t output_addr;
 
-    
     const bool enableDirect;
 
     std::vector<CacheBlock> directCache;
