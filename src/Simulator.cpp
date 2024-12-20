@@ -455,12 +455,16 @@ void Simulator::printInstAddrCounts()
 void Simulator::printInstStats() const
 {
     std::cerr << "________Instruction Stats________" << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `add`" << std::right << std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `addi`" << std::right << std::setw(28) << " with register x0 (mvi): " << mviCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right << std::setw(28) << " with negative offsets: " << lwNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `lw`" << std::right << std::setw(28) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right << std::setw(28) << " with negative offsets: " << swNegativeCount << std::endl;
-    std::cerr << std::left << std::setw(16) << "Number of `sw`" << std::right << std::setw(28) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `add`" << std::right << std::setw(28) << " with immediate 0 (mv): " << mvCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `addi`" << std::right << std::setw(28) << " with register x0 (mvi): " << mviCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `lw`" << std::right << std::setw(28) << " with negative offsets: " << lwNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `lw`" << std::right << std::setw(28) << " with non-negative offsets: " << lwNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `sw`" << std::right << std::setw(28) << " with negative offsets: " << swNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `sw`" << std::right << std::setw(28) << " with non-negative offsets: " << swNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `flw`" << std::right << std::setw(28) << " with negative offsets: " << flwNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `flw`" << std::right << std::setw(28) << " with non-negative offsets: " << flwNonNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `fsw`" << std::right << std::setw(28) << " with negative offsets: " << fswNegativeCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `fsw`" << std::right << std::setw(28) << " with non-negative offsets: " << fswNonNegativeCount << std::endl;
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
@@ -944,6 +948,14 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("flw"); // 命令の記録
+            if (imm >= 0)
+            {
+                flwNonNegativeCount++;
+            }
+            else
+            {
+                flwNegativeCount++;
+            }
             setFpRegister(rd, dMemory.loadWord(address, false));
             if (prevInstIsLoadOrStore)
             {
@@ -974,11 +986,18 @@ void Simulator::executeInstruction(uint32_t instruction)
         }
 
         detectPrevLoad(rs1, rs2);
-
         if (funct3 == 0x2)
         {
             const int64_t address = getRegister(rs1) + imm;
             logInstruction("fsw"); // 命令の記録
+            if (imm >= 0)
+            {
+                fswNonNegativeCount++;
+            }
+            else
+            {
+                fswNegativeCount++;
+            }
             dMemory.storeWord(address, getFpRegister(rs2));
             if (prevInstIsLoadOrStore)
             {
