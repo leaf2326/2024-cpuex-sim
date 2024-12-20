@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
     options.parse(argc, argv);
 
     std::cerr << "Input file path: " << options.inputFilePath << std::endl;
+    std::cerr << "Output file path: " << options.outputFilePath << std::endl;
     std::cerr << "Max steps: " << options.maxStep << std::endl;
     std::cerr << "Memory size: " << options.memorySize/1024/1024 << " MiB\n";
 

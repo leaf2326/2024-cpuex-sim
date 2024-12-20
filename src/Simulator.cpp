@@ -25,6 +25,7 @@ Simulator::Simulator(OptionHandler &op)
     dMemory.availableCache = op.enableCache;
     availableLog = op.enableGDB || op.enableDebug;
     dMemory.availableLog = availableLog;
+    outputFilePath = op.outputFilePath;
 }
 
 int32_t Simulator::getRegister(int reg) const
@@ -1191,15 +1192,18 @@ void Simulator::printLog()
     std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
 }
 
-void Simulator::printOutput() const noexcept
+void Simulator::printOutput()
 {
-    std::ofstream outputfile(outputFilePath);
+    std::ofstream file(outputFilePath);
+    if (!file) {
+        throw std::runtime_error("Could not open output file: " + outputFilePath);
+    }
     for (const auto &o : dMemory.output)
     {
         char output_c = o & 0xFF;
-        outputfile << output_c;
+        file << output_c;
     }
-    outputfile.close();
+    file.close();
 }
 
 void Simulator::runProgram(int outputRegNum)

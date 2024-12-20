@@ -12,6 +12,7 @@ public:
     void parse(int argc, char* argv[]);
 
     std::string inputFilePath;
+    std::string outputFilePath;
     std::string programFilePath;
     int outputRegNum;
     uint64_t maxStep;

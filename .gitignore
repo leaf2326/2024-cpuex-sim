@@ -8,3 +8,4 @@ testFPU
 
 .vscode
 sld
+output.ppm

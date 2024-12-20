@@ -49,6 +49,7 @@ private:
     static constexpr int64_t OUTPUT_ADDRESS = 104;
     static constexpr double CPUFREQUENCY = 16000000;
     uint64_t outputSize;
+    std::string outputFilePath;
 
     static constexpr int NUM_ENTRIES = 128; // 2^7エントリ
     static constexpr int PHT_DEFAULT = 2;
@@ -130,7 +131,7 @@ private:
     void printProgram(bool aroundPC) const noexcept;
     void printCacheHitMissCounts() const;
 
-    void printOutput() const noexcept;
+    void printOutput();
 };
 
 #endif // SIMULATOR_HPP
