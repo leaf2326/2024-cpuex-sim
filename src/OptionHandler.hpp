@@ -23,6 +23,7 @@ public:
     bool enableICount;
     bool enableIStats;
     bool enableDebug;
+    bool enableStdout;
     uint64_t imageSize;
     bool enableGDB;
 

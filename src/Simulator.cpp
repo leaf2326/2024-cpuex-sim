@@ -19,6 +19,7 @@ Simulator::Simulator(OptionHandler &op)
     enableICount = op.enableDebug;
     enableIStats = op.enableIStats;
     enableDebug = op.enableDebug;
+    enableStdout = op.enableStdout;
     outputSize = op.imageSize * op.imageSize + 2;
     enableGDB = op.enableGDB;
     maxStep = op.maxStep;
@@ -1195,13 +1196,18 @@ void Simulator::printLog()
 void Simulator::printOutput()
 {
     std::ofstream file(outputFilePath);
-    if (!file) {
+    if (!file)
+    {
         throw std::runtime_error("Could not open output file: " + outputFilePath);
     }
     for (const auto &o : dMemory.output)
     {
         char output_c = o & 0xFF;
         file << output_c;
+        if (enableStdout)
+        {
+            std::cout << output_c;
+        }
     }
     file.close();
 }

@@ -90,6 +90,7 @@ private:
     bool enableICount;
     bool enableIStats;
     bool enableDebug;
+    bool enableStdout;
     bool enableGDB;
 
     bool availableLog = false;

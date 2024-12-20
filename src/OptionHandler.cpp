@@ -10,6 +10,7 @@ OptionHandler::OptionHandler()
       enableCache(false),
       enableICount(false),
       enableDebug(false),
+      enableStdout(false),
       imageSize(0),
       enableGDB(false),
       options("simulator")
@@ -28,6 +29,7 @@ OptionHandler::OptionHandler()
         ("icount", "Output each instruction's count in memory", cxxopts::value<bool>(enableICount))
         ("istats", "Outputs statistics about executed instructions, focusing on `mv`, `mvi`, and `lw`/`sw` offset distributions.", cxxopts::value<bool>(enableIStats))
         ("d,debug", "Enable verbose logging (intended for short code execution))", cxxopts::value<bool>(enableDebug))
+        ("stdout", "Enable output to standard output stream, not only file", cxxopts::value<bool>(enableStdout))
         ("p,pbar", "Show progress bar, only when in terminal. Use this when program outputs ppm and specify the size(only when width and height are same. e.g. when the image is 128*128, specify 128) of image. The bar is according to numbar of lines in output", cxxopts::value<uint64_t>(imageSize))
         ("g,gdb", "Enable GDB-like debugging", cxxopts::value<bool>(enableGDB));
         
