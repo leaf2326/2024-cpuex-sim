@@ -56,8 +56,9 @@ sudo apt-get install libssl-dev
 | `-m [ --memory ] <size>`     | DRAMサイズを指定（単位: MiB、デフォルト: 4MiB）                                      |
 | `-c [ --cache ] <numWay>`    | キャッシュメモリを有効化し、Way数を指定（1の場合はDirect Mapped） |
 | `--icount`            | 命令メモリに存在する各命令とその実行回数を出力する                       |
-| `--istats`            |  実行された命令の特殊な統計を出力する。`addi`の即値0や`lw`/`sw`のオフセット分布など                       |
+| `--istats`            |  実行された命令の特殊な統計を出力する。`mv`と`mvi`の回数や`lw`/`sw`のオフセット分布など                       |
 | `-d [ --debug ]`             | 詳細なログを表示（大量の出力が発生する可能性あり）                |
+| `-p [ --pbar ] <imageSize>`             | プログレスバーをターミナルに表示。標準出力がターミナル上の時のみ動作。 例：`/simulator example/minrt_inline400_32 -p 32`            |
 | `-onlystdio`         | **(廃止)** 実行時のOutputのみを表示                     |
 | `-g [ --gdb ]`               | GDBのような機能を有効化    |
 
