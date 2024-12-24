@@ -791,7 +791,7 @@ void Simulator::executeInstruction(uint32_t instruction)
     case 0x4:
     {
         // J-type (jal)
-        const uint32_t rd = getRd(instruction);
+        const uint32_t rd = getRs2(instruction); //jalは特例でrs2の位置にrd
         int32_t imm = getImmediate(instruction);
         logInstruction("jal");
         setRegister(rd, getPC() + 1);
@@ -1003,7 +1003,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        if (fpuop == 0x60)
+        if (fpuop == 0x4)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("ftoi");
