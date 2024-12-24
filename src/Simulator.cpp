@@ -200,7 +200,7 @@ std::string Simulator::instToString(uint32_t instruction) const
     case 0x4:
     {
         // jal
-        const uint32_t rd = getRd(instruction);
+        const uint32_t rd = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
         sstr << "jal x" << rd << ", " << imm;
         break;
@@ -464,7 +464,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
             else
             {
                 const uint32_t instruction = iMemory[address];
-                std::cerr << address + 1 << ": " << instToString(instruction);
+                std::cerr << address << ": " << instToString(instruction);
                 if (i == 0)
                 {
                     std::cerr << " ←-";
