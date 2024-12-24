@@ -707,7 +707,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             }
             setRegister(rd, getRegister(rs1) + imm);
         }
-        else if (subop == 0x1)
+        else if (subop == 0x2)
         {
             detectPrevLoad(rs1, NOLOADREG);
 
@@ -719,7 +719,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("slli");
             setRegister(rd, getRegister(rs1) << shamt);
         }
-        else if (subop == 0x2)
+        else if (subop == 0x3)
         {
             detectPrevLoad(rs1, NOLOADREG);
 
