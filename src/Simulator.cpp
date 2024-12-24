@@ -468,6 +468,7 @@ void Simulator::printInstStats() const
     std::cerr << std::left << std::setw(17) << "Number of `fsw`" << std::right << std::setw(28) << " with negative offsets: " << fswNegativeCount << std::endl;
     std::cerr << std::left << std::setw(17) << "Number of `fsw`" << std::right << std::setw(28) << " with non-negative offsets: " << fswNonNegativeCount << std::endl;
     std::cerr << std::left << std::setw(17) << "Number of `flw`" << std::right << std::setw(28) << " of immediate value: " << flwImmCount << std::endl;
+    std::cerr << std::left << std::setw(17) << "Number of `fmul`" << std::right << std::setw(28) << " with 0.5 (fhalf): " << fhalfCount << std::endl;
 }
 void Simulator::printProgram(bool aroundPC) const noexcept
 {
@@ -1044,6 +1045,9 @@ void Simulator::executeInstruction(uint32_t instruction)
         else if (funct7 == 0x08)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            if(std::bit_cast<float>(getFpRegister(rs1)) == 0.5 || std::bit_cast<float>(getFpRegister(rs2)) == 0.5){
+                fhalfCount++;
+            }
             logInstruction("fmul");
             setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
         }
