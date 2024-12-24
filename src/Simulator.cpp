@@ -737,8 +737,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
             logInstruction("lui");
             setRegister(rd, imm);
-            setPC(getPC() + 1);
-            break;
         }
         else
         {
@@ -865,7 +863,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             throw std::runtime_error(ss.str());
         }
         setPC(getPC() + 1);
-
         currLoadReg = rd;
         break;
     }
@@ -960,7 +957,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             throw std::runtime_error(ss.str());
         }
         setPC(getPC() + 1);
-
         currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
         break;
     }
@@ -1114,7 +1110,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
         logInstruction("ebreak");
         isBreakpoint = true;
-        setPC(getPC() + 4);
+        setPC(getPC() + 1);
         break;
     }
     default:
