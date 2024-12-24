@@ -45,8 +45,8 @@ private:
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（512KiB）
     static constexpr int64_t CACHE_SIZE = 64 * 1024;
     static constexpr int64_t BLOCK_SIZE = 16;
-    static constexpr int64_t INPUT_ADDRESS = 100;
-    static constexpr int64_t OUTPUT_ADDRESS = 104;
+    static constexpr int64_t INPUT_ADDRESS = 25;
+    static constexpr int64_t OUTPUT_ADDRESS = 26;
     static constexpr double CPUFREQUENCY = 16000000;
     uint64_t outputSize;
     std::string outputFilePath;

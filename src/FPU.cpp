@@ -297,7 +297,8 @@ uint32_t FPU::itof(uint32_t x)
     return (sx << 31) | (ey << 23) | (my & 0x7FFFFF);
 }
 
-uint32_t FPU::ffloor(uint32_t x) {
+uint32_t FPU::ffloor(uint32_t x)
+{
     int32_t xint = std::bit_cast<int32_t>(ftoi(x));
     int32_t xint_minus = xint - 1;
 
@@ -308,11 +309,16 @@ uint32_t FPU::ffloor(uint32_t x) {
 
     uint32_t e = getExponent(x);
 
-    if (e > 150) {
+    if (e > 150)
+    {
         return x;
-    } else if (flag) {
+    }
+    else if (flag)
+    {
         return xfloat_minus;
-    } else {
+    }
+    else
+    {
         return xfloat;
     }
 }
@@ -321,7 +327,10 @@ uint32_t FPU::fneg(uint32_t x)
 {
     return x ^ (1 << 31);
 }
-
+uint32_t FPU::fabs(uint32_t x)
+{
+    return x & (~(1 << 31));
+}
 bool FPU::flt(uint32_t x1, uint32_t x2)
 {
     uint32_t s1, e1, m1, s2, e2, m2;
@@ -332,22 +341,30 @@ bool FPU::flt(uint32_t x1, uint32_t x2)
     e2 = getExponent(x2);
     m2 = getMantissa(x2);
 
-    if (s1 == 0 && s2 == 0) {
+    if (s1 == 0 && s2 == 0)
+    {
         // 両方正
         return (e1 == e2) ? (m1 < m2) : (e1 < e2);
-    } else if (s1 == 0 && s2 == 1) {
+    }
+    else if (s1 == 0 && s2 == 1)
+    {
         // 正 vs 負
         return false;
-    } else if (s1 == 1 && s2 == 0) {
+    }
+    else if (s1 == 1 && s2 == 0)
+    {
         // 負 vs 正
         return true;
-    } else {
+    }
+    else
+    {
         // 両方負
         return (e1 == e2) ? (m1 > m2) : (e1 > e2);
     }
 }
 
-bool FPU::feq(uint32_t x1, uint32_t x2) {
+bool FPU::feq(uint32_t x1, uint32_t x2)
+{
     uint32_t e1 = getExponent(x1);
     uint32_t e2 = getExponent(x2);
 

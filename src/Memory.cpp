@@ -61,7 +61,7 @@ void Memory::writeBack(uint32_t index, uint32_t setIndex, bool isDirect)
             uint32_t baseAddress = (block.tag << (indexBits + offsetBits)) | (index << offsetBits);
             for (size_t i = 0; i < block.data.size(); ++i)
             {
-                mainMemory[baseAddress / 4 + i] = block.data[i];
+                mainMemory[baseAddress + i] = block.data[i];
             }
             block.dirty = false;
             if (availableLog)
@@ -78,7 +78,7 @@ void Memory::writeBack(uint32_t index, uint32_t setIndex, bool isDirect)
             uint32_t baseAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
             for (size_t i = 0; i < block.data.size(); ++i)
             {
-                mainMemory[baseAddress / 4 + i] = block.data[i];
+                mainMemory[baseAddress + i] = block.data[i];
             }
             block.dirty = false;
             if (availableLog)
@@ -111,12 +111,12 @@ void Memory::loadBlockToCache(uint32_t address)
         uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
         for (size_t i = 0; i < block.data.size(); ++i)
         {
-            if (baseAddress / 4 + i >= mainMemory.size())
+            if (baseAddress + i >= mainMemory.size())
             {
                 std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
                 throw std::out_of_range("Main memory access out of range");
             }
-            block.data[i] = mainMemory[baseAddress / 4 + i];
+            block.data[i] = mainMemory[baseAddress + i];
         }
 
         if (availableLog)
@@ -144,12 +144,12 @@ void Memory::loadBlockToCache(uint32_t address)
         uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
         for (size_t i = 0; i < block.data.size(); ++i)
         {
-            if (baseAddress / 4 + i >= mainMemory.size())
+            if (baseAddress + i >= mainMemory.size())
             {
                 std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
                 throw std::out_of_range("Main memory access out of range");
             }
-            block.data[i] = mainMemory[baseAddress / 4 + i];
+            block.data[i] = mainMemory[baseAddress + i];
         }
         updateLRU(setIndex, victimIndex);
 
@@ -187,13 +187,13 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
-    if (!isInitialized[address / 4] && address != input_addr)
+    if (!isInitialized[address] && address != input_addr)
     {
         throw std::out_of_range("Access to uninitialized dMemory part");
     }
     if (address == input_addr || address == output_addr)
     {
-        auto temp = mainMemory[address / 4];
+        auto temp = mainMemory[address];
         if (address == input_addr)
         {
             if (availableLog)
@@ -228,7 +228,7 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
     }
     if (!availableCache)
     {
-        int32_t value = mainMemory[address / 4];
+        int32_t value = mainMemory[address];
         if (availableLog)
         {
             std::cerr << "Cache disabled. Loaded from main memory: " << std::hex << address << ": " << value << std::dec << std::endl;
@@ -296,11 +296,11 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
 
 void Memory::storeWord(uint32_t address, int32_t value)
 {
-    if (address < 0 || address >= memorySize)
+    if (address < 0 || address >= memorySize / 4)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
-    isInitialized[address / 4] = true;
+    isInitialized[address] = true;
     if (address == input_addr || address == output_addr)
     {
         if (address == output_addr)
@@ -308,14 +308,14 @@ void Memory::storeWord(uint32_t address, int32_t value)
             if (availableLog)
             {
                 std::cerr << "Output written at output_addr (" << std::hex << address << "): " << value << std::dec << std::endl;
-                std::cerr << "Output: " << std::hex << mainMemory[address / 4] << std::dec << std::endl;
+                std::cerr << "Output: " << std::hex << mainMemory[address] << std::dec << std::endl;
             }
             if(char(value & 0xFF) == '\n'){
                 lineOutputCount++;
             }
             output.emplace_back(value);
         }
-        mainMemory[address / 4] = value;
+        mainMemory[address] = value;
         return;
     }
     if (!availableCache)
@@ -324,7 +324,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
         {
             std::cerr << "Cache disabled. Stored directly to main memory at " << std::hex << address << ": " << value << std::dec << std::endl;
         }
-        mainMemory[address / 4] = value;
+        mainMemory[address] = value;
         return;
     }
     uint32_t tag = getTag(address);
