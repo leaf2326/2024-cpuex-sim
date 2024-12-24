@@ -80,11 +80,6 @@ void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
     // printRegisters(ALLREG);
 }
 
-int32_t Simulator::getPC() const
-{
-    return pc;
-}
-
 void Simulator::setPC(int32_t newPC)
 {
     if (availableLog)
@@ -94,10 +89,7 @@ void Simulator::setPC(int32_t newPC)
     // printRegisters(ALLREG)
 }
 
-int64_t Simulator::getStep() const
-{
-    return step;
-}
+
 
 int32_t Simulator::loadInstruction(int32_t address) const
 {
@@ -703,7 +695,6 @@ void Simulator::executeInstruction(uint32_t instruction)
         setPC(getPC() + 1);
         break;
     }
-
     case 0x2:
     {
         // addi, lui, slli, srli

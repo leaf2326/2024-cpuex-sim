@@ -31,26 +31,6 @@ Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t i
     isInitialized.resize(memorySize / 4, 0);
 }
 
-uint32_t Memory::getTag(uint32_t address)
-{
-    return address >> (indexBits + offsetBits);
-}
-
-uint32_t Memory::getIndex(uint32_t address)
-{
-    return (address >> offsetBits) & ((1 << indexBits) - 1);
-}
-
-uint32_t Memory::getSetIndex(uint32_t address)
-{
-    return (address >> offsetBits) & ((1 << indexBits) - 1);
-}
-
-uint32_t Memory::getOffset(uint32_t address)
-{
-    return address & ((1 << offsetBits) - 1);
-}
-
 void Memory::writeBack(uint32_t index, uint32_t setIndex, bool isDirect)
 {
     if (isDirect)
@@ -381,16 +361,6 @@ void Memory::storeWord(uint32_t address, int32_t value)
         setAssociativeCache[setIndex][victimIndex].data[offset] = value;
         setAssociativeCache[setIndex][victimIndex].dirty = true;
     }
-}
-
-uint64_t Memory::getHitCount() const
-{
-    return hitCount;
-}
-
-uint64_t Memory::getMissCount() const
-{
-    return missCount;
 }
 
 void Memory::printCacheState() const

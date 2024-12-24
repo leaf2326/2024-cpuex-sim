@@ -31,8 +31,17 @@ public:
     void loadMemoryFromBinary(const std::string &programFilePath);
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
-    int64_t getStep() const;
-    int32_t getPC() const;
+
+    [[nodiscard]]
+    inline int64_t getStep() const noexcept
+    {
+        return step;
+    }
+    [[nodiscard]]
+    inline int32_t getPC() const noexcept
+    {
+        return pc;
+    }
     void printRegisters(int regType) const;
     // ログの出力
     void printLog();
@@ -53,8 +62,8 @@ private:
 
     static constexpr int NUM_ENTRIES = 128; // 2^7エントリ
     static constexpr int PHT_DEFAULT = 2;
-    std::vector<uint8_t> patternHistoryTable;  // 2-bit飽和カウンタ
-    
+    std::vector<uint8_t> patternHistoryTable; // 2-bit飽和カウンタ
+
     bool isBreakpoint;
     bool currentInstIsLoadOrStore = false;
     bool prevInstIsLoadOrStore = false;
@@ -115,9 +124,8 @@ private:
     // 一つ前のロード命令でロードしたレジスタであるかを検出
     void detectPrevLoad(int32_t rs1, int32_t rs2);
 
-
     // 分岐予測
-    uint32_t getIndex(uint32_t pc) const;   // patternHistoryTableのindexを計算
+    uint32_t getIndex(uint32_t pc) const; // patternHistoryTableのindexを計算
     void updateCounter(uint8_t &counter, bool isTaken);
     bool predict(uint8_t counter) const;
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
