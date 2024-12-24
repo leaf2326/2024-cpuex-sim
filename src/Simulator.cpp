@@ -1078,7 +1078,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("fneg");
             setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
         }
-        else if (fpuop == 0x7)
+        else if (fpuop == 0x6)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction("fabs");
