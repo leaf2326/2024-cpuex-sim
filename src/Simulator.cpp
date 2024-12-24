@@ -8,10 +8,10 @@
 #include "../include/pbar.hpp"
 
 Simulator::Simulator(OptionHandler &op)
-    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS, OUTPUT_ADDRESS, (op.cacheNumWay == 1), (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
+    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 1), (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
 {
     DMEMORY_SIZE = op.memorySize;
-    registers[0] = 0;                 // x0
+    registers[0] = 0;                    // x0
     registers[2] = DMEMORY_SIZE / 4 - 4; // sp
     pc = 0;
     isBreakpoint = false;
@@ -88,8 +88,6 @@ void Simulator::setPC(int32_t newPC)
     pc = newPC;
     // printRegisters(ALLREG)
 }
-
-
 
 int32_t Simulator::loadInstruction(int32_t address) const
 {
@@ -177,7 +175,7 @@ std::string Simulator::instToString(uint32_t instruction) const
         const uint32_t subop = getSubop(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t imm = getImmediate(instruction);    
+        int32_t imm = getImmediate(instruction);
 
         if (subop == 0x0)
         {
@@ -789,7 +787,7 @@ void Simulator::executeInstruction(uint32_t instruction)
     case 0x4:
     {
         // J-type (jal)
-        const uint32_t rd = getRs2(instruction); //jalは特例でrs2の位置にrd
+        const uint32_t rd = getRs2(instruction); // jalは特例でrs2の位置にrd
         int32_t imm = getImmediate(instruction);
         logInstruction("jal");
         setRegister(rd, getPC() + 1);
@@ -835,7 +833,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             {
                 lwNegativeCount++;
             }
-            setRegister(rd, dMemory.loadWord(address, true));
+            setRegister(rd, dMemory.loadWord(address * 4, true));
             if (prevInstIsLoadOrStore)
             {
                 loadStoreSequence++;
@@ -849,7 +847,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
             const int64_t address = getRegister(rs1) + getRegister(rs2);
             logInstruction("lwr");
-            setRegister(rd, dMemory.loadWord(address, true));
+            setRegister(rd, dMemory.loadWord(address * 4, true));
             if (prevInstIsLoadOrStore)
             {
                 loadStoreSequence++;
@@ -889,7 +887,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             swNegativeCount++;
         }
-        dMemory.storeWord(address, getRegister(rs2));
+        dMemory.storeWord(address * 4, getRegister(rs2));
         if (prevInstIsLoadOrStore)
         {
             loadStoreSequence++;
@@ -928,7 +926,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             {
                 flwNegativeCount++;
             }
-            setFpRegister(rd, dMemory.loadWord(address, false));
+            setFpRegister(rd, dMemory.loadWord(address * 4, false));
             if (prevInstIsLoadOrStore)
             {
                 loadStoreSequence++;
@@ -943,7 +941,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
             const int64_t address = getRegister(rs1) + getRegister(rs2);
             logInstruction("flwr"); // 命令の記録
-            setFpRegister(rd, dMemory.loadWord(address, false));
+            setFpRegister(rd, dMemory.loadWord(address * 4, false));
             if (prevInstIsLoadOrStore)
             {
                 loadStoreSequence++;
@@ -983,7 +981,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
             fswNegativeCount++;
         }
-        dMemory.storeWord(address, getFpRegister(rs2));
+        dMemory.storeWord(address * 4, getFpRegister(rs2));
         if (prevInstIsLoadOrStore)
         {
             loadStoreSequence++;
@@ -1107,7 +1105,6 @@ void Simulator::executeInstruction(uint32_t instruction)
     }
     case 0x6:
     {
-
         logInstruction("ebreak");
         isBreakpoint = true;
         setPC(getPC() + 1);
