@@ -12,7 +12,7 @@ Simulator::Simulator(OptionHandler &op)
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                 // x0
-    registers[2] = DMEMORY_SIZE - 16; // sp
+    registers[2] = DMEMORY_SIZE / 4 - 4; // sp
     pc = 0;
     isBreakpoint = false;
     enableCache = op.enableCache;
@@ -177,12 +177,7 @@ std::string Simulator::instToString(uint32_t instruction) const
         const uint32_t subop = getSubop(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t imm = getImmediate(instruction);
-        // 符号ビットを処理
-        if ((imm >> 13) & 1)
-        {
-            imm -= 1 << 14;
-        }
+        int32_t imm = getImmediate(instruction);    
 
         if (subop == 0x0)
         {
@@ -207,12 +202,6 @@ std::string Simulator::instToString(uint32_t instruction) const
         // jal
         const uint32_t rd = getRd(instruction);
         int32_t imm = getImmediate(instruction);
-        // 符号ビットを処理
-        if ((imm >> 13) & 1)
-        {
-            imm -= 1 << 14;
-        }
-
         sstr << "jal x" << rd << ", " << imm;
         break;
     }
@@ -221,7 +210,6 @@ std::string Simulator::instToString(uint32_t instruction) const
         // jalr
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
-
         sstr << "jalr x" << rd << ", x" << rs1;
         break;
     }
@@ -768,11 +756,6 @@ void Simulator::executeInstruction(uint32_t instruction)
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
-        // 符号ビットを処理
-        if ((imm >> 13) & 1)
-        {
-            imm -= 1 << 14;
-        }
 
         bool isTaken = false;
         detectPrevLoad(rs1, rs2);
@@ -810,11 +793,6 @@ void Simulator::executeInstruction(uint32_t instruction)
         // J-type (jal)
         const uint32_t rd = getRd(instruction);
         int32_t imm = getImmediate(instruction);
-        // 符号ビットを処理
-        if ((imm >> 13) & 1)
-        {
-            imm -= 1 << 14;
-        }
         logInstruction("jal");
         setRegister(rd, getPC() + 1);
         setPC(imm);
@@ -960,7 +938,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             }
             currentInstIsLoadOrStore = true;
         }
-        if (subop == 0x1)
+        else if (subop == 0x1)
         {
             const uint32_t rs2 = getRs2(instruction);
 

@@ -49,8 +49,8 @@ public:
 private:
     uint64_t maxStep = UINT64_MAX;
     uint64_t step = 0;
-    static constexpr int REG_COUNT = 32;
-    static constexpr int FPREG_COUNT = 32;
+    static constexpr int REG_COUNT = 64;
+    static constexpr int FPREG_COUNT = 64;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（512KiB）
     static constexpr int64_t CACHE_SIZE = 64 * 1024;
     static constexpr int64_t BLOCK_SIZE = 16;

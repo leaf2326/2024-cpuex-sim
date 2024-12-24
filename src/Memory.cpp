@@ -91,7 +91,7 @@ void Memory::loadBlockToCache(uint32_t address)
         uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
         for (size_t i = 0; i < block.data.size(); ++i)
         {
-            if (baseAddress + i >= mainMemory.size())
+            if (baseAddress + i >= mainMemory.size() / 4)
             {
                 std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
                 throw std::out_of_range("Main memory access out of range");
@@ -124,7 +124,7 @@ void Memory::loadBlockToCache(uint32_t address)
         uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
         for (size_t i = 0; i < block.data.size(); ++i)
         {
-            if (baseAddress + i >= mainMemory.size())
+            if (baseAddress + i >= mainMemory.size() / 4)
             {
                 std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
                 throw std::out_of_range("Main memory access out of range");
@@ -163,7 +163,7 @@ size_t Memory::findLRUVictim(uint32_t setIndex)
 
 int32_t Memory::loadWord(uint32_t address, bool isLw)
 {
-    if (address < 0 || address >= memorySize)
+    if (address < 0 || address >= memorySize / 4)
     {
         throw std::out_of_range("dMemory access out of bounds");
     }
