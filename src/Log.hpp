@@ -22,7 +22,7 @@ protected:
     std::unordered_map<uint32_t, uint64_t> instAddrCounts;
 
 public:
-    void logInstAddr(uint32_t address);
+    void logInstAddr(const uint32_t &address);
 
     void logInstruction(const std::string &instructionName);
 

@@ -29,16 +29,7 @@ Simulator::Simulator(OptionHandler &op)
     outputFilePath = op.outputFilePath;
 }
 
-int32_t Simulator::getRegister(int reg) const
-{
-    if (reg < 0 || reg >= REG_COUNT)
-    {
-        throw std::out_of_range("Invalid register index");
-    }
-    return reg == 0 ? 0 : registers[reg];
-}
-
-void Simulator::setRegister(int reg, int32_t value)
+void Simulator::setRegister(const int &reg, const int32_t& value) 
 {
     if (reg == 0)
         return;
@@ -55,14 +46,6 @@ void Simulator::setRegister(int reg, int32_t value)
         throw std::out_of_range("Stack overflow! sp=" + std::to_string(registers[2]) + " hp=" + std::to_string(registers[3]));
     }
     // printRegisters(ALLREG);
-}
-int32_t Simulator::getFpRegister(int fpreg) const
-{
-    if (fpreg < 0 || fpreg >= FPREG_COUNT)
-    {
-        throw std::out_of_range("Invalid fpregister index");
-    }
-    return fpreg == 0 ? 0 : fpRegisters[fpreg];
 }
 
 void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
@@ -87,15 +70,6 @@ void Simulator::setPC(int32_t newPC)
 
     pc = newPC;
     // printRegisters(ALLREG)
-}
-
-int32_t Simulator::loadInstruction(int32_t address) const
-{
-    if (address < 0 || address >= IMEMORY_SIZE / 4)
-    {
-        throw std::out_of_range("iMemory access out of bounds");
-    }
-    return iMemory[address];
 }
 
 void Simulator::storeInstruction(int32_t address, int32_t instruction)
@@ -398,7 +372,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         }
         dMemory.isInitialized[address] = true;
         dMemory.mainMemory[address] = data;
-        address++;
+        ++address;
         if (address >= DMEMORY_SIZE / 4)
         {
             throw std::out_of_range("Program size exceeds dMemory limits");
@@ -409,7 +383,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     while (file.read(reinterpret_cast<char *>(&instruction), sizeof(instruction)))
     {
         storeInstruction(address, instruction);
-        address++;
+        ++address;
         if (address >= IMEMORY_SIZE / 4)
         {
             throw std::out_of_range("Program size exceeds iMemory limits");
@@ -535,7 +509,7 @@ void Simulator::printRegisters(int regType) const
     if (regType == REG || regType == ALLREG)
     {
         std::cerr << "________Registers state________" << std::endl;
-        for (int i = 0; i < REG_COUNT; i++)
+        for (int i = 0; i < REG_COUNT; ++i)
         {
             std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
                       << std::setw(15) << std::hex << getRegister(i)
@@ -546,7 +520,7 @@ void Simulator::printRegisters(int regType) const
     if (regType == FPREG || regType == ALLREG)
     {
         std::cerr << "________FpRegisters state________" << std::endl;
-        for (int i = 0; i < FPREG_COUNT; i++)
+        for (int i = 0; i < FPREG_COUNT; ++i)
         {
             std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
                       << std::setw(15) << std::hex << getFpRegister(i)
@@ -561,7 +535,7 @@ void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
     // 1命令前にロードしたレジスタであるかを検出
     if (rs1 == prevLoadReg || rs2 == prevLoadReg)
     {
-        hazardRAW++;
+        ++hazardRAW;
     }
 }
 
@@ -664,7 +638,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("add");
             if (rs1 == 0 || rs2 == 0)
             {
-                mvCount++;
+                ++mvCount;
             }
             setRegister(rd, getRegister(rs1) + getRegister(rs2));
         }
@@ -702,7 +676,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             // count mvi
             if (rs1 == 0)
             {
-                mviCount++;
+                ++mviCount;
             }
             setRegister(rd, getRegister(rs1) + imm);
         }
@@ -828,16 +802,16 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("lw");
             if (offset >= 0)
             {
-                lwNonNegativeCount++;
+                ++lwNonNegativeCount;
             }
             else
             {
-                lwNegativeCount++;
+                ++lwNegativeCount;
             }
             setRegister(rd, dMemory.loadWord(address * 4, true));
             if (prevInstIsLoadOrStore)
             {
-                loadStoreSequence++;
+                ++loadStoreSequence;
             }
             currentInstIsLoadOrStore = true;
         }
@@ -851,7 +825,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             setRegister(rd, dMemory.loadWord(address * 4, true));
             if (prevInstIsLoadOrStore)
             {
-                loadStoreSequence++;
+                ++loadStoreSequence;
             }
             currentInstIsLoadOrStore = true;
         }
@@ -882,16 +856,16 @@ void Simulator::executeInstruction(uint32_t instruction)
         logInstruction("sw"); // 命令の記録
         if (offset >= 0)
         {
-            swNonNegativeCount++;
+            ++swNonNegativeCount;
         }
         else
         {
-            swNegativeCount++;
+            ++swNegativeCount;
         }
         dMemory.storeWord(address * 4, getRegister(rs2));
         if (prevInstIsLoadOrStore)
         {
-            loadStoreSequence++;
+            ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
         setPC(getPC() + 1);
@@ -917,20 +891,20 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction("flw"); // 命令の記録
             if (rs1 == 0 && offset < 128 && offset >= 64)
             {
-                flwImmCount++;
+                ++flwImmCount;
             }
             if (offset >= 0)
             {
-                flwNonNegativeCount++;
+                ++flwNonNegativeCount;
             }
             else
             {
-                flwNegativeCount++;
+                ++flwNegativeCount;
             }
             setFpRegister(rd, dMemory.loadWord(address * 4, false));
             if (prevInstIsLoadOrStore)
             {
-                loadStoreSequence++;
+                ++loadStoreSequence;
             }
             currentInstIsLoadOrStore = true;
         }
@@ -945,7 +919,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             setFpRegister(rd, dMemory.loadWord(address * 4, false));
             if (prevInstIsLoadOrStore)
             {
-                loadStoreSequence++;
+                ++loadStoreSequence;
             }
             currentInstIsLoadOrStore = true;
         }
@@ -976,16 +950,16 @@ void Simulator::executeInstruction(uint32_t instruction)
         logInstruction("fsw"); // 命令の記録
         if (imm >= 0)
         {
-            fswNonNegativeCount++;
+            ++fswNonNegativeCount;
         }
         else
         {
-            fswNegativeCount++;
+            ++fswNegativeCount;
         }
         dMemory.storeWord(address * 4, getFpRegister(rs2));
         if (prevInstIsLoadOrStore)
         {
-            loadStoreSequence++;
+            ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
         setPC(getPC() + 1);
@@ -1338,7 +1312,7 @@ void Simulator::runProgram(int outputRegNum)
                                     printInstruction(instruction);
                                 }
                                 executeInstruction(instruction);
-                                step++;
+                                ++step;
                                 if (rep == 1)
                                 {
                                     std::cerr << std::endl;
@@ -1398,7 +1372,7 @@ void Simulator::runProgram(int outputRegNum)
                         const uint32_t instruction = loadInstruction(pc);
 
                         executeInstruction(instruction);
-                        step++;
+                        ++step;
                     }
                     if (isBreakpoint)
                     {
@@ -1436,7 +1410,7 @@ void Simulator::runProgram(int outputRegNum)
                     printInstruction(instruction);
                 }
                 executeInstruction(instruction);
-                step++;
+                ++step;
             }
         }
         else
@@ -1454,7 +1428,7 @@ void Simulator::runProgram(int outputRegNum)
                     printInstruction(instruction);
                 }
                 executeInstruction(instruction);
-                step++;
+                ++step;
 
                 if (prevLineOutputCount != dMemory.lineOutputCount)
                 {

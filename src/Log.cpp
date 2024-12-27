@@ -4,29 +4,29 @@
 #include <utility>
 #include <vector>
 
-void Log::logInstAddr(uint32_t address)
+void Log::logInstAddr(const uint32_t &address)
 {
-    instAddrCounts[address]++;
+    ++instAddrCounts[address];
 }
 void Log::logInstruction(const std::string &instructionName)
 {
-    totalInstructions++;
-    instructionCounts[instructionName]++;
+    ++totalInstructions;
+    ++instructionCounts[instructionName];
 }
 
 void Log::logFlush()
 {
-    flushCount++;
+    ++flushCount;
 }
 
 void Log::logBranchPrediction()
 {
-    branchPredCount++;
+    ++branchPredCount;
 }
 
 void Log::logStall(int stallType)
 {
-    nStallCount[stallType]++;
+    ++nStallCount[stallType];
 }
 /*
 uint64_t Log::sumCLKCount()

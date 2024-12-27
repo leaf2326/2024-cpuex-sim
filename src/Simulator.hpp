@@ -104,15 +104,44 @@ private:
 
     bool availableLog = false;
 
-    int32_t getRegister(int reg) const;
-    void setRegister(int reg, int32_t value);
-    int32_t getFpRegister(int fpreg) const;
+    [[nodiscard]]
+    inline int32_t getRegister(const int &reg) const
+    {
+        if (reg < 0 || reg >= REG_COUNT)
+        {
+            throw std::out_of_range("Invalid register index");
+        }
+        return reg == 0 ? 0 : registers[reg];
+    }
+
+    void setRegister(const int &reg, const int32_t &value);
+
+    [[nodiscard]]
+    inline int32_t getFpRegister(const int &fpreg) const
+    {
+        if (fpreg < 0 || fpreg >= FPREG_COUNT)
+        {
+            throw std::out_of_range("Invalid fpregister index");
+        }
+        return fpreg == 0 ? 0 : fpRegisters[fpreg];
+    }
+
     void setFpRegister(int fpreg, int32_t fpvalue);
 
     void setPC(int32_t newPC);
 
     int32_t loadWord(int32_t address);
-    int32_t loadInstruction(int32_t adsdress) const;
+
+    [[nodiscard]]
+    inline int32_t loadInstruction(const int32_t &address) const
+    {
+        if (address < 0 || address >= IMEMORY_SIZE / 4)
+        {
+            throw std::out_of_range("iMemory access out of bounds");
+        }
+        return iMemory[address];
+    }
+
     void storeWord(int32_t address, int32_t value);
     void storeInstruction(int32_t address, int32_t instruction);
 

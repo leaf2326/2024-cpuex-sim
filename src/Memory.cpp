@@ -201,7 +201,7 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
                     std::cerr << "Input: " << std::hex << temp << std::dec << std::endl;
                 }
                 storeWord(input_addr, temp);
-                inputIndex++;
+                ++inputIndex;
             }
         }
         return temp;
@@ -291,7 +291,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
                 std::cerr << "Output: " << std::hex << mainMemory[address / 4] << std::dec << std::endl;
             }
             if(char(value & 0xFF) == '\n'){
-                lineOutputCount++;
+                ++lineOutputCount;
             }
             output.emplace_back(value);
         }
