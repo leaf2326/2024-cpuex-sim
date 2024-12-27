@@ -9,7 +9,6 @@
 #include <array>
 #include <vector>
 #include <cstdint>
-#include <unordered_map>
 #include <functional>
 #include <stdexcept>
 #include <string>

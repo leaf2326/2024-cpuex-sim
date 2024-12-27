@@ -390,6 +390,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
         }
     }
     instructionSize = address;
+    instAddrCounts.resize(instructionSize, 0);
     std::cerr << "Completed loading memory" << std::endl;
 }
 void Simulator::printInstAddrCounts()
@@ -635,7 +636,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
         if (subop == 0x0)
         {
-            logInstruction("add");
+            logInstruction(ADD);
             if (rs1 == 0 || rs2 == 0)
             {
                 ++mvCount;
@@ -644,7 +645,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         }
         else if (subop == 0x1)
         {
-            logInstruction("sub");
+            logInstruction(SUB);
             setRegister(rd, getRegister(rs1) - getRegister(rs2));
         }
         else
@@ -672,7 +673,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             {
                 imm -= 1 << 14;
             }
-            logInstruction("addi");
+            logInstruction(ADDI);
             // count mvi
             if (rs1 == 0)
             {
@@ -689,7 +690,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             {
                 throw std::runtime_error("Warning: shamt is not between 0 and 3");
             }
-            logInstruction("slli");
+            logInstruction(SLLI);
             setRegister(rd, getRegister(rs1) << shamt);
         }
         else if (subop == 0x3)
@@ -701,14 +702,14 @@ void Simulator::executeInstruction(uint32_t instruction)
             {
                 throw std::runtime_error("Warning: shamt is not between 0 and 3");
             }
-            logInstruction("srli");
+            logInstruction(SRLI);
             setRegister(rd, getRegister(rs1) >> shamt);
         }
         else if (subop == 0x1)
         {
             // ?-type (lui)
             const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
-            logInstruction("lui");
+            logInstruction(LUI);
             setRegister(rd, imm);
         }
         else
@@ -732,22 +733,22 @@ void Simulator::executeInstruction(uint32_t instruction)
         detectPrevLoad(rs1, rs2);
         if (subop == 0x0)
         {
-            logInstruction("beq");
+            logInstruction(BEQ);
             isTaken = (getRegister(rs1) == getRegister(rs2));
         }
         else if (subop == 0x1)
         {
-            logInstruction("bne");
+            logInstruction(BNE);
             isTaken = (getRegister(rs1) != getRegister(rs2));
         }
         else if (subop == 0x2)
         {
-            logInstruction("blt");
+            logInstruction(BLT);
             isTaken = (getRegister(rs1) < getRegister(rs2));
         }
         else if (subop == 0x3)
         {
-            logInstruction("bge");
+            logInstruction(BGE);
             isTaken = (getRegister(rs1) >= getRegister(rs2));
         }
         else
@@ -764,7 +765,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         // J-type (jal)
         const uint32_t rd = getRs2(instruction); // jalは特例でrs2の位置にrd
         int32_t imm = getImmediate(instruction);
-        logInstruction("jal");
+        logInstruction(JAL);
         setRegister(rd, getPC() + 1);
         setPC(imm);
         break;
@@ -777,7 +778,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
         detectPrevLoad(rs1, NOLOADREG);
 
-        logInstruction("jalr");
+        logInstruction(JALR);
         setRegister(rd, getPC() + 1);
         setPC(getRegister(rs1));
         break;
@@ -799,7 +800,7 @@ void Simulator::executeInstruction(uint32_t instruction)
                 offset -= 1 << 14;
             }
             const int64_t address = getRegister(rs1) + offset;
-            logInstruction("lw");
+            logInstruction(LW);
             if (offset >= 0)
             {
                 ++lwNonNegativeCount;
@@ -821,7 +822,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             detectPrevLoad(rs1, rs2);
 
             const int64_t address = getRegister(rs1) + getRegister(rs2);
-            logInstruction("lwr");
+            logInstruction(LWR);
             setRegister(rd, dMemory.loadWord(address * 4, true));
             if (prevInstIsLoadOrStore)
             {
@@ -853,7 +854,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
         detectPrevLoad(rs1, rs2);
         const int64_t address = getRegister(rs1) + offset;
-        logInstruction("sw"); // 命令の記録
+        logInstruction(SW); // 命令の記録
         if (offset >= 0)
         {
             ++swNonNegativeCount;
@@ -888,7 +889,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             detectPrevLoad(rs1, NOLOADREG);
 
             const int64_t address = getRegister(rs1) + offset;
-            logInstruction("flw"); // 命令の記録
+            logInstruction(FLW); // 命令の記録
             if (rs1 == 0 && offset < 128 && offset >= 64)
             {
                 ++flwImmCount;
@@ -915,7 +916,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             detectPrevLoad(rs1, rs2);
 
             const int64_t address = getRegister(rs1) + getRegister(rs2);
-            logInstruction("flwr"); // 命令の記録
+            logInstruction(FLWR); // 命令の記録
             setFpRegister(rd, dMemory.loadWord(address * 4, false));
             if (prevInstIsLoadOrStore)
             {
@@ -947,7 +948,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         detectPrevLoad(rs1, rs2);
 
         const int64_t address = getRegister(rs1) + imm;
-        logInstruction("fsw"); // 命令の記録
+        logInstruction(FSW); // 命令の記録
         if (imm >= 0)
         {
             ++fswNonNegativeCount;
@@ -975,20 +976,20 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (fpuop == 0x4)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction("ftoi");
+            logInstruction(FTOI);
             setRegister(rd, fpu.ftoi(getFpRegister(rs1)));
         }
         else if (fpuop == 0x0)
         {
 
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction("flt");
+            logInstruction(FLT);
             setRegister(rd, fpu.flt(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (fpuop == 0x1)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction("feq");
+            logInstruction(FEQ);
             setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else
@@ -1011,62 +1012,62 @@ void Simulator::executeInstruction(uint32_t instruction)
         {
 
             detectPrevLoad(rs1, NOLOADREG);
-            logInstruction("itof");
+            logInstruction(ITOF);
             setFpRegister(rd, fpu.itof(getRegister(rs1)));
         }
         else if (fpuop == 0x0)
         {
 
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction("fadd");
+            logInstruction(FADD);
             setFpRegister(rd, fpu.fadd(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (fpuop == 0x1)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction("fsub");
+            logInstruction(FSUB);
             setFpRegister(rd, fpu.fsub(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (fpuop == 0x2)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction("fmul");
+            logInstruction(FMUL);
             setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (fpuop == 0x3)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction("fdiv");
+            logInstruction(FDIV);
             setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else if (fpuop == 0x4)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction("fmv");
+            logInstruction(FMV);
             setFpRegister(rd, getFpRegister(rs1));
         }
         else if (fpuop == 0x5)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction("fneg");
+            logInstruction(FNEG);
             setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
         }
         else if (fpuop == 0x6)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction("fabs");
+            logInstruction(FABS);
             setFpRegister(rd, fpu.fabs(getFpRegister(rs1)));
         }
         else if (fpuop == 0x7)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction("fsqrt");
+            logInstruction(FSQRT);
             setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
         }
         else if (fpuop == 0x8)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction("ffloor");
+            logInstruction(FFLOOR);
             setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
         }
         else
@@ -1080,7 +1081,7 @@ void Simulator::executeInstruction(uint32_t instruction)
     }
     case 0x6:
     {
-        logInstruction("ebreak");
+        logInstruction(EBREAK);
         isBreakpoint = true;
         setPC(getPC() + 1);
         break;
@@ -1129,12 +1130,12 @@ void Simulator::printLog()
             dMemory.printCacheState();
         }
     }
-    std::cerr << "jal + jalr: " << instructionCounts["jal"] + instructionCounts["jalr"] << std::endl;
+    std::cerr << "jal + jalr: " << instructionCounts[JAL] + instructionCounts[JALR] << std::endl;
     std::cerr << "Sequencial load and store: " << loadStoreSequence << std::endl;
     std::cerr << "________Estimation from data________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
-    estimatedClock += (instructionCounts["jal"] + instructionCounts["jalr"]) * 2;
+    estimatedClock += (instructionCounts[JAL] + instructionCounts[JALR]) * 2;
     estimatedClock += dMemory.getHitCount();
     estimatedClock += dMemory.getMissCount() * 14;
     estimatedClock += hazardRAW;

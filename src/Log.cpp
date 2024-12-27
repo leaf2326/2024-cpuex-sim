@@ -2,17 +2,6 @@
 #include <iomanip>
 #include <algorithm>
 #include <utility>
-#include <vector>
-
-void Log::logInstAddr(const uint32_t &address)
-{
-    ++instAddrCounts[address];
-}
-void Log::logInstruction(const std::string &instructionName)
-{
-    ++totalInstructions;
-    ++instructionCounts[instructionName];
-}
 
 void Log::logFlush()
 {
@@ -55,9 +44,9 @@ void Log::printLog()
     std::cerr << "Instruction counts: " << std::endl;
     {
         std::vector<std::pair<uint64_t, std::string>> v;
-        for (const auto &p : instructionCounts)
+        for (int i = 0; i<MAX_INSTRUCTION_TYPE;++i)
         {
-            v.push_back(std::make_pair(p.second, p.first));
+            v.emplace_back(std::make_pair(instructionCounts[i], typeToString(i)));
         }
         sort(v.rbegin(), v.rend());
         for (const auto &p : v)

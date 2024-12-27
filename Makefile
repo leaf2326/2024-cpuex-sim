@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++23 -Wall -O3
+CXXFLAGS = -std=c++23 -Wall -O3 -march=native
 LDFLAGS = -lssl -lcrypto
 TARGET = simulator
 SRCDIR = src
@@ -18,6 +18,10 @@ all: $(TARGET)
 $(TARGET): $(OBJDIR)/main.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJDIR)/main.o $(OBJS) $(LDFLAGS)
 
+profile: CXXFLAGS += -pg
+profile: LDFLAGS += -pg
+profile: clean $(TARGET)
+
 debug: $(OBJDIR)/main.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -DDEBUG -o $(TARGET) $(OBJDIR)/main.o $(OBJS) $(LDFLAGS)
 
@@ -29,4 +33,4 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -MMD -MP $< -o $@
 
 clean:
-	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU 
+	rm -rf $(OBJDIR) $(TARGET) *.log *.err testFPU gmon.out
