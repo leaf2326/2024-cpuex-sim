@@ -9,3 +9,5 @@ testFPU
 .vscode
 sld
 output.ppm
+gmon.out
+profile.txt

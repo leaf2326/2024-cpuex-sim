@@ -65,7 +65,7 @@ sudo apt-get install libssl-dev
 ---
 
 ## GDBモード
-`-gdb` オプションを使うとデバッグモードでシミュレータを実行可能。以下のコマンドがサポートされる。
+`--gdb` オプションを使うとデバッグモードでシミュレータを実行可能。以下のコマンドがサポートされる。
 
 ### コマンド一覧
 | コマンド      | 説明                                                             |
@@ -116,3 +116,7 @@ sudo apt-get install libssl-dev
 - [cxxopts](https://github.com/jarro2783/cxxopts)  
   Lightweight C++ option parser library. 
   Licensed under the [MIT License](https://github.com/jarro2783/cxxopts/blob/master/LICENSE).
+
+- [pbar](https://github.com/estshorter/pbar)  
+  C++ progress bar library inspired by tqdm(https://github.com/tqdm/tqdm).  
+  Licensed under the [Apache-2.0 license](https://github.com/estshorter/pbar/blob/master/LICENSE).
