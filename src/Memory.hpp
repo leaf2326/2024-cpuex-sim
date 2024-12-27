@@ -11,7 +11,7 @@ class Memory
 {
 public:
     Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t input_addr, int64_t output_addr, bool enableDirect = true, size_t associativity = 1);
-    
+
     int32_t loadWord(uint32_t address, bool toInt);
     void storeWord(uint32_t address, int32_t value);
 
@@ -37,7 +37,7 @@ public:
     bool availableLog = true;
 
     uint64_t lineOutputCount = 0;
-
+    
     std::vector<int32_t> mainMemory{};
     std::vector<bool> isInitialized{};
 
@@ -60,7 +60,7 @@ private:
     const int64_t input_addr;
     const int64_t output_addr;
 
-    const bool enableDirect;
+        const bool enableDirect;
 
     std::vector<CacheBlock> directCache;
 
