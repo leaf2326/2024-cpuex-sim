@@ -16,7 +16,7 @@ Simulator::Simulator(OptionHandler &op)
     pc = 0;
     isBreakpoint = false;
     enableCache = op.enableCache;
-    enableICount = op.enableDebug;
+    enableICount = op.enableICount;
     enableIStats = op.enableIStats;
     enableDebug = op.enableDebug;
     enableStdout = op.enableStdout;
@@ -424,10 +424,11 @@ void Simulator::printInstAddrCounts()
     std::cerr << std::setw(15) << "[iMEM Address]"
               << std::setw(15) << "[Count]:"
               << std::setw(19) << "Instruction" << std::endl;
+
     for (int i = 0; i < instructionSize; ++i)
     {
         const uint32_t instruction = iMemory[i];
-        std::cerr << std::setw(15) << std::hex << i * 4 << std::dec
+        std::cerr << std::setw(15) << std::hex << i << std::dec
                   << std::setw(14) << instAddrCounts[i] << ":        "
                   << instToString(instruction) << std::endl;
     }
@@ -643,7 +644,7 @@ void Simulator::printInstruction(uint32_t instruction) const
 
 void Simulator::executeInstruction(uint32_t instruction)
 {
-    logInstAddr(getPC() + 1);
+    logInstAddr(getPC());
     int currLoadReg = NULLREG;
     const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
