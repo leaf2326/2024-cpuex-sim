@@ -29,7 +29,7 @@ Simulator::Simulator(OptionHandler &op)
     outputFilePath = op.outputFilePath;
 }
 
-void Simulator::setRegister(const int &reg, const int32_t& value) 
+void Simulator::setRegister(const int &reg, const int32_t &value)
 {
     if (reg == 0)
         return;
@@ -144,12 +144,17 @@ std::string Simulator::instToString(uint32_t instruction) const
         break;
     }
     case 0x3:
+    case 0xE:
     {
         // beq, bne, blt, bge
         const uint32_t subop = getSubop(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
+        if (opcode == 0xE)
+        {
+            imm |= 1 << 14;
+        }
 
         if (subop == 0x0)
         {
@@ -170,10 +175,15 @@ std::string Simulator::instToString(uint32_t instruction) const
         break;
     }
     case 0x4:
+    case 0xF:
     {
         // jal
         const uint32_t rd = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
+        if (opcode == 0xF)
+        {
+            imm |= 1 << 14;
+        }
         sstr << "jal x" << rd << ", " << imm;
         break;
     }
@@ -722,13 +732,17 @@ void Simulator::executeInstruction(uint32_t instruction)
         break;
     }
     case 0x3:
+    case 0xE:
     {
         // B-type (beq, bne, blt, bge)
         const uint32_t subop = getSubop(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
-
+        if (opcode == 0xE)
+        {
+            imm |= 1 << 14;
+        }
         bool isTaken = false;
         detectPrevLoad(rs1, rs2);
         if (subop == 0x0)
@@ -761,10 +775,15 @@ void Simulator::executeInstruction(uint32_t instruction)
         break;
     }
     case 0x4:
+    case 0xF:
     {
         // J-type (jal)
         const uint32_t rd = getRs2(instruction); // jalは特例でrs2の位置にrd
         int32_t imm = getImmediate(instruction);
+        if (opcode == 0xF)
+        {
+            imm |= 1 << 14;
+        }
         logInstruction(JAL);
         setRegister(rd, getPC() + 1);
         setPC(imm);
