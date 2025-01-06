@@ -2,29 +2,20 @@
 #include <cmath>
 #include <bit>
 
-Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t input_addr, int64_t output_addr, bool enableDirect, size_t associativity)
-    : memorySize(memorySize), cacheSize(cacheSize), lineSize(lineSize), input_addr(input_addr), output_addr(output_addr),
-      enableDirect(enableDirect), cacheAssociativity(enableDirect ? 1 : associativity)
+Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t input_addr, int64_t output_addr, size_t associativity)
+    : memorySize(memorySize), cacheSize(cacheSize), lineSize(lineSize), input_addr(input_addr), output_addr(output_addr), cacheAssociativity(associativity)
 {
     offsetBits = static_cast<size_t>(std::log2(lineSize));
-    if (enableDirect)
-    {
-        numLines = cacheSize / lineSize;
-        indexBits = static_cast<size_t>(std::log2(numLines));
-        directCache.resize(numLines, CacheBlock{false, false, 0, std::vector<int32_t>(lineSize / sizeof(int32_t))});
-    }
-    else
-    {
-        size_t totalLines = cacheSize / lineSize;
-        size_t linesPerWay = totalLines / cacheAssociativity;
-        indexBits = static_cast<size_t>(std::log2(linesPerWay));
 
-        setAssociativeCache.resize(linesPerWay, std::vector<CacheBlock>(cacheAssociativity, CacheBlock{false, false, 0, std::vector<int32_t>(lineSize / sizeof(int32_t))}));
-        lruOrder.resize(linesPerWay, std::vector<size_t>(cacheAssociativity));
-        for (auto &setOrder : lruOrder)
-        {
-            std::iota(setOrder.begin(), setOrder.end(), 0);
-        }
+    size_t totalLines = cacheSize / lineSize;
+    size_t linesPerWay = totalLines / cacheAssociativity;
+    indexBits = static_cast<size_t>(std::log2(linesPerWay));
+
+    setAssociativeCache.resize(linesPerWay, std::vector<CacheBlock>(cacheAssociativity, CacheBlock{false, false, 0, std::vector<int32_t>(lineSize / sizeof(int32_t))}));
+    lruOrder.resize(linesPerWay, std::vector<size_t>(cacheAssociativity));
+    for (auto &setOrder : lruOrder)
+    {
+        std::iota(setOrder.begin(), setOrder.end(), 0);
     }
 
     mainMemory.resize(memorySize / 4, 0);
@@ -33,38 +24,19 @@ Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t i
 
 void Memory::writeBack(uint32_t index, uint32_t setIndex, bool isDirect)
 {
-    if (isDirect)
+
+    CacheBlock &block = setAssociativeCache[setIndex][index];
+    if (block.valid && block.dirty)
     {
-        CacheBlock &block = directCache[index];
-        if (block.valid && block.dirty)
+        uint32_t baseAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
+        for (size_t i = 0; i < block.data.size(); ++i)
         {
-            uint32_t baseAddress = (block.tag << (indexBits + offsetBits)) | (index << offsetBits);
-            for (size_t i = 0; i < block.data.size(); ++i)
-            {
-                mainMemory[baseAddress / 4 + i] = block.data[i];
-            }
-            block.dirty = false;
-            if (availableLog)
-            {
-                std::cerr << "Write-back occurred for index " << std::hex << index << std::dec << std::endl;
-            }
+            mainMemory[baseAddress / 4 + i] = block.data[i];
         }
-    }
-    else
-    {
-        CacheBlock &block = setAssociativeCache[setIndex][index];
-        if (block.valid && block.dirty)
+        block.dirty = false;
+        if (availableLog)
         {
-            uint32_t baseAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
-            for (size_t i = 0; i < block.data.size(); ++i)
-            {
-                mainMemory[baseAddress / 4 + i] = block.data[i];
-            }
-            block.dirty = false;
-            if (availableLog)
-            {
-                std::cerr << "Write-back occurred for set index " << setIndex << " and block " << index << std::endl;
-            }
+            std::cerr << "Write-back occurred for set index " << setIndex << " and block " << index << std::endl;
         }
     }
 }
@@ -73,70 +45,36 @@ void Memory::loadBlockToCache(uint32_t address)
 {
     uint32_t tag = getTag(address);
 
-    if (enableDirect)
+    uint32_t setIndex = getSetIndex(address);
+    if (setIndex >= setAssociativeCache.size())
     {
-        uint32_t index = getIndex(address);
-        if (index >= directCache.size())
-        {
-            std::cerr << "Error: Cache index out of range: " << index << std::endl;
-            throw std::out_of_range("Cache index out of range");
-        }
-        writeBack(index, 0, true);
-
-        CacheBlock &block = directCache[index];
-        block.tag = tag;
-        block.valid = true;
-        block.dirty = false;
-
-        uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
-        for (size_t i = 0; i < block.data.size(); ++i)
-        {
-            if (baseAddress / 4 + i >= mainMemory.size())
-            {
-                std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
-                throw std::out_of_range("Main memory access out of range");
-            }
-            block.data[i] = mainMemory[baseAddress / 4 + i];
-        }
-
-        if (availableLog)
-        {
-            std::cerr << "Cache miss: Loaded block to cache at index " << std::hex << index << " with tag " << tag << std::dec << std::endl;
-        }
+        std::cerr << "Error: Cache set index out of range: " << setIndex << std::endl;
+        throw std::out_of_range("Cache set index out of range");
     }
-    else
+    size_t victimIndex = findLRUVictim(setIndex);
+
+    writeBack(victimIndex, setIndex, false);
+
+    CacheBlock &block = setAssociativeCache[setIndex][victimIndex];
+    block.tag = tag;
+    block.valid = true;
+    block.dirty = false;
+
+    uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
+    for (size_t i = 0; i < block.data.size(); ++i)
     {
-        uint32_t setIndex = getSetIndex(address);
-        if (setIndex >= setAssociativeCache.size())
+        if (baseAddress / 4 + i >= mainMemory.size())
         {
-            std::cerr << "Error: Cache set index out of range: " << setIndex << std::endl;
-            throw std::out_of_range("Cache set index out of range");
+            std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
+            throw std::out_of_range("Main memory access out of range");
         }
-        size_t victimIndex = findLRUVictim(setIndex);
+        block.data[i] = mainMemory[baseAddress / 4 + i];
+    }
+    updateLRU(setIndex, victimIndex);
 
-        writeBack(victimIndex, setIndex, false);
-
-        CacheBlock &block = setAssociativeCache[setIndex][victimIndex];
-        block.tag = tag;
-        block.valid = true;
-        block.dirty = false;
-
-        uint32_t baseAddress = address & ~((1 << offsetBits) - 1);
-        for (size_t i = 0; i < block.data.size(); ++i)
-        {
-            if (baseAddress / 4 + i >= mainMemory.size())
-            {
-                std::cerr << "Error: Main memory access out of range: " << baseAddress + i << std::endl;
-                throw std::out_of_range("Main memory access out of range");
-            }
-            block.data[i] = mainMemory[baseAddress / 4 + i];
-        }
-        updateLRU(setIndex, victimIndex);
-
-        if (availableLog)
-        {
-            std::cerr << "Cache miss: Loaded block to cache at set index " << setIndex << " and victim block " << victimIndex << std::endl;
-        }
+    if (availableLog)
+    {
+        std::cerr << "Cache miss: Loaded block to cache at set index " << setIndex << " and victim block " << victimIndex << std::endl;
     }
 }
 
@@ -218,60 +156,32 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
     uint32_t tag = getTag(address);
     uint32_t offset = getOffset(address) / sizeof(int32_t);
 
-    if (enableDirect)
-    {
-        uint32_t index = getIndex(address);
-        CacheBlock &block = directCache[index];
+    uint32_t setIndex = getSetIndex(address);
 
+    for (size_t i = 0; i < cacheAssociativity; ++i)
+    {
+        CacheBlock &block = setAssociativeCache[setIndex][i];
         if (block.valid && block.tag == tag)
         {
             ++hitCount;
             if (availableLog)
             {
-                std::cerr << "Cache hit at index " << std::hex << index << " for address " << address << std::dec << std::endl;
+                std::cerr << "Cache hit at set index " << setIndex << ", way " << i << " for address " << std::hex << address << std::dec << std::endl;
             }
+            updateLRU(setIndex, i);
             return block.data[offset];
         }
-        else
-        {
-            ++missCount;
-            if (availableLog)
-            {
-                std::cerr << "Cache miss at index " << std::hex << index << " for address " << address << std::dec << std::endl;
-            }
-            loadBlockToCache(address);
-            return directCache[index].data[offset];
-        }
     }
-    else
+
+    ++missCount;
+    if (availableLog)
     {
-        uint32_t setIndex = getSetIndex(address);
-
-        for (size_t i = 0; i < cacheAssociativity; ++i)
-        {
-            CacheBlock &block = setAssociativeCache[setIndex][i];
-            if (block.valid && block.tag == tag)
-            {
-                ++hitCount;
-                if (availableLog)
-                {
-                    std::cerr << "Cache hit at set index " << setIndex << ", way " << i << " for address " << std::hex << address << std::dec << std::endl;
-                }
-                updateLRU(setIndex, i);
-                return block.data[offset];
-            }
-        }
-
-        ++missCount;
-        if (availableLog)
-        {
-            std::cerr << "Cache miss at set index " << " for address " << std::hex << address << std::dec << std::endl;
-        }
-
-        size_t victimIndex = findLRUVictim(setIndex);
-        loadBlockToCache(address);
-        return setAssociativeCache[setIndex][victimIndex].data[offset];
+        std::cerr << "Cache miss at set index " << " for address " << std::hex << address << std::dec << std::endl;
     }
+
+    size_t victimIndex = findLRUVictim(setIndex);
+    loadBlockToCache(address);
+    return setAssociativeCache[setIndex][victimIndex].data[offset];
 }
 
 void Memory::storeWord(uint32_t address, int32_t value)
@@ -290,7 +200,8 @@ void Memory::storeWord(uint32_t address, int32_t value)
                 std::cerr << "Output written at output_addr (" << std::hex << address << "): " << value << std::dec << std::endl;
                 std::cerr << "Output: " << std::hex << mainMemory[address / 4] << std::dec << std::endl;
             }
-            if(char(value & 0xFF) == '\n'){
+            if (char(value & 0xFF) == '\n')
+            {
                 ++lineOutputCount;
             }
             output.emplace_back(value);
@@ -310,68 +221,48 @@ void Memory::storeWord(uint32_t address, int32_t value)
     uint32_t tag = getTag(address);
     uint32_t offset = getOffset(address) / sizeof(int32_t);
 
-    if (enableDirect)
-    {
-        uint32_t index = getIndex(address);
-        CacheBlock &block = directCache[index];
+    uint32_t setIndex = getSetIndex(address);
 
+    for (size_t i = 0; i < cacheAssociativity; ++i)
+    {
+        CacheBlock &block = setAssociativeCache[setIndex][i];
         if (block.valid && block.tag == tag)
         {
             ++hitCount;
             block.data[offset] = value;
             block.dirty = true;
-        }
-        else
-        {
-            ++missCount;
-            loadBlockToCache(address);
-            block.data[offset] = value;
-            block.dirty = true;
-        }
-    }
-    else
-    {
-        uint32_t setIndex = getSetIndex(address);
-
-        for (size_t i = 0; i < cacheAssociativity; ++i)
-        {
-            CacheBlock &block = setAssociativeCache[setIndex][i];
-            if (block.valid && block.tag == tag)
+            updateLRU(setIndex, i);
+            if (availableLog)
             {
-                ++hitCount;
-                block.data[offset] = value;
-                block.dirty = true;
-                updateLRU(setIndex, i);
-                if (availableLog)
-                {
-                    std::cerr << "Cache hit at set index " << setIndex << ", way " << i << " for address " << std::hex << address << std::dec << std::endl;
-                }
-                return;
+                std::cerr << "Cache hit at set index " << setIndex << ", way " << i << " for address " << std::hex << address << std::dec << std::endl;
             }
+            return;
         }
-
-        ++missCount;
-        if (availableLog)
-        {
-            std::cerr << "Cache miss at set index " << setIndex << " for address " << std::hex << address << std::dec << std::endl;
-        }
-
-        size_t victimIndex = findLRUVictim(setIndex);
-        loadBlockToCache(address);
-        setAssociativeCache[setIndex][victimIndex].data[offset] = value;
-        setAssociativeCache[setIndex][victimIndex].dirty = true;
     }
+
+    ++missCount;
+    if (availableLog)
+    {
+        std::cerr << "Cache miss at set index " << setIndex << " for address " << std::hex << address << std::dec << std::endl;
+    }
+
+    size_t victimIndex = findLRUVictim(setIndex);
+    loadBlockToCache(address);
+    setAssociativeCache[setIndex][victimIndex].data[offset] = value;
+    setAssociativeCache[setIndex][victimIndex].dirty = true;
 }
 
 void Memory::printCacheState() const
 {
     std::cerr << "________Current Cache State________" << std::endl;
-    if (enableDirect)
+
+    for (size_t i = 0; i < setAssociativeCache.size(); ++i)
     {
-        for (size_t i = 0; i < directCache.size(); ++i)
+        std::cerr << "Set Index " << i << ":" << std::endl;
+        for (size_t j = 0; j < cacheAssociativity; ++j)
         {
-            const CacheBlock &block = directCache[i];
-            std::cerr << "Index " << i << ": ";
+            const CacheBlock &block = setAssociativeCache[i][j];
+            std::cerr << "  Way " << j << ": ";
             if (block.valid)
             {
                 std::cerr << "[Tag: " << block.tag << ", Dirty: " << (block.dirty ? "Yes" : "No") << "] Data: ";
@@ -385,31 +276,6 @@ void Memory::printCacheState() const
                 std::cerr << "Invalid";
             }
             std::cerr << std::endl;
-        }
-    }
-    else
-    {
-        for (size_t i = 0; i < setAssociativeCache.size(); ++i)
-        {
-            std::cerr << "Set Index " << i << ":" << std::endl;
-            for (size_t j = 0; j < cacheAssociativity; ++j)
-            {
-                const CacheBlock &block = setAssociativeCache[i][j];
-                std::cerr << "  Way " << j << ": ";
-                if (block.valid)
-                {
-                    std::cerr << "[Tag: " << block.tag << ", Dirty: " << (block.dirty ? "Yes" : "No") << "] Data: ";
-                    for (const auto &word : block.data)
-                    {
-                        std::cerr << word << " ";
-                    }
-                }
-                else
-                {
-                    std::cerr << "Invalid";
-                }
-                std::cerr << std::endl;
-            }
         }
     }
 }

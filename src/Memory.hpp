@@ -10,7 +10,7 @@
 class Memory
 {
 public:
-    Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t input_addr, int64_t output_addr, bool enableDirect = true, size_t associativity = 1);
+    Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t input_addr, int64_t output_addr, size_t associativity = 1);
 
     int32_t loadWord(uint32_t address, bool toInt);
     void storeWord(uint32_t address, int32_t value);
@@ -54,15 +54,10 @@ private:
 
     size_t cacheSize;
     size_t lineSize;
-    size_t numLines;
     size_t offsetBits;
     size_t indexBits;
     const int64_t input_addr;
     const int64_t output_addr;
-
-        const bool enableDirect;
-
-    std::vector<CacheBlock> directCache;
 
     size_t cacheAssociativity;
     std::vector<std::vector<CacheBlock>> setAssociativeCache;
