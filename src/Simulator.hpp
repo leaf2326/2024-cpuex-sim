@@ -51,11 +51,11 @@ private:
     static constexpr int REG_COUNT = 64;
     static constexpr int FPREG_COUNT = 64;
     static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（512KiB）
-    static constexpr int64_t CACHE_SIZE = 64 * 1024;
+    static constexpr int64_t CACHE_SIZE = 16 * 1024;
     static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t INPUT_ADDRESS = 25;
     static constexpr int64_t OUTPUT_ADDRESS = 26;
-    static constexpr double CPUFREQUENCY = 16000000;
+    static constexpr double CPUFREQUENCY = 100000000;
     uint64_t outputSize;
     std::string outputFilePath;
 

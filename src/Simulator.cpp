@@ -8,7 +8,7 @@
 #include "../include/pbar.hpp"
 
 Simulator::Simulator(OptionHandler &op)
-    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 1), (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
+    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, op.cacheNumWay)
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                    // x0
@@ -560,7 +560,6 @@ uint32_t Simulator::getIndex(uint32_t pc) const
 
 void Simulator::updateCounter(uint8_t &counter, bool isTaken)
 {
-
     if (isTaken)
     {
         if (counter < 3)
@@ -1127,7 +1126,7 @@ void Simulator::printCacheHitMissCounts() const
 // ログの出力
 void Simulator::printLog()
 {
-    uint64_t estimatedClock = 0;
+    double estimatedClock = 0;
     std::cerr << "Step : " << getStep() << std::endl;
     printProgram(true);
     printRegisters(ALLREG);
@@ -1149,22 +1148,36 @@ void Simulator::printLog()
             dMemory.printCacheState();
         }
     }
-    std::cerr << "jal + jalr: " << instructionCounts[JAL] + instructionCounts[JALR] << std::endl;
     std::cerr << "Sequencial load and store: " << loadStoreSequence << std::endl;
+    std::cerr << "Cache miss without write back: " << dMemory.getNonWbCount() << std::endl;
+    std::cerr << "Cache miss with different range write back: " << dMemory.getDiffRangeWbCount() << std::endl;
+    std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
+
     std::cerr << "________Estimation from data________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
-    estimatedClock += (instructionCounts[JAL] + instructionCounts[JALR]) * 2;
-    estimatedClock += dMemory.getHitCount();
-    estimatedClock += dMemory.getMissCount() * 14;
     estimatedClock += hazardRAW;
+    estimatedClock += (instructionCounts[JALR]) * 2;
     estimatedClock += flushCount * 2;
     estimatedClock += loadStoreSequence;
+    estimatedClock += ((instructionCounts[FADD]) + (instructionCounts[FSUB])) * 4;
+    estimatedClock += (instructionCounts[FMUL]) * 1;
+    estimatedClock += (instructionCounts[FDIV]) * 4;
+    estimatedClock += (instructionCounts[FSQRT]) * 2;
+    estimatedClock += (instructionCounts[FFLOOR]) * 4;
+    estimatedClock += (instructionCounts[ITOF]) * 2;
+    estimatedClock += (instructionCounts[FTOI]) * 2;
 
-    std::cerr << "Estimated clock: " << estimatedClock << std::endl;
+    estimatedClock += dMemory.getHitCount() * 1;
+    estimatedClock += dMemory.getNonWbCount() * 52.5;
+    estimatedClock += dMemory.getDiffRangeWbCount() * 56.2;
+    estimatedClock += dMemory.getSameRangeWbCount() * 64.5;
+
+    std::cerr << "Estimated clock: " << (uint64_t)estimatedClock << std::endl;
     double estimatedTime = estimatedClock / CPUFREQUENCY;
     std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
-    std::cerr << "Estimated instruction per clock: " << totalInstructions / (double)estimatedClock << std::endl;
+    std::cerr << "Estimated IPC: " << totalInstructions / (double)estimatedClock << std::endl;
+    std::cerr << "Estimated CPI: " << (double)estimatedClock / totalInstructions << std::endl;
     std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
 }
 

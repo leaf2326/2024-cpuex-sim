@@ -27,6 +27,24 @@ public:
         return missCount;
     }
 
+    [[nodiscard]]
+    inline uint64_t getNonWbCount() const noexcept
+    {
+        return nonWbCount;
+    }
+
+    [[nodiscard]]
+    inline uint64_t getSameRangeWbCount() const noexcept
+    {
+        return sameRangeWbCount;
+    }
+
+    [[nodiscard]]
+    inline uint64_t getDiffRangeWbCount() const noexcept
+    {
+        return diffRangeWbCount;
+    }
+
     void printCacheState() const;
 
     std::vector<int32_t> inputData{};
@@ -37,7 +55,7 @@ public:
     bool availableLog = true;
 
     uint64_t lineOutputCount = 0;
-    
+
     std::vector<int32_t> mainMemory{};
     std::vector<bool> isInitialized{};
 
@@ -87,7 +105,7 @@ private:
         return address & ((1 << offsetBits) - 1);
     }
 
-    void writeBack(uint32_t index, uint32_t setIndex = 0, bool isDirect = true);
+    void writeBack(uint32_t index, uint32_t setIndex = 0);
     void loadBlockToCache(uint32_t address);
 
     void updateLRU(uint32_t setIndex, size_t blockIndex);
@@ -95,6 +113,9 @@ private:
 
     uint64_t hitCount = 0;
     uint64_t missCount = 0;
+    uint64_t nonWbCount = 0;
+    uint64_t diffRangeWbCount = 0;
+    uint64_t sameRangeWbCount = 0;
 };
 
 #endif

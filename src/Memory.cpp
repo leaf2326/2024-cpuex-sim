@@ -22,7 +22,7 @@ Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t i
     isInitialized.resize(memorySize / 4, 0);
 }
 
-void Memory::writeBack(uint32_t index, uint32_t setIndex, bool isDirect)
+void Memory::writeBack(uint32_t index, uint32_t setIndex)
 {
 
     CacheBlock &block = setAssociativeCache[setIndex][index];
@@ -52,10 +52,29 @@ void Memory::loadBlockToCache(uint32_t address)
         throw std::out_of_range("Cache set index out of range");
     }
     size_t victimIndex = findLRUVictim(setIndex);
-
-    writeBack(victimIndex, setIndex, false);
-
     CacheBlock &block = setAssociativeCache[setIndex][victimIndex];
+    if (block.valid && block.dirty)
+    {
+        uint32_t oldAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
+        uint32_t oldRange = (oldAddress >> 22) & 0x7;
+        uint32_t newRange = (address >> 22) & 0x7;
+        
+        if (oldRange != newRange)
+        {
+            ++diffRangeWbCount;
+        }
+        else
+        {
+            ++sameRangeWbCount;
+        }
+    }
+    else
+    {
+        ++nonWbCount;
+    }
+
+    writeBack(victimIndex, setIndex);
+
     block.tag = tag;
     block.valid = true;
     block.dirty = false;
