@@ -16,59 +16,74 @@ uint32_t FPU::fsub(uint32_t x1, uint32_t x2)
 
 uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
 {
-    uint32_t s1, e1, m1, s2, e2, m2;
-    s1 = getSign(x1);
-    e1 = getExponent(x1);
-    m1 = getMantissa(x1);
-    s2 = getSign(x2);
-    e2 = getExponent(x2);
-    m2 = getMantissa(x2);
+    uint32_t s1 = getSign(x1);
+    uint32_t e1 = getExponent(x1);
+    uint32_t m1 = getMantissa(x1);
+    uint32_t s2 = getSign(x2);
+    uint32_t e2 = getExponent(x2);
+    uint32_t m2 = getMantissa(x2);
 
-    uint32_t h1 = ((m1 >> 11) & 0xFFF) | (1 << 12);
-    uint32_t l1 = m1 & 0x7FF;
-    uint32_t h2 = ((m2 >> 11) & 0xFFF) | (1 << 12);
-    uint32_t l2 = m2 & 0x7FF;
+    uint32_t m1_extend = (1 << 23) | m1;
+    uint32_t m2_extend = (1 << 23) | m2;
 
-    uint32_t hh = h1 * h2;
-    uint32_t hl = h1 * l2;
-    uint32_t lh = h2 * l1;
+    uint64_t product = static_cast<uint64_t>(m1_extend) * static_cast<uint64_t>(m2_extend);
 
-    uint32_t sy = s1 ^ s2;
-    uint32_t my_temp = hh + (hl >> 11) + (lh >> 11) + 2;
-    uint32_t carry = (my_temp >> 25) & 1;
+    product += (1ULL << 23);
 
-    uint32_t my = carry ? (my_temp >> 2) & 0x7FFFFF : (my_temp >> 1) & 0x7FFFFF;
+    bool carry = product & (1ULL << 47);
+    uint32_t my = carry ? (product >> 24) & 0x7FFFFF : (product >> 23) & 0x7FFFFF;
 
-    int32_t ey_temp = static_cast<int32_t>(e1) + static_cast<int32_t>(e2) - 127 + carry;
+    uint32_t ey_temp = e1 + e2 - 127 + carry;
 
-    bool underflow = (e1 == 0 || e2 == 0 || (ey_temp & 0x1FF) == 0);
+    bool underflow = (e1 == 0 || e2 == 0 || ey_temp == 0);
     bool overflow = (e1 == 0xFF || e2 == 0xFF || ey_temp >= 255);
 
     uint32_t ey = underflow ? 0 : (overflow ? 0 : ey_temp & 0xFF);
     my = underflow || overflow ? 0 : my;
 
-    return (sy << 31) | (ey << 23) | my;
+    return (s1 ^ s2) << 31 | (ey << 23) | my;
 }
 
 uint32_t FPU::finv(uint32_t xm)
 {
-    // x_mは23bit
     uint32_t key = xm >> 13;
-    uint32_t xd = (0x0 << 31) | (0x7f << 23) | xm;
-    return fsub(finv_table[key].b, fmul(finv_table[key].a, xd));
+
+    uint32_t a = finv_table[key].a;
+    uint32_t c = finv_table[key].b;
+
+    uint32_t d = xm & 0x1FFF;
+    uint32_t ad = a * d;
+    uint32_t ad_shifted = static_cast<uint32_t>(ad >> 12);
+
+    uint32_t my = c - ad_shifted;
+
+    return (0 << 31) | (126 << 23) | (my & 0x7FFFFF);
 }
 
 uint32_t FPU::fsqrt(uint32_t x)
 {
-    uint32_t s, e, m;
-    s = getSign(x);
-    e = getExponent(x);
-    m = getMantissa(x);
-    uint32_t key = ((~e & 1) << 9) | (m >> 14);
-    uint32_t xex = ((e & 1) == 0) ? ((0x0 << 31) | (0x80 << 23) | m) : ((0x0 << 31) | (0x7f << 23) | m);
-    uint32_t esqrt = (e - 127) / 2 + 127;
-    uint32_t msqrt = fadd(fsqrt_table[key].b, fmul(fsqrt_table[key].a, xex));
-    return (e == 0) ? 0 : ((s & 1) << 31) | ((esqrt & 0xFF) << 23) | (msqrt & 0x7FFFFF);
+    uint32_t s = getSign(x);
+    uint32_t e = getExponent(x);
+    uint32_t m = getMantissa(x);
+
+    if (e == 0)
+        return 0;
+
+    bool x_in_2_4 = (e & 1) == 0;
+    uint32_t key = (x_in_2_4 << 9) | (m >> 14);
+
+    uint32_t a = fsqrt_table[key].a | (1 << 13);
+    uint32_t c = fsqrt_table[key].b;
+
+    uint32_t d = m & 0x3FFF;
+    uint32_t ad = a * d;
+    uint32_t ad_shifted = x_in_2_4 ? (ad >> 14) : (ad >> 15);
+
+    uint32_t my = c + ad_shifted;
+
+    uint32_t ey = (e >> 1) + 63 + (!x_in_2_4);
+
+    return (s << 31) | ((ey & 0xFF) << 23) | (my & 0x7FFFFF);
 }
 
 uint32_t FPU::fdiv(uint32_t x1, uint32_t x2)
@@ -84,8 +99,7 @@ uint32_t FPU::fdiv(uint32_t x1, uint32_t x2)
     uint32_t m1inv = finv(m2);
     uint32_t m2ex = (0x0 << 31) | (0x7f << 23) | m1;
     uint32_t mdiv = fmul(m2ex, m1inv);
-    // 仮数部の積が1以下の場合の判定(mdivの23bit目が0なら1以下) 指数部を追加で1減らす必要があるため
-    // 指数部の計算
+
     uint32_t ediv = (((mdiv >> 23) & 1) == 0) ? (e1 - e2 + 126) : (e1 - e2 + 127);
 
     return (((ediv >> 8) & 1) || e1 == 0) ? 0 : ((sdiv & 1) << 31) | ((ediv & 0xFF) << 23) | (mdiv & 0x7FFFFF);
