@@ -8,7 +8,7 @@
 #include "../include/pbar.hpp"
 
 Simulator::Simulator(OptionHandler &op)
-    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, op.cacheNumWay)
+    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                    // x0
