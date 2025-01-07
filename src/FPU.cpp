@@ -28,7 +28,7 @@ uint32_t FPU::fmul(uint32_t x1, uint32_t x2)
 
     uint64_t product = static_cast<uint64_t>(m1_extend) * static_cast<uint64_t>(m2_extend);
 
-    product += (1ULL << 23);
+    // product += (1ULL << 23);
 
     bool carry = product & (1ULL << 47);
     uint32_t my = carry ? (product >> 24) & 0x7FFFFF : (product >> 23) & 0x7FFFFF;
@@ -115,148 +115,50 @@ uint32_t FPU::addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction)
     e2 = getExponent(x2);
     m2 = getMantissa(x2);
 
-    m1 |= (e1 > 0) ? (1 << 23) : 0;
-    m2 |= (e2 > 0) ? (1 << 23) : 0;
-
     if (isSubtraction)
     {
-        s2 ^= 1; // 符号反転
+        s2 ^= 1;
     }
 
-    int32_t e1a = e1;
-    int32_t e2a = e2;
+    bool x1_is_big = (x1 & 0x7FFFFFFF) > (x2 & 0x7FFFFFFF);
+    uint32_t e_big = x1_is_big ? e1 : e2;
+    uint32_t e_small = x1_is_big ? e2 : e1;
+    uint32_t m_big = (1 << 24) | ((x1_is_big ? m1 : m2) << 1);
+    uint32_t m_small = (1 << 24) | ((x1_is_big ? m2 : m1) << 1);
+    uint32_t sy = x1_is_big ? s1 : s2;
 
-    uint32_t ce = 0;
-    int32_t tde = 0;
-    if (e1a > e2a)
-    {
-        ce = 0;
-        tde = e1a - e2a;
-    }
-    else
-    {
-        ce = 1;
-        tde = e2a - e1a;
-    }
+    uint32_t shift = e_big - e_small;
 
-    uint32_t de = (tde > 31) ? 31 : tde;
-    uint32_t sel = (de == 0) ? (m1 > m2 ? 0 : 1) : ce;
+    m_small = shift < 0 ? 0 : (shift >= 32 ? 0 : m_small >> shift);
 
-    uint32_t ms, mi, es, ss;
-    if (sel == 0)
-    {
-        ms = m1;
-        mi = m2;
-        es = e1a;
-        // ei = e2a;
-        ss = s1;
-    }
-    else
-    {
-        ms = m2;
-        mi = m1;
-        es = e2a;
-        // ei = e1a;
-        ss = s2;
-    }
+    uint32_t my1 = (s1 == s2) ? (m_big + m_small) : (m_big - m_small);
 
-    uint64_t mie = static_cast<uint64_t>(mi) << 31;
-    uint64_t mia = mie >> de;
-
-    uint32_t tstck = (mia & 0x1FFFFFFF) != 0;
-
-    uint64_t mye;
-    if (s1 == s2)
-    {
-        mye = (static_cast<uint64_t>(ms) << 2) + (mia >> 29);
-    }
-    else
-    {
-        mye = (static_cast<uint64_t>(ms) << 2) - (mia >> 29);
-    }
-
-    uint32_t esi = es + 1;
-
-    uint32_t eyd;
-    uint64_t myd;
-    uint32_t stck;
-    if (mye & (1 << 26))
-    {
-        if (esi == 255)
-        {
-            eyd = 255;
-            myd = (1ULL << 25);
-            stck = 0;
-        }
-        else
-        {
-            eyd = esi;
-            myd = mye >> 1;
-            stck = tstck || (mye & 1);
-        }
-    }
-    else
-    {
-        eyd = es;
-        myd = mye;
-        stck = tstck;
-    }
-
-    uint32_t se = 26;
+    uint32_t my1_shifts = 0;
     for (int i = 25; i >= 0; --i)
     {
-        if (myd & (1 << i))
+        if (my1 & (1 << i))
         {
-            se = 25 - i;
+            my1_shifts = 25 - i;
             break;
+        }
+        else if (i == 0)
+        {
+            my1_shifts = 26;
         }
     }
 
-    int32_t eyf = eyd - se;
-    uint64_t myf;
-    uint32_t eyr;
-    if (eyf > 0)
-    {
-        myf = myd << se;
-        eyr = eyf & 0xFF;
-    }
-    else
-    {
-        myf = myd << ((eyd & 0x1F) - 1);
-        eyr = 0;
-    }
+    uint64_t my2 = static_cast<uint64_t>(my1) << my1_shifts;
+    uint32_t my3 = ((my2 >> 2) & 0x7FFFFF);
 
-    uint64_t myr;
-    if (((myf & 0x2) && !(myf & 0x1) && !stck && (myf & 0x4)) || ((myf & 0x2) && (!(myf & 0x1)) && (s1 == s2) && stck) || ((myf & 0x2) && (myf & 0x1)))
-    {
-        myr = (myf >> 2) + 1;
-    }
-    else
-    {
-        myr = myf >> 2;
-    }
+    int32_t e_result = e_big + 1 - my1_shifts;
 
-    uint32_t eyri = eyr + 1;
+    bool e_small_is_zero = (e_small == 0);
+    bool underflow = (e_result & 0x200) || (e_big == 0) || (e_result == 0) || (my1_shifts == 26);
+    bool overflow = (e_result & 0x100) || (e_big == 255) || (e_result == 255);
 
-    uint32_t ey;
-    uint32_t my;
-    if (myr & (1 << 24))
-    {
-        ey = eyri;
-        my = 0;
-    }
-    else if ((myr & 0xFFFFFF) == 0)
-    {
-        ey = 0;
-        my = 0;
-    }
-    else
-    {
-        ey = eyr;
-        my = myr & 0x7FFFFF;
-    }
+    uint32_t ey = e_small_is_zero ? e_big : (underflow ? 0 : (overflow ? 255 : e_result & 0xFF));
 
-    uint32_t sy = (ey == 0 && my == 0) ? (s1 && s2) : ss;
+    uint32_t my = e_small_is_zero ? ((m_big >> 1) & 0x7FFFFF) : (underflow ? 0 : (overflow ? 0 : my3));
 
     return (sy << 31) | (ey << 23) | my;
 }

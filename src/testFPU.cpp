@@ -45,6 +45,7 @@ void singleLoopTestFadd(FPU &fpu)
             float tolerance = std::max({std::fabs(a) * TOLERANCE_ADD, std::fabs(b) * TOLERANCE_ADD, std::fabs(expected) * TOLERANCE_ADD, EPSILON});
             if (error > tolerance)
             {
+                std::cout << std::hex << "FADD(" << std::bit_cast<uint32_t>(a) << ", " << std::bit_cast<uint32_t>(b) << ") = " << std::bit_cast<uint32_t>(result) << std::dec << std::endl;
                 std::cout << "FADD(" << a << ", " << b << ") = " << result << " (expected: " << expected << ", error: " << error << ", tolerance: " << tolerance << ")" << std::endl;
             }
         }
@@ -427,16 +428,17 @@ void testFPU(FPU &fpu)
 
 int main()
 {
+    std::cout << std::showbase;
     FPU fpu;
     testFtoi(fpu);
     testItof(fpu);
     cornerCaseTestFPU(fpu);
     // fullTestFPU(fpu);
-    //  singleLoopTestFadd(fpu);
-    //  singleLoopTestFsub(fpu);
-     singleLoopTestFmul(fpu);
-    //singleLoopTestFdiv(fpu);
-    singleLoopTestFsqrt(fpu);
+    singleLoopTestFadd(fpu);
+    singleLoopTestFsub(fpu);
+    // singleLoopTestFmul(fpu);
+    // singleLoopTestFdiv(fpu);
+    // singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;
     testFPU(fpu);
     return 0;
