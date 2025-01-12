@@ -50,8 +50,6 @@ void Simulator::setRegister(const int &reg, const int32_t &value)
 
 void Simulator::setFpRegister(int fpreg, int32_t fpvalue)
 {
-    if (fpreg == 0)
-        return;
     if (fpreg < 0 || fpreg >= FPREG_COUNT)
     {
         throw std::out_of_range("Invalid fpregister index");

@@ -122,7 +122,7 @@ private:
         {
             throw std::out_of_range("Invalid fpregister index");
         }
-        return fpreg == 0 ? 0 : fpRegisters[fpreg];
+        return fpRegisters[fpreg];
     }
 
     void setFpRegister(int fpreg, int32_t fpvalue);
