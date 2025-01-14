@@ -45,20 +45,6 @@ public:
     void printRegisters(int regType) const;
     // ログの出力
     void printLog();
-    void handle0x1(uint32_t instruction);
-    void handle0x2(uint32_t instruction);
-    void handle0x3(uint32_t instruction);
-    void handle0x4(uint32_t instruction);
-    void handle0x5(uint32_t instruction);
-    void handle0x6(uint32_t instruction);
-    void handle0x8(uint32_t instruction);
-    void handle0x9(uint32_t instruction);
-    void handle0xA(uint32_t instruction);
-    void handle0xB(uint32_t instruction);
-    void handle0xC(uint32_t instruction);
-    void handle0xD(uint32_t instruction);
-    void handle0xE(uint32_t instruction);
-    void handle0xF(uint32_t instruction);
 
 private:
     uint64_t maxStep = UINT64_MAX;
@@ -104,7 +90,6 @@ private:
     uint32_t dataSectionSize = 0;
 
     // 前の命令で書き込んだレジスタ
-    int currLoadReg = NULLREG;
     int prevLoadReg = NULLREG;
     uint32_t output_num;
 
@@ -208,7 +193,6 @@ private:
     // 命令実行
     void executeInstruction(uint32_t instruction);
     
-
     void printInstAddrCounts();
     void printInstStats() const;
     void printProgram(bool aroundPC) const noexcept;

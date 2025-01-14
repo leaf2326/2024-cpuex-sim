@@ -507,6 +507,7 @@ void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
     }
 }
 
+
 // 分岐予測
 void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
 {
@@ -553,520 +554,492 @@ void Simulator::printInstruction(uint32_t instruction) const
         std::cerr << "Executing: " << instToString(instruction) << std::endl;
 }
 
-inline void Simulator::executeInstruction(uint32_t instruction)
+void Simulator::executeInstruction(uint32_t instruction)
 {
     logInstAddr(getPC());
-    currLoadReg = NULLREG;
-    
-    static constexpr auto opcodeHandlers = []
-    {
-        std::array<void (Simulator::*)(uint32_t), 16> handlers{};
-        handlers[0x1] = &Simulator::handle0x1;
-        handlers[0x2] = &Simulator::handle0x2;
-        handlers[0x3] = &Simulator::handle0x3;
-        handlers[0x4] = &Simulator::handle0x4;
-        handlers[0x5] = &Simulator::handle0x5;
-        handlers[0x6] = &Simulator::handle0x6;
-        handlers[0x8] = &Simulator::handle0x8;
-        handlers[0x9] = &Simulator::handle0x9;
-        handlers[0xA] = &Simulator::handle0xA;
-        handlers[0xB] = &Simulator::handle0xB;
-        handlers[0xC] = &Simulator::handle0xC;
-        handlers[0xD] = &Simulator::handle0xD;
-        handlers[0xE] = &Simulator::handle0x3;
-        handlers[0xF] = &Simulator::handle0x4;
-        return handlers;
-    }();
-
+    int currLoadReg = NULLREG;
     const uint32_t opcode = getOpcode(instruction);
-    if (opcodeHandlers[opcode])
+    switch (opcode)
     {
-        (this->*opcodeHandlers[opcode])(instruction);
-    }
-    else
+    case 0x1:
     {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
+        // R-type (add, sub)
+        const uint32_t subop = getSubop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
 
-    prevInstIsLoadOrStore = currentInstIsLoadOrStore;
-    currentInstIsLoadOrStore = false;
-    updatePrevLoadReg(currLoadReg);
-}
-void Simulator::handle0x1(uint32_t instruction)
-{
-    // R-type (add, sub)
-    const uint32_t subop = getSubop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
+        detectPrevLoad(rs1, rs2);
 
-    detectPrevLoad(rs1, rs2);
-
-    if (subop == 0x0)
-    {
-        logInstruction(ADD);
-        if (rs1 == 0 || rs2 == 0)
+        if (subop == 0x0)
         {
-            ++mvCount;
+            logInstruction(ADD);
+            if (rs1 == 0 || rs2 == 0)
+            {
+                ++mvCount;
+            }
+            setRegister(rd, getRegister(rs1) + getRegister(rs2));
         }
-        setRegister(rd, getRegister(rs1) + getRegister(rs2));
+        else if (subop == 0x1)
+        {
+            logInstruction(SUB);
+            setRegister(rd, getRegister(rs1) - getRegister(rs2));
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        setPC(getPC() + 1);
+        break;
     }
-    else if (subop == 0x1)
+    case 0x2:
     {
-        logInstruction(SUB);
-        setRegister(rd, getRegister(rs1) - getRegister(rs2));
-    }
-    else
-    {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
-    setPC(getPC() + 1);
-}
-void Simulator::handle0x2(uint32_t instruction)
-{
+        // addi, lui, slli, srli
+        const uint32_t subop = getSubop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
 
-    // addi, lui, slli, srli
-    const uint32_t subop = getSubop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
+        if (subop == 0x0)
+        {
+            detectPrevLoad(rs1, NOLOADREG);
 
-    if (subop == 0x0)
+            int32_t imm = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            if ((imm >> 13) & 1)
+            {
+                imm -= 1 << 14;
+            }
+            logInstruction(ADDI);
+            // count mvi
+            if (rs1 == 0)
+            {
+                ++mviCount;
+            }
+            setRegister(rd, getRegister(rs1) + imm);
+        }
+        else if (subop == 0x2)
+        {
+            detectPrevLoad(rs1, NOLOADREG);
+
+            const int32_t shamt = (instruction >> 6) & 0x3;
+            if (!(shamt >= 0 && shamt <= 3))
+            {
+                throw std::runtime_error("Warning: shamt is not between 0 and 3");
+            }
+            logInstruction(SLLI);
+            setRegister(rd, getRegister(rs1) << shamt);
+        }
+        else if (subop == 0x3)
+        {
+            detectPrevLoad(rs1, NOLOADREG);
+
+            const int32_t shamt = (instruction >> 6) & 0x3;
+            if (!(shamt >= 0 && shamt <= 3))
+            {
+                throw std::runtime_error("Warning: shamt is not between 0 and 3");
+            }
+            logInstruction(SRLI);
+            setRegister(rd, getRegister(rs1) >> shamt);
+        }
+        else if (subop == 0x1)
+        {
+            // ?-type (lui)
+            const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
+            logInstruction(LUI);
+            setRegister(rd, imm);
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        setPC(getPC() + 1);
+        break;
+    }
+    case 0x3:
+    case 0xE:
     {
+        // B-type (beq, bne, blt, bge)
+        const uint32_t subop = getSubop(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = getImmediate(instruction);
+        if (opcode == 0xE)
+        {
+            imm |= 1 << 14;
+        }
+        bool isTaken = false;
+        detectPrevLoad(rs1, rs2);
+        if (subop == 0x0)
+        {
+            logInstruction(BEQ);
+            isTaken = (getRegister(rs1) == getRegister(rs2));
+        }
+        else if (subop == 0x1)
+        {
+            logInstruction(BNE);
+            isTaken = (getRegister(rs1) != getRegister(rs2));
+        }
+        else if (subop == 0x2)
+        {
+            logInstruction(BLT);
+            isTaken = (getRegister(rs1) < getRegister(rs2));
+        }
+        else if (subop == 0x3)
+        {
+            logInstruction(BGE);
+            isTaken = (getRegister(rs1) >= getRegister(rs2));
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
+        break;
+    }
+    case 0x4:
+    case 0xF:
+    {
+        // J-type (jal)
+        const uint32_t rd = getRs2(instruction); // jalは特例でrs2の位置にrd
+        int32_t imm = getImmediate(instruction);
+        if (opcode == 0xF)
+        {
+            imm |= 1 << 14;
+        }
+        logInstruction(JAL);
+        setRegister(rd, getPC() + 1);
+        setPC(imm);
+        break;
+    }
+    case 0x5:
+    {
+        // I-type (jalr)
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+
         detectPrevLoad(rs1, NOLOADREG);
 
-        int32_t imm = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+        logInstruction(JALR);
+        setRegister(rd, getPC() + 1);
+        setPC(getRegister(rs1));
+        break;
+    }
+    case 0x8:
+    {
+        // I-type (lw), R-type (lwr)
+        const uint32_t subop = getSubop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+
+        if (subop == 0x0)
+        {
+            detectPrevLoad(rs1, NOLOADREG);
+
+            int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            if ((offset >> 13) & 1)
+            {
+                offset -= 1 << 14;
+            }
+            const int64_t address = getRegister(rs1) + offset;
+            logInstruction(LW);
+            if (offset >= 0)
+            {
+                ++lwNonNegativeCount;
+            }
+            else
+            {
+                ++lwNegativeCount;
+            }
+            setRegister(rd, dMemory.loadWord(address * 4, true));
+            if (prevInstIsLoadOrStore)
+            {
+                ++loadStoreSequence;
+            }
+            currentInstIsLoadOrStore = true;
+        }
+        else if (subop == 0x1)
+        {
+            const uint32_t rs2 = getRs2(instruction);
+            detectPrevLoad(rs1, rs2);
+
+            const int64_t address = getRegister(rs1) + getRegister(rs2);
+            logInstruction(LWR);
+            setRegister(rd, dMemory.loadWord(address * 4, true));
+            if (prevInstIsLoadOrStore)
+            {
+                ++loadStoreSequence;
+            }
+            currentInstIsLoadOrStore = true;
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        setPC(getPC() + 1);
+        currLoadReg = rd;
+        break;
+    }
+    case 0x9:
+    {
+        // S-type (sw)
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t offset = getImmediate(instruction);
+        // 符号ビットを処理
+        if ((offset >> 13) & 1)
+        {
+            offset -= 1 << 14;
+        }
+
+        detectPrevLoad(rs1, rs2);
+        const int64_t address = getRegister(rs1) + offset;
+        logInstruction(SW); // 命令の記録
+        if (offset >= 0)
+        {
+            ++swNonNegativeCount;
+        }
+        else
+        {
+            ++swNegativeCount;
+        }
+        dMemory.storeWord(address * 4, getRegister(rs2));
+        if (prevInstIsLoadOrStore)
+        {
+            ++loadStoreSequence;
+        }
+        currentInstIsLoadOrStore = true;
+        setPC(getPC() + 1);
+        break;
+    }
+    case 0xA:
+    {
+        // I-type, (flw), R-type (flwr)
+        const uint32_t subop = getSubop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+
+        if (subop == 0x0)
+        {
+            int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            if ((offset >> 13) & 1)
+            {
+                offset -= 1 << 14;
+            }
+            detectPrevLoad(rs1, NOLOADREG);
+
+            const int64_t address = getRegister(rs1) + offset;
+            logInstruction(FLW); // 命令の記録
+            if (rs1 == 0 && offset < 128 && offset >= 64)
+            {
+                ++flwImmCount;
+            }
+            if (offset >= 0)
+            {
+                ++flwNonNegativeCount;
+            }
+            else
+            {
+                ++flwNegativeCount;
+            }
+            setFpRegister(rd, dMemory.loadWord(address * 4, false));
+            if (prevInstIsLoadOrStore)
+            {
+                ++loadStoreSequence;
+            }
+            currentInstIsLoadOrStore = true;
+        }
+        else if (subop == 0x1)
+        {
+            const uint32_t rs2 = getRs2(instruction);
+
+            detectPrevLoad(rs1, rs2);
+
+            const int64_t address = getRegister(rs1) + getRegister(rs2);
+            logInstruction(FLWR); // 命令の記録
+            setFpRegister(rd, dMemory.loadWord(address * 4, false));
+            if (prevInstIsLoadOrStore)
+            {
+                ++loadStoreSequence;
+            }
+            currentInstIsLoadOrStore = true;
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        setPC(getPC() + 1);
+        currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
+        break;
+    }
+    case 0xB:
+    {
+        // S-type (fsw)
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = getImmediate(instruction);
+        // 符号ビットを処理
         if ((imm >> 13) & 1)
         {
             imm -= 1 << 14;
         }
-        logInstruction(ADDI);
-        // count mvi
-        if (rs1 == 0)
+        detectPrevLoad(rs1, rs2);
+
+        const int64_t address = getRegister(rs1) + imm;
+        logInstruction(FSW); // 命令の記録
+        if (imm >= 0)
         {
-            ++mviCount;
-        }
-        setRegister(rd, getRegister(rs1) + imm);
-    }
-    else if (subop == 0x2)
-    {
-        detectPrevLoad(rs1, NOLOADREG);
-
-        const int32_t shamt = (instruction >> 6) & 0x3;
-        if (!(shamt >= 0 && shamt <= 3))
-        {
-            throw std::runtime_error("Warning: shamt is not between 0 and 3");
-        }
-        logInstruction(SLLI);
-        setRegister(rd, getRegister(rs1) << shamt);
-    }
-    else if (subop == 0x3)
-    {
-        detectPrevLoad(rs1, NOLOADREG);
-
-        const int32_t shamt = (instruction >> 6) & 0x3;
-        if (!(shamt >= 0 && shamt <= 3))
-        {
-            throw std::runtime_error("Warning: shamt is not between 0 and 3");
-        }
-        logInstruction(SRLI);
-        setRegister(rd, getRegister(rs1) >> shamt);
-    }
-    else if (subop == 0x1)
-    {
-        // ?-type (lui)
-        const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
-        logInstruction(LUI);
-        setRegister(rd, imm);
-    }
-    else
-    {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
-    setPC(getPC() + 1);
-}
-void Simulator::handle0x3(uint32_t instruction)
-{
-    // B-type (beq, bne, blt, bge)
-    const uint32_t subop = getSubop(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
-    int32_t imm = getImmediate(instruction);
-
-    const uint32_t opcode = getOpcode(instruction);
-    if (opcode == 0xE)
-    {
-        imm |= 1 << 14;
-    }
-    bool isTaken = false;
-    detectPrevLoad(rs1, rs2);
-    if (subop == 0x0)
-    {
-        logInstruction(BEQ);
-        isTaken = (getRegister(rs1) == getRegister(rs2));
-    }
-    else if (subop == 0x1)
-    {
-        logInstruction(BNE);
-        isTaken = (getRegister(rs1) != getRegister(rs2));
-    }
-    else if (subop == 0x2)
-    {
-        logInstruction(BLT);
-        isTaken = (getRegister(rs1) < getRegister(rs2));
-    }
-    else if (subop == 0x3)
-    {
-        logInstruction(BGE);
-        isTaken = (getRegister(rs1) >= getRegister(rs2));
-    }
-    else
-    {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
-    branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
-}
-
-void Simulator::handle0x4(uint32_t instruction)
-{
-    // J-type (jal)
-    const uint32_t rd = getRs2(instruction); // jalは特例でrs2の位置にrd
-    int32_t imm = getImmediate(instruction);
-
-    const uint32_t opcode = getOpcode(instruction);
-    if (opcode == 0xF)
-    {
-        imm |= 1 << 14;
-    }
-    logInstruction(JAL);
-    setRegister(rd, getPC() + 1);
-    setPC(imm);
-}
-
-void Simulator::handle0x5(uint32_t instruction)
-{
-    // I-type (jalr)
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-
-    detectPrevLoad(rs1, NOLOADREG);
-
-    logInstruction(JALR);
-    setRegister(rd, getPC() + 1);
-    setPC(getRegister(rs1));
-}
-
-void Simulator::handle0x8(uint32_t instruction)
-{
-    // I-type (lw), R-type (lwr)
-    const uint32_t subop = getSubop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-
-    if (subop == 0x0)
-    {
-        detectPrevLoad(rs1, NOLOADREG);
-
-        int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
-        if ((offset >> 13) & 1)
-        {
-            offset -= 1 << 14;
-        }
-        const int64_t address = getRegister(rs1) + offset;
-        logInstruction(LW);
-        if (offset >= 0)
-        {
-            ++lwNonNegativeCount;
+            ++fswNonNegativeCount;
         }
         else
         {
-            ++lwNegativeCount;
+            ++fswNegativeCount;
         }
-        setRegister(rd, dMemory.loadWord(address * 4, true));
+        dMemory.storeWord(address * 4, getFpRegister(rs2));
         if (prevInstIsLoadOrStore)
         {
             ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
+        setPC(getPC() + 1);
+        break;
     }
-    else if (subop == 0x1)
+    case 0xC:
     {
+        // ftoi, flt, feq
+        const uint32_t fpuop = getFpuop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        detectPrevLoad(rs1, rs2);
-
-        const int64_t address = getRegister(rs1) + getRegister(rs2);
-        logInstruction(LWR);
-        setRegister(rd, dMemory.loadWord(address * 4, true));
-        if (prevInstIsLoadOrStore)
+        if (fpuop == 0x4)
         {
-            ++loadStoreSequence;
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            logInstruction(FTOI);
+            setRegister(rd, fpu.ftoi(getFpRegister(rs1)));
         }
-        currentInstIsLoadOrStore = true;
-    }
-    else
-    {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
-    setPC(getPC() + 1);
-    currLoadReg = rd;
-}
-
-void Simulator::handle0x9(uint32_t instruction)
-{
-    // S-type (sw)
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
-    int32_t offset = getImmediate(instruction);
-    // 符号ビットを処理
-    if ((offset >> 13) & 1)
-    {
-        offset -= 1 << 14;
-    }
-
-    detectPrevLoad(rs1, rs2);
-    const int64_t address = getRegister(rs1) + offset;
-    logInstruction(SW); // 命令の記録
-    if (offset >= 0)
-    {
-        ++swNonNegativeCount;
-    }
-    else
-    {
-        ++swNegativeCount;
-    }
-    dMemory.storeWord(address * 4, getRegister(rs2));
-    if (prevInstIsLoadOrStore)
-    {
-        ++loadStoreSequence;
-    }
-    currentInstIsLoadOrStore = true;
-    setPC(getPC() + 1);
-}
-
-void Simulator::handle0xA(uint32_t instruction)
-{
-
-    // I-type, (flw), R-type (flwr)
-    const uint32_t subop = getSubop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-
-    if (subop == 0x0)
-    {
-        int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
-        if ((offset >> 13) & 1)
+        else if (fpuop == 0x0)
         {
-            offset -= 1 << 14;
+
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            logInstruction(FLT);
+            setRegister(rd, fpu.flt(getFpRegister(rs1), getFpRegister(rs2)));
         }
-        detectPrevLoad(rs1, NOLOADREG);
-
-        const int64_t address = getRegister(rs1) + offset;
-        logInstruction(FLW); // 命令の記録
-        if (rs1 == 0 && offset < 128 && offset >= 64)
+        else if (fpuop == 0x1)
         {
-            ++flwImmCount;
-        }
-        if (offset >= 0)
-        {
-            ++flwNonNegativeCount;
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            logInstruction(FEQ);
+            setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
         }
         else
         {
-            ++flwNegativeCount;
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
         }
-        setFpRegister(rd, dMemory.loadWord(address * 4, false));
-        if (prevInstIsLoadOrStore)
-        {
-            ++loadStoreSequence;
-        }
-        currentInstIsLoadOrStore = true;
+        setPC(getPC() + 1);
+        break;
     }
-    else if (subop == 0x1)
+    case 0xD:
     {
+        // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor
+        const uint32_t fpuop = getFpuop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-
-        detectPrevLoad(rs1, rs2);
-
-        const int64_t address = getRegister(rs1) + getRegister(rs2);
-        logInstruction(FLWR); // 命令の記録
-        setFpRegister(rd, dMemory.loadWord(address * 4, false));
-        if (prevInstIsLoadOrStore)
+        if (fpuop == 0x9)
         {
-            ++loadStoreSequence;
+
+            detectPrevLoad(rs1, NOLOADREG);
+            logInstruction(ITOF);
+            setFpRegister(rd, fpu.itof(getRegister(rs1)));
         }
-        currentInstIsLoadOrStore = true;
+        else if (fpuop == 0x0)
+        {
+
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            logInstruction(FADD);
+            setFpRegister(rd, fpu.fadd(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        else if (fpuop == 0x1)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            logInstruction(FSUB);
+            setFpRegister(rd, fpu.fsub(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        else if (fpuop == 0x2)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            logInstruction(FMUL);
+            setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        else if (fpuop == 0x3)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            logInstruction(FDIV);
+            setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
+        }
+        else if (fpuop == 0x4)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            logInstruction(FMV);
+            setFpRegister(rd, getFpRegister(rs1));
+        }
+        else if (fpuop == 0x5)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            logInstruction(FNEG);
+            setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
+        }
+        else if (fpuop == 0x6)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            logInstruction(FABS);
+            setFpRegister(rd, fpu.fabs(getFpRegister(rs1)));
+        }
+        else if (fpuop == 0x7)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            logInstruction(FSQRT);
+            setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
+        }
+        else if (fpuop == 0x8)
+        {
+            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            logInstruction(FFLOOR);
+            setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction 0x" << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        setPC(getPC() + 1);
+        break;
     }
-    else
+    case 0x6:
     {
+        logInstruction(EBREAK);
+        isBreakpoint = true;
+        setPC(getPC() + 1);
+        break;
+    }
+    default:
         std::stringstream ss;
         ss << "Unknown instruction 0x" << std::hex << instruction;
         throw std::runtime_error(ss.str());
     }
-    setPC(getPC() + 1);
-    currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
-}
-
-void Simulator::handle0xB(uint32_t instruction)
-{
-
-    // S-type (fsw)
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
-    int32_t imm = getImmediate(instruction);
-    // 符号ビットを処理
-    if ((imm >> 13) & 1)
-    {
-        imm -= 1 << 14;
-    }
-    detectPrevLoad(rs1, rs2);
-
-    const int64_t address = getRegister(rs1) + imm;
-    logInstruction(FSW); // 命令の記録
-    if (imm >= 0)
-    {
-        ++fswNonNegativeCount;
-    }
-    else
-    {
-        ++fswNegativeCount;
-    }
-    dMemory.storeWord(address * 4, getFpRegister(rs2));
-    if (prevInstIsLoadOrStore)
-    {
-        ++loadStoreSequence;
-    }
-    currentInstIsLoadOrStore = true;
-    setPC(getPC() + 1);
-}
-
-void Simulator::handle0xC(uint32_t instruction)
-{
-
-    // ftoi, flt, feq
-    const uint32_t fpuop = getFpuop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
-    if (fpuop == 0x4)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-        logInstruction(FTOI);
-        setRegister(rd, fpu.ftoi(getFpRegister(rs1)));
-    }
-    else if (fpuop == 0x0)
-    {
-
-        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-        logInstruction(FLT);
-        setRegister(rd, fpu.flt(getFpRegister(rs1), getFpRegister(rs2)));
-    }
-    else if (fpuop == 0x1)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-        logInstruction(FEQ);
-        setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
-    }
-    else
-    {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
-    setPC(getPC() + 1);
-}
-
-void Simulator::handle0xD(uint32_t instruction)
-{
-    // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor
-    const uint32_t fpuop = getFpuop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
-    if (fpuop == 0x9)
-    {
-
-        detectPrevLoad(rs1, NOLOADREG);
-        logInstruction(ITOF);
-        setFpRegister(rd, fpu.itof(getRegister(rs1)));
-    }
-    else if (fpuop == 0x0)
-    {
-
-        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-        logInstruction(FADD);
-        setFpRegister(rd, fpu.fadd(getFpRegister(rs1), getFpRegister(rs2)));
-    }
-    else if (fpuop == 0x1)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-        logInstruction(FSUB);
-        setFpRegister(rd, fpu.fsub(getFpRegister(rs1), getFpRegister(rs2)));
-    }
-    else if (fpuop == 0x2)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-        logInstruction(FMUL);
-        setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
-    }
-    else if (fpuop == 0x3)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-        logInstruction(FDIV);
-        setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
-    }
-    else if (fpuop == 0x4)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-        logInstruction(FMV);
-        setFpRegister(rd, getFpRegister(rs1));
-    }
-    else if (fpuop == 0x5)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-        logInstruction(FNEG);
-        setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
-    }
-    else if (fpuop == 0x6)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-        logInstruction(FABS);
-        setFpRegister(rd, fpu.fabs(getFpRegister(rs1)));
-    }
-    else if (fpuop == 0x7)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-        logInstruction(FSQRT);
-        setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
-    }
-    else if (fpuop == 0x8)
-    {
-        detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-        logInstruction(FFLOOR);
-        setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
-    }
-    else
-    {
-        std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
-        throw std::runtime_error(ss.str());
-    }
-    setPC(getPC() + 1);
-}
-
-void Simulator::handle0x6(uint32_t instruction)
-{
-    logInstruction(EBREAK);
-    isBreakpoint = true;
-    setPC(getPC() + 1);
+    prevInstIsLoadOrStore = currentInstIsLoadOrStore;
+    currentInstIsLoadOrStore = false;
+    updatePrevLoadReg(currLoadReg);
 }
 
 void Simulator::printCacheHitMissCounts() const
