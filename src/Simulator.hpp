@@ -45,13 +45,27 @@ public:
     void printRegisters(int regType) const;
     // ログの出力
     void printLog();
+    void handle0x1(uint32_t instruction);
+    void handle0x2(uint32_t instruction);
+    void handle0x3(uint32_t instruction);
+    void handle0x4(uint32_t instruction);
+    void handle0x5(uint32_t instruction);
+    void handle0x6(uint32_t instruction);
+    void handle0x8(uint32_t instruction);
+    void handle0x9(uint32_t instruction);
+    void handle0xA(uint32_t instruction);
+    void handle0xB(uint32_t instruction);
+    void handle0xC(uint32_t instruction);
+    void handle0xD(uint32_t instruction);
+    void handle0xE(uint32_t instruction);
+    void handle0xF(uint32_t instruction);
 
 private:
     uint64_t maxStep = UINT64_MAX;
     uint64_t step = 0;
     static constexpr int REG_COUNT = 64;
     static constexpr int FPREG_COUNT = 64;
-    static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（512KiB）
+    static constexpr int64_t IMEMORY_SIZE = 128 * 1024; // Iメモリサイズ（128KiB）
     static constexpr int64_t CACHE_SIZE = 16 * 1024;
     static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t INPUT_ADDRESS = 25;
@@ -90,6 +104,7 @@ private:
     uint32_t dataSectionSize = 0;
 
     // 前の命令で書き込んだレジスタ
+    int currLoadReg = NULLREG;
     int prevLoadReg = NULLREG;
     uint32_t output_num;
 
@@ -103,7 +118,7 @@ private:
     bool availableLog = false;
 
     [[nodiscard]]
-    inline int32_t getRegister(const int &reg) const
+    inline int32_t getRegister(int reg) const
     {
         if (reg < 0 || reg >= REG_COUNT)
         {
@@ -112,10 +127,8 @@ private:
         return reg == 0 ? 0 : registers[reg];
     }
 
-    void setRegister(const int &reg, const int32_t &value);
-
     [[nodiscard]]
-    inline int32_t getFpRegister(const int &fpreg) const
+    inline int32_t getFpRegister(int fpreg) const
     {
         if (fpreg < 0 || fpreg >= FPREG_COUNT)
         {
@@ -124,14 +137,51 @@ private:
         return fpRegisters[fpreg];
     }
 
-    void setFpRegister(int fpreg, int32_t fpvalue);
+    inline void setRegister(int reg, int32_t value)
+    {
+        if (reg == 0)
+            return;
+        if (reg < 0 || reg >= REG_COUNT)
+        {
+            throw std::out_of_range("Invalid register index");
+        }
+        if (availableLog)
+            std::cerr << "Register x" << reg << " changed from " << std::hex << registers[reg] << " to " << value << std::dec << std::endl;
 
-    void setPC(int32_t newPC);
+        registers[reg] = value;
+        if (registers[2] <= registers[3])
+        {
+            throw std::out_of_range("Stack overflow! sp=" + std::to_string(registers[2]) + " hp=" + std::to_string(registers[3]));
+        }
+        // printRegisters(ALLREG);
+    }
+
+    inline void setFpRegister(int fpreg, int32_t fpvalue)
+    {
+        if (fpreg < 0 || fpreg >= FPREG_COUNT)
+        {
+            throw std::out_of_range("Invalid fpregister index");
+        }
+        if (availableLog)
+            std::cerr << "fpRegister fp" << fpreg << " changed from " << std::hex << fpRegisters[fpreg] << " to " << fpvalue << std::dec << std::endl;
+
+        fpRegisters[fpreg] = fpvalue;
+        // printRegisters(ALLREG);
+    }
+
+    inline void setPC(int32_t newPC) noexcept
+    {
+        if (availableLog)
+            std::cerr << "PC changed from " << std::hex << pc << " to " << newPC << std::dec << std::endl;
+
+        pc = newPC;
+        // printRegisters(ALLREG)
+    }
 
     int32_t loadWord(int32_t address);
 
     [[nodiscard]]
-    inline int32_t loadInstruction(const int32_t &address) const
+    inline int32_t loadInstruction(int32_t address) const
     {
         if (address < 0 || address >= IMEMORY_SIZE / 4)
         {
@@ -144,7 +194,7 @@ private:
     void storeInstruction(int32_t address, int32_t instruction);
 
     std::string instToString(uint32_t instruction) const;
-
+    
     // 直近に書き込んだレジスタの更新
     void updatePrevLoadReg(int currLoadReg);
 
@@ -157,6 +207,7 @@ private:
     void printInstruction(uint32_t instruction) const;
     // 命令実行
     void executeInstruction(uint32_t instruction);
+    
 
     void printInstAddrCounts();
     void printInstStats() const;
