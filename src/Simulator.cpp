@@ -5,10 +5,10 @@
 #include <bitset>
 #include <iomanip>
 #include <bit>
-#include "../include/pbar.hpp"
+#include <pbar.hpp>
 
 Simulator::Simulator(OptionHandler &op)
-    : patternHistoryTable(NUM_ENTRIES, PHT_DEFAULT), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
+    : dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                    // x0
@@ -548,45 +548,19 @@ void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
     }
 }
 
-uint32_t Simulator::getIndex(uint32_t pc) const
-{
-    // pc[15:9] ^ pc[8:2]
-    uint32_t upper = (pc >> 9) & 0x7F;
-    uint32_t lower = (pc >> 2) & 0x7F;
-    return upper ^ lower;
-}
-
-void Simulator::updateCounter(uint8_t &counter, bool isTaken)
-{
-    if (isTaken)
-    {
-        if (counter < 3)
-            ++counter;
-    }
-    else
-    {
-        if (counter > 0)
-            --counter;
-    }
-}
-
-bool Simulator::predict(uint8_t counter) const
-{
-    return counter >= 2; // counter = 2 or 3 then Taken
-}
 
 // 分岐予測
 void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
 {
-    uint32_t index = getIndex(getPC());
-    uint8_t previousCounter = patternHistoryTable[index];
+    int32_t pc = getPC();
+    bool predictedTaken = predictor.predict(pc);
+    uint8_t prediction = predictor.getPrediction(pc);
+    logBranchPrediction();
     if (availableLog)
-        std::cerr << "PC: " << getPC()
-                  << ", Prediction: " << (previousCounter >= 2 ? (previousCounter == 3 ? "Strongly Taken" : "Weakly Taken") : (previousCounter == 0 ? "Strongly UnTaken" : "Weakly UnTaken"))
+        std::cerr << "PC: " << pc
+                  << ", Prediction: " << (prediction >= 2 ? (prediction == 3 ? "Strongly Taken" : "Weakly Taken") : (prediction == 0 ? "Strongly UnTaken" : "Weakly UnTaken"))
                   << ", Actual: " << (isTaken ? "Taken" : "UnTaken") << std::endl;
 
-    bool predictedTaken = predict(previousCounter);
-    logBranchPrediction();
     // フラッシュ
     if (predictedTaken != isTaken)
     {
@@ -599,18 +573,15 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
         if (availableLog)
             std::cerr << "Prediction matched!" << std::endl;
     }
-
+    predictor.update(pc, isTaken);
     if (isTaken)
     {
         setPC(imm);
     }
     else
     {
-        setPC(getPC() + 1);
+        setPC(pc + 1);
     }
-    updateCounter(patternHistoryTable[index], isTaken);
-    if (availableLog)
-        std::cerr << "PHT Index " << index << ": Counter Value Changed from " << static_cast<int>(previousCounter) << " to " << static_cast<int>(patternHistoryTable[index]) << std::endl;
 }
 
 inline void Simulator::updatePrevLoadReg(int currLoadReg)

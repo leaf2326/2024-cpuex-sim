@@ -3,7 +3,7 @@
 
 #include <string>
 #include <cstdint>
-#include "../include/cxxopts.hpp"
+#include <cxxopts.hpp>
 
 class OptionHandler {
 public:

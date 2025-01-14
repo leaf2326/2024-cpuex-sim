@@ -6,6 +6,7 @@
 #include "OptionHandler.hpp"
 #include "FPU.hpp"
 #include "Memory.hpp"
+#include "Predictor.hpp"
 #include <array>
 #include <vector>
 #include <cstdint>
@@ -59,9 +60,7 @@ private:
     uint64_t outputSize;
     std::string outputFilePath;
 
-    static constexpr int NUM_ENTRIES = 128; // 2^7エントリ
-    static constexpr int PHT_DEFAULT = 1;
-    std::vector<uint8_t> patternHistoryTable; // 2-bit飽和カウンタ
+    GSharePredictor predictor;
 
     bool isBreakpoint;
     bool currentInstIsLoadOrStore = false;
@@ -152,10 +151,6 @@ private:
     // 一つ前のロード命令でロードしたレジスタであるかを検出
     void detectPrevLoad(int32_t rs1, int32_t rs2);
 
-    // 分岐予測
-    uint32_t getIndex(uint32_t pc) const; // patternHistoryTableのindexを計算
-    void updateCounter(uint8_t &counter, bool isTaken);
-    bool predict(uint8_t counter) const;
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力

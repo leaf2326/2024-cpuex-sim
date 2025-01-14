@@ -1,9 +1,9 @@
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "DiscordNotifier.hpp"
-#include "../include/httplib.h"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <httplib.h>
 
 std::string readWebhookUrl(const std::string &filePath)
 {
