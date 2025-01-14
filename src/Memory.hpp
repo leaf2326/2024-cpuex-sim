@@ -109,7 +109,10 @@ private:
     void loadBlockToCache(uint32_t address);
 
     void updateLRU(uint32_t setIndex, size_t blockIndex);
-    size_t findLRUVictim(uint32_t setIndex);
+    [[nodiscard]] inline size_t findLRUVictim(uint32_t setIndex)
+    {
+        return lruOrder[setIndex].front();
+    }
 
     uint64_t hitCount = 0;
     uint64_t missCount = 0;

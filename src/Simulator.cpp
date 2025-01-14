@@ -12,7 +12,7 @@ Simulator::Simulator(OptionHandler &op)
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                    // x0
-    registers[2] = DMEMORY_SIZE / 4 - 4; // sp
+    registers[2] = (DMEMORY_SIZE >> 2) - 4; // sp
     pc = 0;
     isBreakpoint = false;
     enableCache = op.enableCache;
@@ -31,7 +31,7 @@ Simulator::Simulator(OptionHandler &op)
 
 void Simulator::storeInstruction(int32_t address, int32_t instruction)
 {
-    if (address < 0 || address >= IMEMORY_SIZE / 4)
+    if (address < 0 || address >= IMEMORY_SIZE >> 2) [[unlikely]]
     {
         throw std::out_of_range("iMemory access out of bounds");
     }
@@ -316,7 +316,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
 {
     std::cerr << "Load memory from binary file..." << std::endl;
     std::ifstream file(filename, std::ios::binary);
-    if (!file)
+    if (!file) [[unlikely]]
     {
         throw std::runtime_error("Could not open binary file");
     }
@@ -333,14 +333,14 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     for (unsigned int i = 0; i < dataSectionSize / sizeof(dataSectionSize); ++i)
     {
         file.read(reinterpret_cast<char *>(&data), sizeof(data));
-        if (address < 0 || address >= DMEMORY_SIZE / 4)
+        if (address < 0 || address >= DMEMORY_SIZE >> 2) [[unlikely]]
         {
             throw std::out_of_range("dMemory access out of bounds");
         }
         dMemory.isInitialized[address] = true;
         dMemory.mainMemory[address] = data;
         ++address;
-        if (address >= DMEMORY_SIZE / 4)
+        if (address >= DMEMORY_SIZE >> 2) [[unlikely]]
         {
             throw std::out_of_range("Program size exceeds dMemory limits");
         }
@@ -351,7 +351,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     {
         storeInstruction(address, instruction);
         ++address;
-        if (address >= IMEMORY_SIZE / 4)
+        if (address >= IMEMORY_SIZE >> 2) [[unlikely]]
         {
             throw std::out_of_range("Program size exceeds iMemory limits");
         }
@@ -435,7 +435,7 @@ void Simulator::loadInputData(const std::string &inputFilePath)
     std::cerr << "Loading input file..." << std::endl;
 
     std::ifstream file(inputFilePath);
-    if (!file)
+    if (!file) [[unlikely]]
     {
         throw std::runtime_error("Could not open input file: " + inputFilePath);
     }
@@ -499,9 +499,8 @@ void Simulator::printRegisters(int regType) const
 
 void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
 {
-
     // 1命令前にロードしたレジスタであるかを検出
-    if (rs1 == prevLoadReg || rs2 == prevLoadReg)
+    if (rs1 == prevLoadReg || rs2 == prevLoadReg) [[unlikely]]
     {
         ++hazardRAW;
     }
@@ -515,21 +514,21 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     bool predictedTaken = predictor.predict(pc);
     uint8_t prediction = predictor.getPrediction(pc);
     logBranchPrediction();
-    if (availableLog)
+    if (availableLog) [[unlikely]]
         std::cerr << "PC: " << pc
                   << ", Prediction: " << (prediction >= 2 ? (prediction == 3 ? "Strongly Taken" : "Weakly Taken") : (prediction == 0 ? "Strongly UnTaken" : "Weakly UnTaken"))
                   << ", Actual: " << (isTaken ? "Taken" : "UnTaken") << std::endl;
 
     // フラッシュ
-    if (predictedTaken != isTaken)
+    if (predictedTaken != isTaken) [[unlikely]]
     {
-        if (availableLog)
+        if (availableLog) [[unlikely]]
             std::cerr << "Pipeline flushed due to misprediction." << std::endl;
         logFlush();
     }
     else
     {
-        if (availableLog)
+        if (availableLog) [[unlikely]]
             std::cerr << "Prediction matched!" << std::endl;
     }
     predictor.update(pc, isTaken);
@@ -550,7 +549,7 @@ inline void Simulator::updatePrevLoadReg(int currLoadReg)
 
 void Simulator::printInstruction(uint32_t instruction) const
 {
-    if (availableLog)
+    if (availableLog) [[unlikely]]
         std::cerr << "Executing: " << instToString(instruction) << std::endl;
 }
 
@@ -574,7 +573,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (subop == 0x0)
         {
             logInstruction(ADD);
-            if (rs1 == 0 || rs2 == 0)
+            if (rs1 == 0 || rs2 == 0) 
             {
                 ++mvCount;
             }
@@ -585,7 +584,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction(SUB);
             setRegister(rd, getRegister(rs1) - getRegister(rs2));
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -623,7 +622,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             detectPrevLoad(rs1, NOLOADREG);
 
             const int32_t shamt = (instruction >> 6) & 0x3;
-            if (!(shamt >= 0 && shamt <= 3))
+            if (!(shamt >= 0 && shamt <= 3)) [[unlikely]]
             {
                 throw std::runtime_error("Warning: shamt is not between 0 and 3");
             }
@@ -635,7 +634,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             detectPrevLoad(rs1, NOLOADREG);
 
             const int32_t shamt = (instruction >> 6) & 0x3;
-            if (!(shamt >= 0 && shamt <= 3))
+            if (!(shamt >= 0 && shamt <= 3)) [[unlikely]]
             {
                 throw std::runtime_error("Warning: shamt is not between 0 and 3");
             }
@@ -649,7 +648,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction(LUI);
             setRegister(rd, imm);
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -692,7 +691,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction(BGE);
             isTaken = (getRegister(rs1) >= getRegister(rs2));
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -776,7 +775,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             }
             currentInstIsLoadOrStore = true;
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -870,7 +869,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             }
             currentInstIsLoadOrStore = true;
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -938,7 +937,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction(FEQ);
             setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -1016,7 +1015,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             logInstruction(FFLOOR);
             setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
         }
-        else
+        else [[unlikely]]
         {
             std::stringstream ss;
             ss << "Unknown instruction 0x" << std::hex << instruction;
@@ -1032,7 +1031,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         setPC(getPC() + 1);
         break;
     }
-    default:
+    [[unlikely]] default:
         std::stringstream ss;
         ss << "Unknown instruction 0x" << std::hex << instruction;
         throw std::runtime_error(ss.str());

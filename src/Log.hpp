@@ -88,21 +88,30 @@ protected:
     std::vector<uint64_t> instAddrCounts;
 
 public:
-    inline void logInstAddr(const uint32_t &address)
+    inline void logInstAddr(uint32_t address)
     {
         ++instAddrCounts[address];
     }
-    inline void logInstruction(const int &type)
+    inline void logInstruction(int type)
     {
         ++totalInstructions;
         ++instructionCounts[type];
     }
 
-    void logFlush();
+    inline void logFlush()
+    {
+        ++flushCount;
+    }
 
-    void logBranchPrediction();
+    inline void logBranchPrediction()
+    {
+        ++branchPredCount;
+    }
 
-    void logStall(int stallType);
+    inline void logStall(int stallType)
+    {
+        ++nStallCount[stallType];
+    }
 
     void printLog();
 };

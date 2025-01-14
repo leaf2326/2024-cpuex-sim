@@ -168,7 +168,7 @@ private:
     [[nodiscard]]
     inline int32_t loadInstruction(int32_t address) const
     {
-        if (address < 0 || address >= IMEMORY_SIZE / 4)
+        if (address < 0 || address >= IMEMORY_SIZE >> 2)
         {
             throw std::out_of_range("iMemory access out of bounds");
         }

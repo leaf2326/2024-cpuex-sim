@@ -3,20 +3,6 @@
 #include <algorithm>
 #include <utility>
 
-void Log::logFlush()
-{
-    ++flushCount;
-}
-
-void Log::logBranchPrediction()
-{
-    ++branchPredCount;
-}
-
-void Log::logStall(int stallType)
-{
-    ++nStallCount[stallType];
-}
 /*
 uint64_t Log::sumCLKCount()
 {

@@ -11,13 +11,22 @@ private:
     std::vector<uint8_t> prediction_table;
     uint16_t branch_history;
 
-    [[nodiscard]] uint16_t calculateIndex(uint32_t pc);
+    [[nodiscard]]
+    inline uint16_t calculateIndex(uint32_t pc) const noexcept
+    {
+        return (((pc >> 13) & 0x3) ^ (pc & 0x1FFF) ^ branch_history) & 0x1FFF;
+    }
 
 public:
     GSharePredictor();
-    [[nodiscard]] bool predict(uint32_t pc);
+    [[nodiscard]]
+    inline bool predict(uint32_t pc) const
+    {
+        return prediction_table[calculateIndex(pc)] >= 2;
+    }
     void update(uint32_t pc, bool taken);
-    [[nodiscard]] inline uint8_t getPrediction(uint32_t pc) {
+    [[nodiscard]] inline uint8_t getPrediction(uint32_t pc)
+    {
         return prediction_table[calculateIndex(pc)];
     }
 };
