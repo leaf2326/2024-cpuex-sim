@@ -63,7 +63,7 @@ private:
     GSharePredictor predictor;
 
     bool isBreakpoint;
-    bool currInstIsLoadOrStore = false;
+    bool currentInstIsLoadOrStore = false;
     bool prevInstIsLoadOrStore = false;
     uint64_t loadStoreSequence = 0;
     uint64_t hazardRAW = 0;
@@ -84,14 +84,12 @@ private:
     std::array<int32_t, REG_COUNT> registers{};
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
-    std::array<std::function<void()>, IMEMORY_SIZE / 4> iMemory{};
-    std::array<std::string, IMEMORY_SIZE / 4> instStr{};
+    std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
     int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
 
     // 前の命令で書き込んだレジスタ
-    int currLoadReg = NULLREG;
     int prevLoadReg = NULLREG;
     uint32_t output_num;
 
@@ -167,15 +165,23 @@ private:
 
     int32_t loadWord(int32_t address);
 
+    [[nodiscard]]
+    inline int32_t loadInstruction(int32_t address) const
+    {
+        if (address < 0 || address >= IMEMORY_SIZE >> 2)
+        {
+            throw std::out_of_range("iMemory access out of bounds");
+        }
+        return iMemory[address];
+    }
+
     void storeWord(int32_t address, int32_t value);
     void storeInstruction(int32_t address, int32_t instruction);
 
     std::string instToString(uint32_t instruction) const;
-
-    inline void updatePrevLoadReg(int currLoadReg)
-    {
-        prevLoadReg = currLoadReg;
-    }
+    
+    // 直近に書き込んだレジスタの更新
+    void updatePrevLoadReg(int currLoadReg);
 
     // 一つ前のロード命令でロードしたレジスタであるかを検出
     void detectPrevLoad(int32_t rs1, int32_t rs2);
@@ -183,19 +189,10 @@ private:
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力
-    void printInstruction(uint32_t pc) const;
-    [[nodiscard]] std::function<void()> decodeInstruction(uint32_t instruction);
+    void printInstruction(uint32_t instruction) const;
     // 命令実行
-    inline void executeInstruction()
-    {
-        logInstAddr(getPC());
-        currLoadReg = NULLREG;
-        iMemory[getPC()]();
-        prevInstIsLoadOrStore = currInstIsLoadOrStore;
-        currInstIsLoadOrStore = false;
-        updatePrevLoadReg(currLoadReg);
-    };
-
+    void executeInstruction(uint32_t instruction);
+    
     void printInstAddrCounts();
     void printInstStats() const;
     void printProgram(bool aroundPC) const noexcept;
