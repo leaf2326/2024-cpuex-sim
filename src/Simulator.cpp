@@ -539,11 +539,6 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     }
 }
 
-inline void Simulator::updatePrevLoadReg(int currLoadReg)
-{
-    prevLoadReg = currLoadReg;
-}
-
 void Simulator::printInstruction(uint32_t pc) const
 {
     if (availableLog) [[unlikely]]
@@ -553,14 +548,14 @@ void Simulator::printInstruction(uint32_t pc) const
 std::function<void()> Simulator::decodeInstruction(uint32_t instruction)
 {
     std::function<void()> f;
-    const uint32_t opcode = getOpcode(instruction);
-    const uint32_t subop = getSubop(instruction);
-    const uint32_t rd = getRd(instruction);
-    const uint32_t rs1 = getRs1(instruction);
-    const uint32_t rs2 = getRs2(instruction);
-    const uint32_t fpuop = getFpuop(instruction);
-    f = [&, opcode, subop, rd, rs1, rs2, fpuop, instruction]()
+    f = [&, instruction]()
     {
+        const uint32_t opcode = getOpcode(instruction);
+        const uint32_t subop = getSubop(instruction);
+        const uint32_t rd = getRd(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        const uint32_t fpuop = getFpuop(instruction);
         switch (opcode)
         {
         case 0x1:
@@ -1002,15 +997,6 @@ std::function<void()> Simulator::decodeInstruction(uint32_t instruction)
         }
     };
     return f;
-}
-void Simulator::executeInstruction()
-{
-    logInstAddr(getPC());
-    currLoadReg = NULLREG;
-    iMemory[getPC()]();
-    prevInstIsLoadOrStore = currInstIsLoadOrStore;
-    currInstIsLoadOrStore = false;
-    updatePrevLoadReg(currLoadReg);
 }
 
 void Simulator::printCacheHitMissCounts() const

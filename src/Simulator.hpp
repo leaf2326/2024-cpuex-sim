@@ -85,7 +85,7 @@ private:
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
     std::array<std::function<void()>, IMEMORY_SIZE / 4> iMemory{};
-    std::array<std::string, IMEMORY_SIZE /4> instStr{};
+    std::array<std::string, IMEMORY_SIZE / 4> instStr{};
     int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
@@ -171,9 +171,11 @@ private:
     void storeInstruction(int32_t address, int32_t instruction);
 
     std::string instToString(uint32_t instruction) const;
-    
-    // 直近に書き込んだレジスタの更新
-    void updatePrevLoadReg(int currLoadReg);
+
+    inline void updatePrevLoadReg(int currLoadReg)
+    {
+        prevLoadReg = currLoadReg;
+    }
 
     // 一つ前のロード命令でロードしたレジスタであるかを検出
     void detectPrevLoad(int32_t rs1, int32_t rs2);
@@ -184,8 +186,16 @@ private:
     void printInstruction(uint32_t pc) const;
     [[nodiscard]] std::function<void()> decodeInstruction(uint32_t instruction);
     // 命令実行
-    void executeInstruction();
-    
+    inline void executeInstruction()
+    {
+        logInstAddr(getPC());
+        currLoadReg = NULLREG;
+        iMemory[getPC()]();
+        prevInstIsLoadOrStore = currInstIsLoadOrStore;
+        currInstIsLoadOrStore = false;
+        updatePrevLoadReg(currLoadReg);
+    };
+
     void printInstAddrCounts();
     void printInstStats() const;
     void printProgram(bool aroundPC) const noexcept;
