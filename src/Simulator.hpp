@@ -179,20 +179,29 @@ private:
     void storeInstruction(int32_t address, int32_t instruction);
 
     std::string instToString(uint32_t instruction) const;
-    
+
     // 直近に書き込んだレジスタの更新
-    void updatePrevLoadReg(int currLoadReg);
+    inline void updatePrevLoadReg(int currLoadReg)
+    {
+        prevLoadReg = currLoadReg;
+    }
 
     // 一つ前のロード命令でロードしたレジスタであるかを検出
-    void detectPrevLoad(int32_t rs1, int32_t rs2);
-
+    inline void detectPrevLoad(int32_t rs1, int32_t rs2)
+    {
+        // 1命令前にロードしたレジスタであるかを検出
+        if (rs1 == prevLoadReg || rs2 == prevLoadReg) [[unlikely]]
+        {
+            ++hazardRAW;
+        }
+    }
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力
     void printInstruction(uint32_t instruction) const;
     // 命令実行
     void executeInstruction(uint32_t instruction);
-    
+
     void printInstAddrCounts();
     void printInstStats() const;
     void printProgram(bool aroundPC) const noexcept;

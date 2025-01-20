@@ -497,16 +497,6 @@ void Simulator::printRegisters(int regType) const
     }
 }
 
-void Simulator::detectPrevLoad(int32_t rs1, int32_t rs2)
-{
-    // 1命令前にロードしたレジスタであるかを検出
-    if (rs1 == prevLoadReg || rs2 == prevLoadReg) [[unlikely]]
-    {
-        ++hazardRAW;
-    }
-}
-
-
 // 分岐予測
 void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
 {
@@ -540,11 +530,6 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     {
         setPC(pc + 1);
     }
-}
-
-inline void Simulator::updatePrevLoadReg(int currLoadReg)
-{
-    prevLoadReg = currLoadReg;
 }
 
 void Simulator::printInstruction(uint32_t instruction) const
