@@ -6,10 +6,11 @@
 #include "OptionHandler.hpp"
 #include "FPU.hpp"
 #include "Memory.hpp"
+#include "Predictor.hpp"
+#include "InstructionCache.hpp"
 #include <array>
 #include <vector>
 #include <cstdint>
-#include <unordered_map>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -31,8 +32,17 @@ public:
     void loadMemoryFromBinary(const std::string &programFilePath);
     void loadInputData(const std::string &inputFilePath);
     void runProgram(int outputRegNum);
-    int64_t getStep() const;
-    int32_t getPC() const;
+
+    [[nodiscard]]
+    inline int64_t getStep() const noexcept
+    {
+        return step;
+    }
+    [[nodiscard]]
+    inline int32_t getPC() const noexcept
+    {
+        return pc;
+    }
     void printRegisters(int regType) const;
     // ログの出力
     void printLog();
@@ -40,21 +50,18 @@ public:
 private:
     uint64_t maxStep = UINT64_MAX;
     uint64_t step = 0;
-    static constexpr int REG_COUNT = 32;
-    static constexpr int FPREG_COUNT = 32;
-    static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（512KiB）
-    static constexpr int64_t CACHE_SIZE = 64 * 1024;
+    static constexpr int REG_COUNT = 64;
+    static constexpr int FPREG_COUNT = 64;
+    static constexpr int64_t CACHE_SIZE = 16 * 1024;
     static constexpr int64_t BLOCK_SIZE = 16;
-    static constexpr int64_t INPUT_ADDRESS = 100;
-    static constexpr int64_t OUTPUT_ADDRESS = 104;
-    static constexpr double CPUFREQUENCY = 16000000;
+    static constexpr int64_t INPUT_ADDRESS = 25;
+    static constexpr int64_t OUTPUT_ADDRESS = 26;
+    static constexpr double CPUFREQUENCY = 100000000;
     uint64_t outputSize;
     std::string outputFilePath;
 
-    static constexpr int NUM_ENTRIES = 128; // 2^7エントリ
-    static constexpr int PHT_DEFAULT = 2;
-    std::vector<uint8_t> patternHistoryTable;  // 2-bit飽和カウンタ
-    
+    GSharePredictor predictor;
+
     bool isBreakpoint;
     bool currentInstIsLoadOrStore = false;
     bool prevInstIsLoadOrStore = false;
@@ -78,7 +85,9 @@ private:
     std::array<int32_t, REG_COUNT> registers{};
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
-    std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
+    InstructionCache iCache;
+    static constexpr int64_t IMEMORY_SIZE = InstructionCache::IMEMORY_SIZE; // Iメモリサイズ（128KiB）
+    std::array<uint32_t, IMEMORY_SIZE / 4> iMemory{};
     int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
@@ -93,34 +102,103 @@ private:
     bool enableDebug;
     bool enableStdout;
     bool enableGDB;
+    bool enableICache;
 
     bool availableLog = false;
 
-    int32_t getRegister(int reg) const;
-    void setRegister(int reg, int32_t value);
-    int32_t getFpRegister(int fpreg) const;
-    void setFpRegister(int fpreg, int32_t fpvalue);
+    [[nodiscard]]
+    inline int32_t getRegister(int reg) const
+    {
+        if (reg < 0 || reg >= REG_COUNT)
+        {
+            throw std::out_of_range("Invalid register index");
+        }
+        return reg == 0 ? 0 : registers[reg];
+    }
 
-    void setPC(int32_t newPC);
+    [[nodiscard]]
+    inline int32_t getFpRegister(int fpreg) const
+    {
+        if (fpreg < 0 || fpreg >= FPREG_COUNT)
+        {
+            throw std::out_of_range("Invalid fpregister index");
+        }
+        return fpRegisters[fpreg];
+    }
+
+    inline void setRegister(int reg, int32_t value)
+    {
+        if (reg == 0)
+            return;
+        if (reg < 0 || reg >= REG_COUNT)
+        {
+            throw std::out_of_range("Invalid register index");
+        }
+        if (availableLog)
+            std::cerr << "Register x" << reg << " changed from " << std::hex << registers[reg] << " to " << value << std::dec << std::endl;
+
+        registers[reg] = value;
+        if (registers[2] <= registers[3])
+        {
+            throw std::out_of_range("Stack overflow! sp=" + std::to_string(registers[2]) + " hp=" + std::to_string(registers[3]));
+        }
+        // printRegisters(ALLREG);
+    }
+
+    inline void setFpRegister(int fpreg, int32_t fpvalue)
+    {
+        if (fpreg < 0 || fpreg >= FPREG_COUNT)
+        {
+            throw std::out_of_range("Invalid fpregister index");
+        }
+        if (availableLog)
+            std::cerr << "fpRegister fp" << fpreg << " changed from " << std::hex << fpRegisters[fpreg] << " to " << fpvalue << std::dec << std::endl;
+
+        fpRegisters[fpreg] = fpvalue;
+        // printRegisters(ALLREG);
+    }
+
+    inline void setPC(int32_t newPC) noexcept
+    {
+        if (availableLog)
+            std::cerr << "PC changed from " << std::hex << pc << " to " << newPC << std::dec << std::endl;
+
+        pc = newPC;
+        // printRegisters(ALLREG)
+    }
 
     int32_t loadWord(int32_t address);
-    int32_t loadInstruction(int32_t adsdress) const;
+
+    [[nodiscard]]
+    inline int32_t loadInstruction(int32_t address) const
+    {
+        if (address < 0 || address >= IMEMORY_SIZE >> 2)
+        {
+            throw std::out_of_range("iMemory access out of bounds");
+        }
+        return iMemory[address];
+    }
+
     void storeWord(int32_t address, int32_t value);
     void storeInstruction(int32_t address, int32_t instruction);
 
     std::string instToString(uint32_t instruction) const;
 
     // 直近に書き込んだレジスタの更新
-    void updatePrevLoadReg(int currLoadReg);
+    inline void updatePrevLoadReg(int currLoadReg)
+    {
+        prevLoadReg = currLoadReg;
+    }
 
     // 一つ前のロード命令でロードしたレジスタであるかを検出
-    void detectPrevLoad(int32_t rs1, int32_t rs2);
-
-
-    // 分岐予測
-    uint32_t getIndex(uint32_t pc) const;   // patternHistoryTableのindexを計算
-    void updateCounter(uint8_t &counter, bool isTaken);
-    bool predict(uint8_t counter) const;
+    inline void detectPrevLoad(int32_t rs1, int32_t rs2)
+    {
+        // 1命令前にロードしたレジスタであるかを検出
+        if (rs1 == prevLoadReg || rs2 == prevLoadReg) [[unlikely]]
+        {
+            ++hazardRAW;
+        }
+    }
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力

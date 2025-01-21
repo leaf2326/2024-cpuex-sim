@@ -27,6 +27,8 @@ public:
 
     uint32_t fneg(uint32_t x);
 
+    uint32_t fabs(uint32_t x);
+
     bool flt(uint32_t x1, uint32_t x2);
 
     bool feq(uint32_t x1, uint32_t x2);

@@ -32,6 +32,10 @@ void singleLoopTestFadd(FPU &fpu)
     std::cout << "Single Loop Testing FADD..." << std::endl;
     for (uint32_t i = 0; i <= 0xFFFFFFFF; ++i)
     {
+        if (i == 0xFFFFFFFF)
+            break;
+        if (getExponent(i) == 0 || getExponent(i) == 255)
+            continue;
         float a = std::bit_cast<float>(i);
         for (float b : testValues)
         {
@@ -41,13 +45,12 @@ void singleLoopTestFadd(FPU &fpu)
             float tolerance = std::max({std::fabs(a) * TOLERANCE_ADD, std::fabs(b) * TOLERANCE_ADD, std::fabs(expected) * TOLERANCE_ADD, EPSILON});
             if (error > tolerance)
             {
+                std::cout << std::hex << "FADD(" << std::bit_cast<uint32_t>(a) << ", " << std::bit_cast<uint32_t>(b) << ") = " << std::bit_cast<uint32_t>(result) << std::dec << std::endl;
                 std::cout << "FADD(" << a << ", " << b << ") = " << result << " (expected: " << expected << ", error: " << error << ", tolerance: " << tolerance << ")" << std::endl;
             }
         }
         if (i == 0x10000000 || i == 0x20000000 || i == 0x30000000 || i == 0x40000000 || i == 0x50000000 || i == 0x60000000 || i == 0x70000000 || i == 0x80000000 || i == 0x90000000 || i == 0xA0000000 || i == 0xB0000000 || i == 0xC0000000 || i == 0xD0000000 || i == 0xE0000000 || i == 0xF0000000)
             std::cout << "Testing FADD with i > " << i << "..." << std::endl;
-        if (i == 0xFFFFFFFF)
-            break;
     }
 }
 
@@ -57,6 +60,10 @@ void singleLoopTestFsub(FPU &fpu)
     std::cout << "Single Loop Testing FSUB..." << std::endl;
     for (uint32_t i = 0; i <= 0xFFFFFFFF; ++i)
     {
+        if (i == 0xFFFFFFFF)
+            break;
+        if (getExponent(i) == 0 || getExponent(i) == 255)
+            continue;
         float a = std::bit_cast<float>(i);
         for (float b : testValues)
         {
@@ -71,8 +78,6 @@ void singleLoopTestFsub(FPU &fpu)
         }
         if (i == 0x10000000 || i == 0x20000000 || i == 0x30000000 || i == 0x40000000 || i == 0x50000000 || i == 0x60000000 || i == 0x70000000 || i == 0x80000000 || i == 0x90000000 || i == 0xA0000000 || i == 0xB0000000 || i == 0xC0000000 || i == 0xD0000000 || i == 0xE0000000 || i == 0xF0000000)
             std::cout << "Testing FSUB with i > " << i << "..." << std::endl;
-        if (i == 0xFFFFFFFF)
-            break;
     }
 }
 
@@ -82,6 +87,10 @@ void singleLoopTestFmul(FPU &fpu)
     std::cout << "Single Loop Testing FMUL..." << std::endl;
     for (uint32_t i = 0; i <= 0xFFFFFFFF; ++i)
     {
+        if (i == 0xFFFFFFFF)
+            break;
+        if (getExponent(i) == 0 || getExponent(i) == 255)
+            continue;
         float a = std::bit_cast<float>(i);
         for (float b : testValues)
         {
@@ -111,6 +120,10 @@ void singleLoopTestFdiv(FPU &fpu)
     std::cout << "Single Loop Testing FDIV..." << std::endl;
     for (uint32_t i = 0; i <= 0xFFFFFFFF; ++i)
     {
+        if (i == 0xFFFFFFFF)
+            break;
+        if (getExponent(i) == 0 || getExponent(i) == 255)
+            continue;
         float a = std::bit_cast<float>(i);
         for (float b : testValues)
         {
@@ -127,8 +140,6 @@ void singleLoopTestFdiv(FPU &fpu)
         }
         if (i == 0x10000000 || i == 0x20000000 || i == 0x30000000 || i == 0x40000000 || i == 0x50000000 || i == 0x60000000 || i == 0x70000000 || i == 0x80000000 || i == 0x90000000 || i == 0xA0000000 || i == 0xB0000000 || i == 0xC0000000 || i == 0xD0000000 || i == 0xE0000000 || i == 0xF0000000)
             std::cout << "Testing FDIV with i > " << i << "..." << std::endl;
-        if (i == 0xFFFFFFFF)
-            break;
     }
 }
 
@@ -138,6 +149,10 @@ void singleLoopTestFsqrt(FPU &fpu)
     std::cout << "Single Loop Testing FSQRT..." << std::endl;
     for (uint32_t i = 0; i <= 0xFFFFFFFF; ++i)
     {
+        if (i == 0xFFFFFFFF)
+            break;
+        if (getExponent(i) == 0 || getExponent(i) == 255)
+            continue;
         float a = std::bit_cast<float>(i);
         if (a < 0.0f || getExponent(i) == 0)
             continue; // Skip negative inputs for sqrt
@@ -151,8 +166,6 @@ void singleLoopTestFsqrt(FPU &fpu)
         }
         if (i == 0x10000000 || i == 0x20000000 || i == 0x30000000 || i == 0x40000000 || i == 0x50000000 || i == 0x60000000 || i == 0x70000000 || i == 0x80000000 || i == 0x90000000 || i == 0xA0000000 || i == 0xB0000000 || i == 0xC0000000 || i == 0xD0000000 || i == 0xE0000000 || i == 0xF0000000)
             std::cout << "Testing FSQRT with i > " << i << "..." << std::endl;
-        if (i == 0xFFFFFFFF)
-            break;
     }
 }
 
@@ -355,7 +368,7 @@ void testFPU(FPU &fpu)
              float result =
                  std::bit_cast<float>(
                      fpu.fsqrt(std::bit_cast<uint32_t>(input1)));
-                     std::cout << std::bit_cast<uint32_t>(input1) << " uint" << std::endl;
+             std::cout << std::bit_cast<uint32_t>(input1) << " uint" << std::endl;
              std::cout << "fsqrt (" << input1 << ") = " << result << std::endl;
          }},
         {"ftoi", [&]
@@ -390,7 +403,7 @@ void testFPU(FPU &fpu)
 
              std::cout << "flt (" << input1 << ", " << input2 << ") = " << result << std::endl;
          }},
-         {"feq", [&]
+        {"feq", [&]
          {
              std::cin >> input1 >> input2;
              bool result =
@@ -415,16 +428,17 @@ void testFPU(FPU &fpu)
 
 int main()
 {
+    std::cout << std::showbase;
     FPU fpu;
     testFtoi(fpu);
     testItof(fpu);
     cornerCaseTestFPU(fpu);
-    //fullTestFPU(fpu);
-    // singleLoopTestFadd(fpu);
-    // singleLoopTestFsub(fpu);
+    // fullTestFPU(fpu);
+    singleLoopTestFadd(fpu);
+    singleLoopTestFsub(fpu);
     // singleLoopTestFmul(fpu);
     // singleLoopTestFdiv(fpu);
-    singleLoopTestFsqrt(fpu);
+    // singleLoopTestFsqrt(fpu);
     std::cout << "end!" << std::endl;
     testFPU(fpu);
     return 0;

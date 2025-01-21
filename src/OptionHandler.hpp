@@ -3,7 +3,7 @@
 
 #include <string>
 #include <cstdint>
-#include "../include/cxxopts.hpp"
+#include <cxxopts.hpp>
 
 class OptionHandler {
 public:
@@ -26,6 +26,7 @@ public:
     bool enableStdout;
     uint64_t imageSize;
     bool enableGDB;
+    bool enableICache;
 
     static constexpr uint64_t DEFAULT_MAX_STEP = UINT64_MAX;
     static constexpr uint64_t DEFAULT_MEMORY_SIZE = 4 * 1024 * 1024; //4MiB (Default dMemory Size)
