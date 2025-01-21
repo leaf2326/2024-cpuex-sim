@@ -4,7 +4,7 @@ LDFLAGS = -lssl -lcrypto
 TARGET = simulator
 SRCDIR = src
 OBJDIR = build
-SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp $(SRCDIR)/DiscordNotifier.cpp $(SRCDIR)/OptionHandler.cpp $(SRCDIR)/Predictor.cpp
+SRCS = $(SRCDIR)/Simulator.cpp $(SRCDIR)/Log.cpp $(SRCDIR)/FPU.cpp $(SRCDIR)/Util.cpp $(SRCDIR)/Memory.cpp $(SRCDIR)/DiscordNotifier.cpp $(SRCDIR)/OptionHandler.cpp $(SRCDIR)/Predictor.cpp $(SRCDIR)/InstructionCache.cpp
 OBJS = $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRCS))
 CXXFLAGS += -Iinclude
 
