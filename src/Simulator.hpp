@@ -7,6 +7,7 @@
 #include "FPU.hpp"
 #include "Memory.hpp"
 #include "Predictor.hpp"
+#include "InstructionCache.hpp"
 #include <array>
 #include <vector>
 #include <cstdint>
@@ -51,7 +52,6 @@ private:
     uint64_t step = 0;
     static constexpr int REG_COUNT = 64;
     static constexpr int FPREG_COUNT = 64;
-    static constexpr int64_t IMEMORY_SIZE = 128 * 1024; // Iメモリサイズ（128KiB）
     static constexpr int64_t CACHE_SIZE = 16 * 1024;
     static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t INPUT_ADDRESS = 25;
@@ -84,7 +84,9 @@ private:
     std::array<int32_t, REG_COUNT> registers{};
     std::array<int32_t, FPREG_COUNT> fpRegisters{};
     int32_t pc;
-    std::array<int32_t, IMEMORY_SIZE / 4> iMemory{};
+    InstructionCache iCache;
+    static constexpr int64_t IMEMORY_SIZE = InstructionCache::IMEMORY_SIZE; // Iメモリサイズ（128KiB）
+    std::array<uint32_t, IMEMORY_SIZE / 4> iMemory{};
     int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
@@ -99,6 +101,7 @@ private:
     bool enableDebug;
     bool enableStdout;
     bool enableGDB;
+    bool enableICache;
 
     bool availableLog = false;
 

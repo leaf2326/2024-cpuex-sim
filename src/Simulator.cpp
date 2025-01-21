@@ -8,10 +8,10 @@
 #include <pbar.hpp>
 
 Simulator::Simulator(OptionHandler &op)
-    : dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
+    : iCache(iMemory), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
 {
     DMEMORY_SIZE = op.memorySize;
-    registers[0] = 0;                    // x0
+    registers[0] = 0;                       // x0
     registers[2] = (DMEMORY_SIZE >> 2) - 4; // sp
     pc = 0;
     isBreakpoint = false;
@@ -20,6 +20,7 @@ Simulator::Simulator(OptionHandler &op)
     enableIStats = op.enableIStats;
     enableDebug = op.enableDebug;
     enableStdout = op.enableStdout;
+    enableICache = op.enableICache;
     outputSize = op.imageSize * op.imageSize + 2;
     enableGDB = op.enableGDB;
     maxStep = op.maxStep;
@@ -35,9 +36,6 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
     {
         throw std::out_of_range("iMemory access out of bounds");
     }
-#ifdef DEBUG
-    std::cerr << std::hex << address << ": " << std::dec << instToString(instruction) << std::endl;
-#endif // DEBUG
     iMemory[address] = instruction;
 }
 
@@ -542,6 +540,21 @@ void Simulator::executeInstruction(uint32_t instruction)
 {
     logInstAddr(getPC());
     int currLoadReg = NULLREG;
+    if(enableICache){
+    bool hit = iCache.fetch(getPC());
+    if (availableLog)
+    {
+        if (hit)
+        {
+
+            std::cerr << "Instruction Cache hit!" << std::endl;
+        }
+        else
+        {
+            std::cerr << "instruction Cache miss detected." << std::endl;
+        }
+    }
+    }
     const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
     {
@@ -558,7 +571,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         if (subop == 0x0)
         {
             logInstruction(ADD);
-            if (rs1 == 0 || rs2 == 0) 
+            if (rs1 == 0 || rs2 == 0)
             {
                 ++mvCount;
             }
@@ -1038,7 +1051,7 @@ void Simulator::printCacheHitMissCounts() const
 // ログの出力
 void Simulator::printLog()
 {
-    double estimatedClock = 0;
+    uint64_t estimatedClock = 0;
     std::cerr << "Step : " << getStep() << std::endl;
     printProgram(true);
     printRegisters(ALLREG);
@@ -1064,6 +1077,7 @@ void Simulator::printLog()
     std::cerr << "Cache miss without write back: " << dMemory.getNonWbCount() << std::endl;
     std::cerr << "Cache miss with different range write back: " << dMemory.getDiffRangeWbCount() << std::endl;
     std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
+    std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
 
     std::cerr << "________Estimation from data________" << std::endl;
     estimatedClock += 4;
@@ -1084,6 +1098,7 @@ void Simulator::printLog()
     estimatedClock += dMemory.getNonWbCount() * 52.5;
     estimatedClock += dMemory.getDiffRangeWbCount() * 56.2;
     estimatedClock += dMemory.getSameRangeWbCount() * 64.5;
+    estimatedClock += iCache.getMissCount() * 5;
 
     std::cerr << "Estimated clock: " << (uint64_t)estimatedClock << std::endl;
     double estimatedTime = estimatedClock / CPUFREQUENCY;
