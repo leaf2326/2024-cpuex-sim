@@ -541,20 +541,21 @@ void Simulator::executeInstruction(uint32_t instruction)
 {
     logInstAddr(getPC());
     int currLoadReg = NULLREG;
-    if(enableICache){
-    bool hit = iCache.fetch(getPC());
-    if (availableLog)
+    if (enableICache)
     {
-        if (hit)
+        bool hit = iCache.fetch(getPC());
+        if (availableLog)
         {
+            if (hit)
+            {
 
-            std::cerr << "Instruction Cache hit!" << std::endl;
+                std::cerr << "Instruction Cache hit!" << std::endl;
+            }
+            else
+            {
+                std::cerr << "instruction Cache miss detected." << std::endl;
+            }
         }
-        else
-        {
-            std::cerr << "instruction Cache miss detected." << std::endl;
-        }
-    }
     }
     const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
@@ -1066,6 +1067,7 @@ void Simulator::printLog()
     }
     Log::printLog();
     std::cerr << "Detected RAW hazard: " << hazardRAW << std::endl;
+
     if (enableCache)
     {
         printCacheHitMissCounts();
@@ -1080,27 +1082,37 @@ void Simulator::printLog()
     std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
     std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
 
-    std::cerr << "________Estimation from data________" << std::endl;
+    std::cerr << "________Stall prediction________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
+    std::cerr << "Stall from..." << std::endl;
+    std::cerr << "  RAW hazard: " << hazardRAW << std::endl;
     estimatedClock += hazardRAW;
+    std::cerr << "  number of JALR*2: " << instructionCounts[JALR] * 2 << std::endl;
     estimatedClock += (instructionCounts[JALR]) * 2;
+    std::cerr << "  branch prediction miss*2: " << flushCount * 2 << std::endl;
     estimatedClock += flushCount * 2;
+    std::cerr << "  Sequencial load and store: " << loadStoreSequence << std::endl;
     estimatedClock += loadStoreSequence;
-    estimatedClock += ((instructionCounts[FADD]) + (instructionCounts[FSUB])) * 4;
-    estimatedClock += (instructionCounts[FMUL]) * 1;
-    estimatedClock += (instructionCounts[FDIV]) * 4;
-    estimatedClock += (instructionCounts[FSQRT]) * 2;
-    estimatedClock += (instructionCounts[FFLOOR]) * 4;
-    estimatedClock += (instructionCounts[ITOF]) * 2;
-    estimatedClock += (instructionCounts[FTOI]) * 2;
-
-    estimatedClock += dMemory.getHitCount() * 1;
-    estimatedClock += dMemory.getNonWbCount() * 52.5;
-    estimatedClock += dMemory.getDiffRangeWbCount() * 56.2;
-    estimatedClock += dMemory.getSameRangeWbCount() * 64.5;
-    estimatedClock += iCache.getMissCount() * 5;
-
+    uint64_t floatingStall = 0;
+    floatingStall += ((instructionCounts[FADD]) + (instructionCounts[FSUB])) * 4;
+    floatingStall += (instructionCounts[FMUL]) * 1;
+    floatingStall += (instructionCounts[FDIV]) * 4;
+    floatingStall += (instructionCounts[FSQRT]) * 2;
+    floatingStall += (instructionCounts[FFLOOR]) * 4;
+    floatingStall += (instructionCounts[ITOF]) * 2;
+    floatingStall += (instructionCounts[FTOI]) * 2;
+    estimatedClock += floatingStall;
+    std::cerr << "  floating instructions: " << floatingStall << std::endl;
+    uint64_t cacheStall = 0;
+    cacheStall += dMemory.getHitCount() * 1;
+    cacheStall += dMemory.getNonWbCount() * 52.5;
+    cacheStall += dMemory.getDiffRangeWbCount() * 56.2;
+    cacheStall += dMemory.getSameRangeWbCount() * 64.5;
+    cacheStall += iCache.getMissCount() * 5;
+    estimatedClock += cacheStall;
+    std::cerr << "  cache access: " << cacheStall << std::endl;
+    std::cerr << "________Estimation from data________" << std::endl;
     std::cerr << "Estimated clock: " << (uint64_t)estimatedClock << std::endl;
     double estimatedTime = estimatedClock / CPUFREQUENCY;
     std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
