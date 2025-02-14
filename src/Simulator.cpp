@@ -36,7 +36,7 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
     {
         throw std::out_of_range("iMemory access out of bounds");
     }
-    iMemory[address] = instruction;
+    iMemory[address / VLIW_SIZE][address % VLIW_SIZE] = instruction;
 }
 
 std::string Simulator::instToString(uint32_t instruction) const
@@ -46,6 +46,11 @@ std::string Simulator::instToString(uint32_t instruction) const
 
     switch (opcode)
     {
+    case 0x0:
+    {
+        sstr << "nop";
+        break;
+    }
     case 0x1:
     {
         // add, sub
@@ -354,7 +359,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
             throw std::out_of_range("Program size exceeds iMemory limits");
         }
     }
-    instructionSize = address;
+    instructionSize = address / VLIW_SIZE;
     instAddrCounts.resize(instructionSize, 0);
     std::cerr << "Completed loading memory" << std::endl;
 }
@@ -367,10 +372,11 @@ void Simulator::printInstAddrCounts()
 
     for (int i = 0; i < instructionSize; ++i)
     {
-        const uint32_t instruction = iMemory[i];
+
         std::cerr << std::setw(15) << std::hex << i << std::dec
-                  << std::setw(14) << instAddrCounts[i] << ":        "
-                  << instToString(instruction) << std::endl;
+                  << std::setw(14) << instAddrCounts[i] << ":        ";
+        printInstruction(i);
+        std::cerr << std::endl;
     }
 }
 void Simulator::printInstStats() const
@@ -403,8 +409,8 @@ void Simulator::printProgram(bool aroundPC) const noexcept
             }
             else
             {
-                const uint32_t instruction = iMemory[address];
-                std::cerr << address << ": " << instToString(instruction);
+                std::cerr << address << ": ";
+                printInstruction(address);
                 if (i == 0)
                 {
                     std::cerr << " ←-";
@@ -417,8 +423,8 @@ void Simulator::printProgram(bool aroundPC) const noexcept
     {
         for (int i = 0; i < instructionSize; ++i)
         {
-            const uint32_t instruction = iMemory[i];
-            std::cerr << i + 1 << ": " << instToString(instruction);
+            std::cerr << i + 1 << ": ";
+            printInstruction(i);
             if (i == getPC())
             {
                 std::cerr << " ←-";
@@ -497,7 +503,7 @@ void Simulator::printRegisters(int regType) const
 }
 
 // 分岐予測
-void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
+int32_t Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
 {
     int32_t pc = getPC();
     bool predictedTaken = predictor.predict(pc);
@@ -523,24 +529,48 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     predictor.update(pc, isTaken);
     if (isTaken)
     {
-        setPC(imm);
+        return imm;
     }
     else
     {
-        setPC(pc + 1);
+        return pc + 1;
     }
 }
 
-void Simulator::printInstruction(uint32_t instruction) const
+void Simulator::printInstruction(int32_t pc) const
 {
-    if (availableLog) [[unlikely]]
-        std::cerr << "Executing: " << instToString(instruction) << std::endl;
+    for (size_t j = 0; j < VLIW_SIZE; ++j)
+    {
+        const uint32_t instruction = iMemory[pc][j];
+        std::cerr << "\\" << std::setw(21) << instToString(instruction);
+    }
 }
 
-void Simulator::executeInstruction(uint32_t instruction)
+void Simulator::executeOneStep(int32_t pc)
 {
-    logInstAddr(getPC());
+    logInstAddr(pc);
+    int32_t nextPC = pc + 1;
+    for (size_t j = 0; j < VLIW_SIZE; ++j)
+    {
+        const uint32_t instruction = loadInstruction(pc, j);
+
+        if (availableLog)
+        {
+            std::cerr << "Executing: " << std::setw(21) << instToString(instruction) << std::endl;
+        }
+        int32_t candidatePC = executeInstruction(instruction);
+        if (candidatePC != pc + 1)
+        {
+            nextPC = candidatePC;
+        }
+    }
+    setPC(nextPC);
+}
+
+int32_t Simulator::executeInstruction(uint32_t instruction)
+{
     int currLoadReg = NULLREG;
+    int32_t nextPC = getPC() + 1;
     if (enableICache)
     {
         bool hit = iCache.fetch(getPC());
@@ -560,6 +590,12 @@ void Simulator::executeInstruction(uint32_t instruction)
     const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
     {
+    case 0x0:
+    {
+        // nop
+        logInstruction(NOP);
+        break;
+    }
     case 0x1:
     {
         // R-type (add, sub)
@@ -590,7 +626,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0x2:
@@ -654,7 +689,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0x3:
@@ -697,7 +731,7 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
+        nextPC = branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
         break;
     }
     case 0x4:
@@ -712,7 +746,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         }
         logInstruction(JAL);
         setRegister(rd, getPC() + 1);
-        setPC(imm);
+        nextPC = imm;
         break;
     }
     case 0x5:
@@ -725,7 +759,7 @@ void Simulator::executeInstruction(uint32_t instruction)
 
         logInstruction(JALR);
         setRegister(rd, getPC() + 1);
-        setPC(getRegister(rs1));
+        nextPC = getRegister(rs1);
         break;
     }
     case 0x8:
@@ -781,7 +815,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         currLoadReg = rd;
         break;
     }
@@ -814,7 +847,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
-        setPC(getPC() + 1);
         break;
     }
     case 0xA:
@@ -875,7 +907,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
         break;
     }
@@ -908,7 +939,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
-        setPC(getPC() + 1);
         break;
     }
     case 0xC:
@@ -943,7 +973,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0xD:
@@ -1021,14 +1050,12 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0x6:
     {
         logInstruction(EBREAK);
         isBreakpoint = true;
-        setPC(getPC() + 1);
         break;
     }
     [[unlikely]] default:
@@ -1039,6 +1066,7 @@ void Simulator::executeInstruction(uint32_t instruction)
     prevInstIsLoadOrStore = currentInstIsLoadOrStore;
     currentInstIsLoadOrStore = false;
     updatePrevLoadReg(currLoadReg);
+    return nextPC;
 }
 
 void Simulator::printCacheHitMissCounts() const
@@ -1080,8 +1108,10 @@ void Simulator::printLog()
     std::cerr << "Cache miss without write back: " << dMemory.getNonWbCount() << std::endl;
     std::cerr << "Cache miss with different range write back: " << dMemory.getDiffRangeWbCount() << std::endl;
     std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
-    std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
-
+    if (enableICache)
+    {
+        std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
+    }
     std::cerr << "________Stall prediction________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
@@ -1272,19 +1302,12 @@ void Simulator::runProgram(int outputRegNum)
                             }
                             else if (gdbCommand == "s")
                             {
-                                const uint32_t instruction = loadInstruction(pc);
-
                                 if (rep == 1)
                                 {
                                     std::cerr << "Step : " << step << std::endl;
-#ifdef DEBUG
-                                    std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
-#endif // DEBUG
-
                                     printProgram(true);
-                                    printInstruction(instruction);
                                 }
-                                executeInstruction(instruction);
+                                executeOneStep(getPC());
                                 ++step;
                                 if (rep == 1)
                                 {
@@ -1342,9 +1365,7 @@ void Simulator::runProgram(int outputRegNum)
                     buffer.str("");
                     {
                         CerrRedirect redirect(buffer);
-                        const uint32_t instruction = loadInstruction(pc);
-
-                        executeInstruction(instruction);
+                        executeOneStep(getPC());
                         ++step;
                     }
                     if (isBreakpoint)
@@ -1377,12 +1398,12 @@ void Simulator::runProgram(int outputRegNum)
         {
             while (maxStep > step && !isBreakpoint)
             {
-                const uint32_t instruction = loadInstruction(pc);
                 if (enableDebug)
                 {
-                    printInstruction(instruction);
+                    printInstruction(pc);
+                    std::cerr << std::endl;
                 }
-                executeInstruction(instruction);
+                executeOneStep(getPC());
                 ++step;
             }
         }
@@ -1395,12 +1416,12 @@ void Simulator::runProgram(int outputRegNum)
             uint64_t prevLineOutputCount = 0;
             while (maxStep > step && !isBreakpoint)
             {
-                const uint32_t instruction = loadInstruction(pc);
                 if (enableDebug)
                 {
-                    printInstruction(instruction);
+                    printInstruction(pc);
+                    std::cerr << std::endl;
                 }
-                executeInstruction(instruction);
+                executeOneStep(getPC());
                 ++step;
 
                 if (prevLineOutputCount != dMemory.lineOutputCount)

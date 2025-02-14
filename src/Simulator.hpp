@@ -87,7 +87,9 @@ private:
     int32_t pc;
     InstructionCache iCache;
     static constexpr int64_t IMEMORY_SIZE = InstructionCache::IMEMORY_SIZE; // Iメモリサイズ（128KiB）
-    std::array<uint32_t, IMEMORY_SIZE / 4> iMemory{};
+    static constexpr size_t VLIW_SIZE = InstructionCache::VLIW_SIZE;        // VLIWで同時実行する命令数
+
+    std::array<std::array<uint32_t, VLIW_SIZE>, (IMEMORY_SIZE / 4) / VLIW_SIZE> iMemory{};
     int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
@@ -170,13 +172,13 @@ private:
     int32_t loadWord(int32_t address);
 
     [[nodiscard]]
-    inline int32_t loadInstruction(int32_t address) const
+    inline int32_t loadInstruction(int32_t address ,size_t num) const
     {
-        if (address < 0 || address >= IMEMORY_SIZE >> 2)
+        if (address < 0 || address * VLIW_SIZE >= IMEMORY_SIZE >> 2)
         {
             throw std::out_of_range("iMemory access out of bounds");
         }
-        return iMemory[address];
+        return iMemory[address][num];
     }
 
     void storeWord(int32_t address, int32_t value);
@@ -199,12 +201,14 @@ private:
             ++hazardRAW;
         }
     }
-    void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
+    int32_t branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力
-    void printInstruction(uint32_t instruction) const;
+    void printInstruction(int32_t pc) const;
+    // 1ステップ実行
+    void executeOneStep(int32_t pc);
     // 命令実行
-    void executeInstruction(uint32_t instruction);
+    int32_t executeInstruction(uint32_t instruction);
 
     void printInstAddrCounts();
     void printInstStats() const;

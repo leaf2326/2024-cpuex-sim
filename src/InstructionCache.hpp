@@ -12,7 +12,9 @@ class InstructionCache
 {
 public:
     static constexpr int64_t IMEMORY_SIZE = 128 * 1024; // Iメモリサイズ（128KiB）
-    InstructionCache(const std::array<uint32_t, IMEMORY_SIZE / 4> &instructionMemory);
+    static constexpr size_t VLIW_SIZE = 3; // VLIWで同時実行する命令数 
+    
+    InstructionCache(const std::array<std::array<uint32_t, VLIW_SIZE>, (IMEMORY_SIZE / 4) /VLIW_SIZE> &instructionMemory);
     void init();
     bool fetch(uint32_t addr);
     [[nodiscard]] inline uint32_t getMissCount() const
@@ -25,7 +27,7 @@ private:
     static constexpr size_t JALTSize = 2048;
     static constexpr size_t LineWords = 8;
 
-    const std::array<uint32_t, IMEMORY_SIZE / 4> &instructionMemory;
+    const std::array<std::array<uint32_t, VLIW_SIZE>, (IMEMORY_SIZE / 4) /VLIW_SIZE> &instructionMemory;
     std::vector<std::optional<uint32_t>> cacheTag;
     std::vector<std::optional<uint32_t>> jaltTag;
     std::vector<std::optional<uint32_t>> jaltContent;

@@ -17,8 +17,11 @@ protected:
 
     enum InstructionType
     {
+        // nop
+        NOP = 0,
+
         // ALU命令
-        ADD = 0,
+        ADD,
         SUB,
         SLLI,
         SRLI,
@@ -63,7 +66,7 @@ protected:
     };
 
     const std::array<std::string, MAX_INSTRUCTION_TYPE> InstructionTypeNames = {
-        "add", "sub", "slli", "srli", "addi", "lui",
+        "nop", "add", "sub", "slli", "srli", "addi", "lui",
         "beq", "bne", "blt", "bge", "jal", "jalr",
         "lw", "lwr", "sw", "flw", "flwr", "fsw",
         "ebreak", "ftoi", "itof", "fadd", "fsub", "fmul",

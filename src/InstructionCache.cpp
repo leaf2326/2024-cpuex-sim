@@ -1,6 +1,6 @@
 #include "InstructionCache.hpp"
 
-InstructionCache::InstructionCache(const std::array<uint32_t, IMEMORY_SIZE / 4> &instructionMemory)
+InstructionCache::InstructionCache(const std::array<std::array<uint32_t, VLIW_SIZE>, (IMEMORY_SIZE / 4) /VLIW_SIZE> &instructionMemory)
     : instructionMemory(instructionMemory), missCount(0) {
     init();
 }
@@ -48,7 +48,7 @@ bool InstructionCache::fetch(uint32_t addr) {
     uint32_t prevPC = pcHistory.front();
     pcHistory.pop();
     pcHistory.push(addr);
-    uint32_t instruction = instructionMemory[addr];
+    uint32_t instruction = instructionMemory[addr][0];
     if (isJumpOrBranch(instruction)) {
         uint32_t jumpTarget = getJumpTarget(instruction);
         jaltWrite(prevPC, jumpTarget);
