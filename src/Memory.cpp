@@ -13,6 +13,7 @@ Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t i
 
     setAssociativeCache.resize(linesPerWay, std::vector<CacheBlock>(cacheAssociativity, CacheBlock{false, false, 0, std::vector<int32_t>(lineSize / sizeof(int32_t))}));
     lruOrder.resize(linesPerWay, std::vector<size_t>(cacheAssociativity));
+    isFirstAccess.resize(linesPerWay, std::vector<bool>(cacheAssociativity, true));
     for (auto &setOrder : lruOrder)
     {
         std::iota(setOrder.begin(), setOrder.end(), 0);
@@ -58,19 +59,26 @@ void Memory::loadBlockToCache(uint32_t address)
         uint32_t oldAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
         uint32_t oldRange = (oldAddress >> 22) & 0x7;
         uint32_t newRange = (address >> 22) & 0x7;
-        
-        if (oldRange != newRange)
+        if (isFirstAccess[setIndex][victimIndex]) {
+            // 初回参照ミス
+            stallCycles = 2;
+            isFirstAccess[setIndex][victimIndex] = false;
+        }
+        else if (oldRange != newRange)
         {
             ++diffRangeWbCount;
+            stallCycles = 57;
         }
         else
         {
             ++sameRangeWbCount;
+            stallCycles = 66;
         }
     }
     else
     {
         ++nonWbCount;
+        stallCycles = 54;
     }
 
     writeBack(victimIndex, setIndex);
@@ -178,6 +186,7 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
         if (block.valid && block.tag == tag) [[unlikely]]
         {
             ++hitCount;
+            stallCycles = 1;
             if (availableLog) [[unlikely]]
             {
                 std::cerr << "Cache hit at set index " << setIndex << ", way " << i << " for address " << std::hex << address << std::dec << std::endl;
@@ -243,6 +252,7 @@ void Memory::storeWord(uint32_t address, int32_t value)
         if (block.valid && block.tag == tag) [[unlikely]]
         {
             ++hitCount;
+            stallCycles = 1;
             block.data[offset] = value;
             block.dirty = true;
             updateLRU(setIndex, i);

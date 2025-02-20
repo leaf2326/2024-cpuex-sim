@@ -50,6 +50,8 @@ public:
 private:
     uint64_t maxStep = UINT64_MAX;
     uint64_t step = 0;
+    uint64_t clockCycle = 0;
+    uint64_t totalStalls = 0;
     static constexpr int REG_COUNT = 64;
     static constexpr int FPREG_COUNT = 64;
     static constexpr int64_t CACHE_SIZE = 16 * 1024;
@@ -63,10 +65,17 @@ private:
     GSharePredictor predictor;
 
     bool isBreakpoint;
-    bool currentInstIsLoadOrStore = false;
-    bool prevInstIsLoadOrStore = false;
-    uint64_t loadStoreSequence = 0;
     uint64_t hazardRAW = 0;
+    static constexpr size_t FADD_LATENCY = 3;
+    static constexpr size_t FMUL_LATENCY = 2;
+    static constexpr size_t FDIV_LATENCY = 5;
+    static constexpr size_t FSQRT_LATENCY = 3;
+    static constexpr size_t FTOI_LATENCY = 2;
+    static constexpr size_t ITOF_LATENCY = 3;
+    static constexpr size_t FFLOOR_LATENCY = 5;
+    std::array<uint64_t, 10> fpuWritebackSchedule = {}; // FPU命令のWBスケジュール管理
+    std::array<uint64_t, REG_COUNT + FPREG_COUNT> regReadyCycle = {}; // 各レジスタの使用可能クロック
+
 
     uint64_t mvCount = 0;
     uint64_t mviCount = 0;
@@ -92,8 +101,6 @@ private:
     Memory dMemory;
     uint32_t dataSectionSize = 0;
 
-    // 前の命令で書き込んだレジスタ
-    int prevLoadReg = NULLREG;
     uint32_t output_num;
 
     bool enableCache;
@@ -184,25 +191,13 @@ private:
 
     std::string instToString(uint32_t instruction) const;
 
-    // 直近に書き込んだレジスタの更新
-    inline void updatePrevLoadReg(int currLoadReg)
-    {
-        prevLoadReg = currLoadReg;
-    }
-
-    // 一つ前のロード命令でロードしたレジスタであるかを検出
-    inline void detectPrevLoad(int32_t rs1, int32_t rs2)
-    {
-        // 1命令前にロードしたレジスタであるかを検出
-        if (rs1 == prevLoadReg || rs2 == prevLoadReg) [[unlikely]]
-        {
-            ++hazardRAW;
-        }
-    }
-    void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
+    int branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力
     void printInstruction(uint32_t instruction) const;
+
+    size_t getFpuLatency(uint32_t instruction) const;
+
     // 命令実行
     void executeInstruction(uint32_t instruction);
 
