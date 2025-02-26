@@ -42,7 +42,17 @@ bool InstructionCache::fetch(uint32_t addr) {
     prefetchPipeline.pop();
 
     bool cacheHit = isCacheValid(addr);
-    uint32_t prefetchAddr = cacheHit ? (isJaltValid(addr) ? jaltGet(addr) : addr + 3) : addr;
+    if(!cacheHit){
+        for (int i = 0; i < 5; i++) {
+            
+			cacheLoad(prefetchPipeline.front());
+            prefetchPipeline.pop();
+			prefetchPipeline.push(0);
+		}
+		// ミスしたところを取ってくる
+		cacheLoad(addr);
+    }
+    uint32_t prefetchAddr = isJaltValid(addr) ? jaltGet(addr) : addr + 12;
     prefetchPipeline.push(prefetchAddr);
 
     uint32_t prevPC = pcHistory.front();
