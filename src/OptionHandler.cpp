@@ -6,8 +6,8 @@
 
 OptionHandler::OptionHandler()
     : outputRegNum(-1),
-      cacheNumWay(0),
-      enableCache(false),
+      cacheNumWay(1),
+      enableCache(true),
       enableICount(false),
       enableDebug(false),
       enableStdout(false),
@@ -33,7 +33,9 @@ OptionHandler::OptionHandler()
         ("d,debug", "Enable verbose logging (intended for short code execution))", cxxopts::value<bool>(enableDebug))
         ("stdout", "Enable output to standard output stream, not only file", cxxopts::value<bool>(enableStdout))
         ("p,pbar", "Show progress bar, only when in terminal. Use this when program outputs ppm and specify the size(only when width and height are same. e.g. when the image is 128*128, specify 128) of image. The bar is according to numbar of lines in output", cxxopts::value<uint64_t>(imageSize))
-        ("g,gdb", "Enable GDB-like debugging", cxxopts::value<bool>(enableGDB));
+        ("g,gdb", "Enable GDB-like debugging", cxxopts::value<bool>(enableGDB))
+        ("no-pipeline", "Unable pipeline", cxxopts::value<bool>(enableNoPipeline));
+        
         
     options.parse_positional({"FILE"});
 }
@@ -56,6 +58,13 @@ void OptionHandler::parse(int argc, char *argv[])
         {
             std::cerr << "The cache have " << cacheNumWay << " way." << (cacheNumWay == 1 ? "(Direct Mapped)" : "") << std::endl;
             enableCache = true;
+        }
+        else if(cacheNumWay == 0){
+            std::cerr << "No cache." << std::endl;
+            enableCache = false;
+        }
+        else {
+            throw std::runtime_error("The argument of --cache should be non-negative integer.");
         }
 
         if (enableDebug)
