@@ -1,4 +1,5 @@
 #include "Simulator.hpp"
+#include "Pipeline.hpp"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -28,6 +29,16 @@ Simulator::Simulator(OptionHandler &op)
     availableLog = op.enableGDB || op.enableDebug;
     dMemory.availableLog = availableLog;
     outputFilePath = op.outputFilePath;
+    enablePipeline = !op.enableNoPipeline;
+    if (enablePipeline)
+    {
+        pipeline = new Pipeline(*this);
+    }
+}
+
+Simulator::~Simulator()
+{
+    delete pipeline;
 }
 
 void Simulator::storeInstruction(int32_t address, int32_t instruction)
@@ -531,6 +542,71 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     }
 }
 
+bool Simulator::simulateCacheAccess(int32_t address, bool isStore) {
+    // キャッシュアクセスをシミュレート（値の読み書きは行わない）
+    if (isStore) {
+        return dMemory.checkCacheHit(address);
+    } else {
+        return dMemory.checkCacheHit(address);
+    }
+}
+
+int Simulator::getCacheMissPenalty() const {
+    return dMemory.stallCycles;
+}
+
+void Simulator::executeInstructionInPipeline(uint32_t instruction, int32_t pc, int32_t rs1Value, int32_t rs2Value) {
+    
+    // 分岐予測ミスとキャッシュミスのフラグをリセット
+    branchMispredicted = false;
+    instructionCacheMiss = false;
+    
+    uint32_t opcode = getOpcode(instruction);
+    if (opcode != 0x8 && opcode != 0x9 && opcode != 0xA && opcode != 0xB) {
+        // メモリ命令でない場合のみ実行
+        if (opcode == 0x3 || opcode == 0x4 || opcode == 0x5 || opcode == 0xE || opcode == 0xF) {
+            int32_t initialPc = this->pc;
+            
+            int32_t originalRs1 = 0, originalRs2 = 0;
+            uint32_t rs1 = getRs1(instruction);
+            uint32_t rs2 = getRs2(instruction);
+            
+            if (rs1 != 0) {
+                originalRs1 = registers[rs1];
+                registers[rs1] = rs1Value;
+            }
+            
+            if (rs2 != 0) {
+                originalRs2 = registers[rs2];
+                registers[rs2] = rs2Value;
+            }
+            
+            executeInstruction(instruction);
+            
+            // レジスタの値を元に戻す
+            if (rs1 != 0) {
+                registers[rs1] = originalRs1;
+            }
+            
+            if (rs2 != 0) {
+                registers[rs2] = originalRs2;
+            }
+            
+            if (initialPc != this->pc) {
+                branchMispredicted = true;
+            }
+        } else {
+            // 分岐命令以外の場合は元の実装を使用
+            executeInstruction(instruction);
+        }
+        
+        // 命令キャッシュミスをチェック
+        if (iCache.getMissCount() > 0) {
+            instructionCacheMiss = true;
+        }
+    }
+}
+
 void Simulator::printInstruction(uint32_t instruction) const
 {
     if (availableLog) [[unlikely]]
@@ -590,7 +666,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0x2:
@@ -654,7 +729,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0x3:
@@ -781,7 +855,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         currLoadReg = rd;
         break;
     }
@@ -814,7 +887,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
-        setPC(getPC() + 1);
         break;
     }
     case 0xA:
@@ -875,7 +947,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
         break;
     }
@@ -908,7 +979,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ++loadStoreSequence;
         }
         currentInstIsLoadOrStore = true;
-        setPC(getPC() + 1);
         break;
     }
     case 0xC:
@@ -943,7 +1013,6 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0xD:
@@ -1021,14 +1090,12 @@ void Simulator::executeInstruction(uint32_t instruction)
             ss << "Unknown instruction 0x" << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        setPC(getPC() + 1);
         break;
     }
     case 0x6:
     {
         logInstruction(EBREAK);
-        isBreakpoint = true;
-        setPC(getPC() + 1);
+        setBreakpoint(true);
         break;
     }
     [[unlikely]] default:
@@ -1050,8 +1117,24 @@ void Simulator::printCacheHitMissCounts() const
     std::cerr << "Cache Hit Rate: " << (double)hitCount / (double)(hitCount + missCount) << std::endl;
 }
 
-// ログの出力
 void Simulator::printLog()
+{
+    if (enablePipeline)
+    {
+        printPipelineLog();
+    }
+    else
+    {
+        printNonPipelineLog();
+    }
+}
+
+bool Simulator::fetchInstruction(int32_t address) {
+    return iCache.fetch(address);
+}
+
+// ログの出力
+void Simulator::printNonPipelineLog()
 {
     uint64_t estimatedClock = 0;
     std::cerr << "Step : " << getStep() << std::endl;
@@ -1121,6 +1204,134 @@ void Simulator::printLog()
     std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
 }
 
+void Simulator::printPipelineLog()
+{
+    // パイプライン版の統計情報出力
+    uint64_t totalInstructions = getStep();
+    uint64_t totalCycles = pipeline->getTotalCycles();
+    double cpi = (double)totalCycles / totalInstructions;
+    
+    std::cerr << "________Pipelined Execution Statistics________" << std::endl;
+    std::cerr << "Total instructions: " << std::hex << totalInstructions << std::dec 
+              << " (" << totalInstructions << ")" << std::endl;
+    std::cerr << "Total cycles: " << std::hex << totalCycles << std::dec 
+              << " (" << totalCycles << ")" << std::endl;
+    std::cerr << "CPI: " << cpi << std::endl;
+    
+    Log::printLog();
+    
+    // 分岐予測ミス
+    uint64_t branchMisses = flushCount;
+    double branchMissRatio = (double)branchMisses / totalInstructions * 100.0;
+    std::cerr << "Branch prediction misses: " << branchMisses 
+              << " (" << branchMissRatio << "% of instructions)" << std::endl;
+    
+    // 命令キャッシュミス
+    uint64_t icacheMisses = iCache.getMissCount();
+    double icacheMissRatio = (double)icacheMisses / totalInstructions * 100.0;
+    std::cerr << "Instruction cache misses: " << icacheMisses
+              << " (" << icacheMissRatio << "% of instructions)" << std::endl;
+    
+    // WB衝突（int/fp間）
+    uint64_t wbCollisionIntFp = pipeline->getWbCollisionIntFpCount();
+    double wbCollisionIntFpRatio = (double)wbCollisionIntFp / totalInstructions * 100.0;
+    std::cerr << "WB collisions (int/fp): " << wbCollisionIntFp
+              << " (" << wbCollisionIntFpRatio << "% of instructions)" << std::endl;
+    
+    // WB衝突（メモリ命令）
+    uint64_t wbCollisionMem = pipeline->getWbCollisionMemCount();
+    double wbCollisionMemRatio = (double)wbCollisionMem / totalInstructions * 100.0;
+    std::cerr << "WB collisions (memory): " << wbCollisionMem
+              << " (" << wbCollisionMemRatio << "% of instructions)" << std::endl;
+    
+    // 分岐追い越し防止ストール
+    uint64_t branchBypassStall = pipeline->getBranchBypassStallCount();
+    double branchBypassStallRatio = (double)branchBypassStall / totalInstructions * 100.0;
+    std::cerr << "Branch bypass stalls: "<< branchBypassStall
+              << " (" << branchBypassStallRatio << "% of instructions)" << std::endl;
+    
+    // メモリストールサイクル
+    uint64_t memoryStallCycles = pipeline->getMemoryStallCycles();
+    double memoryStallRatio = (double)memoryStallCycles / totalInstructions;
+    std::cerr << "Memory stall cycles: "<< memoryStallCycles
+              << " (" << memoryStallRatio << " per instruction)" << std::endl;
+    
+    // FPU RAWストール
+    uint64_t fpuRawStalls = pipeline->getFpuRawStallCount();
+    double fpuRawRatio = (double)fpuRawStalls / totalInstructions * 100.0;
+    std::cerr << "FPU RAW stalls: " << fpuRawStalls
+              << " (" << fpuRawRatio << "% of instructions)" << std::endl;
+    
+    // Load RAWストール
+    uint64_t loadRawStalls = pipeline->getLoadRawStallCount();
+    double loadRawRatio = (double)loadRawStalls / totalInstructions * 100.0;
+    std::cerr << "Load RAW stalls: " << loadRawStalls
+              << " (" << loadRawRatio << "% of instructions)" << std::endl;
+    
+    // キャッシュ統計
+    if (enableCache) {
+        printCacheHitMissCounts();
+        std::cerr << "Cache miss without write back: " << dMemory.getNonWbCount() << std::endl;
+        std::cerr << "Cache miss with different range write back: " << dMemory.getDiffRangeWbCount() << std::endl;
+        std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
+        std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
+        
+        if (enableDebug) {
+            dMemory.printCacheState();
+        }
+    }
+    
+    // CPIの内訳
+    std::cerr << "________CPI Breakdown________" << std::endl;
+    std::cerr << "Total CPI: " << cpi * 100.0 << "%" << std::endl;
+    std::cerr << "* Base: 100%" << std::endl;
+    
+    // メモリストールのCPI貢献
+    double memoryStallCpi = memoryStallRatio * 100.0;
+    std::cerr << "* Memory stalls: " << memoryStallCpi << "%" << std::endl;
+    
+    // FPU RAWのCPI貢献
+    double fpuRawCpi = fpuRawRatio;
+    std::cerr << "* FPU RAW hazards: " << fpuRawCpi << "%" << std::endl;
+    
+    // Load RAWのCPI貢献
+    double loadRawCpi = loadRawRatio;
+    std::cerr << "* Load RAW hazards: " << loadRawCpi << "%" << std::endl;
+    
+    // WB衝突のCPI貢献
+    double wbCollisionCpi = wbCollisionIntFpRatio + wbCollisionMemRatio;
+    std::cerr << "* WB collision stalls: " << wbCollisionCpi << "%" << std::endl;
+    
+    // 分岐予測ミスのCPI貢献
+    double branchMissCpi = branchMissRatio * 2.0; // ミスごとに2サイクルのペナルティ
+    std::cerr << "* Branch prediction misses: " << branchMissCpi << "%" << std::endl;
+    
+    std::cerr << "________Additional Statistics________" << std::endl;
+    double estimatedTime = totalCycles / CPUFREQUENCY;
+    std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
+    std::cerr << "IPC: " << 1.0 / cpi << std::endl;
+    std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
+    
+    // FPU演算
+    uint64_t fpuOps = instructionCounts[FADD] + instructionCounts[FSUB] + 
+                     instructionCounts[FMUL] + instructionCounts[FDIV] + 
+                     instructionCounts[FSQRT] + instructionCounts[FFLOOR];
+    double fpuOpsRatio = (double)fpuOps / totalInstructions * 100.0;
+    std::cerr << "FPU operations: " << fpuOps << " (" << fpuOpsRatio << "% of instructions)" << std::endl;
+    
+    // メモリ命令
+    uint64_t memOps = instructionCounts[LW] + instructionCounts[LWR] + instructionCounts[SW] + 
+                     instructionCounts[FLW] + instructionCounts[FLWR] + instructionCounts[FSW];
+    double memOpsRatio = (double)memOps / totalInstructions * 100.0;
+    std::cerr << "Memory operations: " << memOps << " (" << memOpsRatio << "% of instructions)" << std::endl;
+    
+    // 分岐命令
+    uint64_t branchOps = instructionCounts[BEQ] + instructionCounts[BNE] + instructionCounts[BLT] + 
+                        instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR];
+    double branchOpsRatio = (double)branchOps / totalInstructions * 100.0;
+    std::cerr << "Branch operations: " << branchOps << " (" << branchOpsRatio << "% of instructions)" << std::endl;
+}
+
 void Simulator::printOutput()
 {
     std::ofstream file(outputFilePath);
@@ -1151,287 +1362,849 @@ void Simulator::runProgram(int outputRegNum)
         std::cerr << "________GDB MODE________" << std::endl;
     }
     step = 0;
-
-    // GDB実行
-    if (enableGDB)
+    if (enablePipeline)
     {
-        bool isQuit = false;
-        std::ostringstream buffer;
-        bool breakMode = false;
-        bool isUnknownCommand = false;
-        std::stringstream gdbCommandLine;
-        std::string gdbCommand;
-        std::string prevGdbCommand;
-        int rep = 0;
-        while (true)
+        // パイプラインモード
+        runPipelineProgram(outputRegNum);
+    }
+    else
+    {
+        // GDB実行
+        if (enableGDB)
         {
-            if (rep == 0)
+            bool isQuit = false;
+            std::ostringstream buffer;
+            bool breakMode = false;
+            bool isUnknownCommand = false;
+            std::stringstream gdbCommandLine;
+            std::string gdbCommand;
+            std::string prevGdbCommand;
+            int rep = 0;
+            while (true)
             {
-                gdbCommand = "";
-                gdbCommandLine.clear();
-                std::getline(std::cin, gdbCommand);
-                if (gdbCommand.empty())
+                if (rep == 0)
                 {
-                    gdbCommand = prevGdbCommand;
-                    // 改行の上書き
-                    std::cerr << "\033[A\33[2K\r";
-
-                    std::cerr << gdbCommand << std::endl;
-                }
-                gdbCommandLine.str(gdbCommand);
-                prevGdbCommand = gdbCommand;
-                gdbCommandLine >> gdbCommand;
-                rep = 1;
-                try
-                {
-                    rep = std::stoi(gdbCommand);
-
-                    gdbCommandLine >> gdbCommand;
-                }
-                catch (const std::invalid_argument &e)
-                {
-                    // この場合はstoiにint化できる文字列が渡されていない
-                }
-                catch (const std::exception &e)
-                {
-                    std::cerr << "Error: out of range" << std::endl;
-                }
-            }
-            for (int i = 0; i < rep; ++i)
-            {
-                if (!breakMode)
-                {
-
+                    gdbCommand = "";
+                    gdbCommandLine.clear();
+                    std::getline(std::cin, gdbCommand);
+                    if (gdbCommand.empty())
                     {
-                        CerrRedirect redirect(buffer);
-                        if (gdbCommand == "r")
+                        gdbCommand = prevGdbCommand;
+                        // 改行の上書き
+                        std::cerr << "\033[A\33[2K\r";
+
+                        std::cerr << gdbCommand << std::endl;
+                    }
+                    gdbCommandLine.str(gdbCommand);
+                    prevGdbCommand = gdbCommand;
+                    gdbCommandLine >> gdbCommand;
+                    rep = 1;
+                    try
+                    {
+                        rep = std::stoi(gdbCommand);
+
+                        gdbCommandLine >> gdbCommand;
+                    }
+                    catch (const std::invalid_argument &e)
+                    {
+                        // この場合はstoiにint化できる文字列が渡されていない
+                    }
+                    catch (const std::exception &e)
+                    {
+                        std::cerr << "Error: out of range" << std::endl;
+                    }
+                }
+                for (int i = 0; i < rep; ++i)
+                {
+                    if (!breakMode)
+                    {
+
                         {
+                            CerrRedirect redirect(buffer);
+                            if (gdbCommand == "r")
+                            {
+                            }
+                            else
+                            {
+                                buffer.str("");
+
+                                if (gdbCommand == "l")
+                                {
+                                    if (rep == 1)
+                                    {
+                                        printProgram(true);
+                                        std::cerr << std::endl;
+                                    }
+                                }
+                                else if (gdbCommand == "m" || gdbCommand == "mem")
+                                {
+                                    if (rep == 1)
+                                    {
+                                        dMemory.printCacheState();
+                                        std::cerr << std::endl;
+                                    }
+                                }
+                                else if (gdbCommand == "info" || gdbCommand == "i")
+                                {
+                                    gdbCommandLine >> gdbCommand;
+                                    if (gdbCommand == "reg" || gdbCommand == "r")
+                                    {
+                                        gdbCommandLine >> gdbCommand;
+                                        // info regの後に何もない場合、gdbCommandは不変
+                                        if (gdbCommand == "reg" || gdbCommand == "r")
+                                        {
+                                            printRegisters(REG);
+                                        }
+                                        else if (rep == 1)
+                                        {
+                                            int i = std::stoi(gdbCommand);
+                                            std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
+                                                      << std::setw(15) << std::hex << getRegister(i)
+                                                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
+                                        }
+                                    }
+                                    else if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
+                                    {
+                                        gdbCommandLine >> gdbCommand;
+                                        // info fpregの後に何もない場合、gdbCommandは不変
+                                        if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
+                                        {
+                                            printRegisters(REG);
+                                        }
+                                        else if (rep == 1)
+                                        {
+                                            int i = std::stoi(gdbCommand);
+                                            std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
+                                                      << std::setw(15) << std::hex << getFpRegister(i)
+                                                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")" << std::endl;
+                                        }
+                                    }
+                                    else if (gdbCommand == "pc" || gdbCommand == "p")
+                                    {
+                                        if (rep == 1)
+                                        {
+                                            printRegisters(PC);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (rep == 1)
+                                        {
+                                            printRegisters(ALLREG);
+                                            std::cerr << std::endl;
+                                        }
+                                    }
+                                }
+                                else if (gdbCommand == "s")
+                                {
+                                    const uint32_t instruction = loadInstruction(pc);
+
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << "Step : " << step << std::endl;
+#ifdef DEBUG
+                                        std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
+#endif // DEBUG
+
+                                        printProgram(true);
+                                        printInstruction(instruction);
+                                    }
+                                    executeInstruction(instruction);
+                                    if (getOpcode(instruction) != 0x3 &&
+                                        getOpcode(instruction) != 0x4 &&
+                                        getOpcode(instruction) != 0x5 &&
+                                        getOpcode(instruction) != 0xE &&
+                                        getOpcode(instruction) != 0xF)
+                                    {
+                                        setPC(getPC() + 1);
+                                    }
+                                    ++step;
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << std::endl;
+                                    }
+                                }
+                                else if (gdbCommand == "c")
+                                {
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << "heading to eBreak..." << std::endl;
+                                        printBoundary();
+                                    }
+                                    breakMode = true;
+                                }
+                                else if (gdbCommand == "quit" || gdbCommand == "q")
+                                {
+                                    isQuit = true;
+                                    break;
+                                }
+                                else
+                                {
+
+                                    isUnknownCommand = true;
+                                }
+                            }
+                        }
+                        if (isUnknownCommand)
+                        {
+                            if (rep == 1)
+                            {
+                                std::cerr << "Unknown command: " << gdbCommand << std::endl;
+                            }
+                            rep = 1;
+                        }
+                        else
+                        {
+                            if (rep == 1)
+                            {
+                                std::cerr << buffer.str();
+                            }
+                            if (breakMode)
+                            {
+
+                                buffer.str("");
+                            }
+                        }
+                        // update
+                        rep--;
+                        isUnknownCommand = false;
+                    }
+                    while (breakMode)
+                    {
+                        std::cerr << buffer.str();
+                        buffer.str("");
+                        {
+                            CerrRedirect redirect(buffer);
+                            const uint32_t instruction = loadInstruction(pc);
+
+                            executeInstruction(instruction);
+                            if (getOpcode(instruction) != 0x3 &&
+                                getOpcode(instruction) != 0x4 &&
+                                getOpcode(instruction) != 0x5 &&
+                                getOpcode(instruction) != 0xE &&
+                                getOpcode(instruction) != 0xF)
+                            {
+                                setPC(getPC() + 1);
+                            }
+                            ++step;
+                        }
+                        if (isBreakpoint)
+                        {
+                            if (rep == 0)
+                            {
+                                std::cerr << buffer.str();
+                                std::cerr << "Program reached ebreak at Step: " << step - 1 << std::endl;
+                                std::cerr << std::endl;
+                            }
+                            breakMode = false;
+                            setBreakpoint(false);
                         }
                         else
                         {
                             buffer.str("");
-
-                            if (gdbCommand == "l")
-                            {
-                                if (rep == 1)
-                                {
-                                    printProgram(true);
-                                    std::cerr << std::endl;
-                                }
-                            }
-                            else if (gdbCommand == "info" || gdbCommand == "i")
-                            {
-                                gdbCommandLine >> gdbCommand;
-                                if (gdbCommand == "reg" || gdbCommand == "r")
-                                {
-                                    gdbCommandLine >> gdbCommand;
-                                    // info regの後に何もない場合、gdbCommandは不変
-                                    if (gdbCommand == "reg" || gdbCommand == "r")
-                                    {
-                                        printRegisters(REG);
-                                    }
-                                    else if (rep == 1)
-                                    {
-                                        int i = std::stoi(gdbCommand);
-                                        std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
-                                                  << std::setw(15) << std::hex << getRegister(i)
-                                                  << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
-                                    }
-                                }
-                                else if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
-                                {
-                                    gdbCommandLine >> gdbCommand;
-                                    // info fpregの後に何もない場合、gdbCommandは不変
-                                    if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
-                                    {
-                                        printRegisters(REG);
-                                    }
-                                    else if (rep == 1)
-                                    {
-                                        int i = std::stoi(gdbCommand);
-                                        std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
-                                                  << std::setw(15) << std::hex << getFpRegister(i)
-                                                  << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")" << std::endl;
-                                    }
-                                }
-                                else if (gdbCommand == "pc" || gdbCommand == "p")
-                                {
-                                    if (rep == 1)
-                                    {
-                                        printRegisters(PC);
-                                    }
-                                }
-                                else
-                                {
-                                    if (rep == 1)
-                                    {
-                                        printRegisters(ALLREG);
-                                        std::cerr << std::endl;
-                                    }
-                                }
-                            }
-                            else if (gdbCommand == "s")
-                            {
-                                const uint32_t instruction = loadInstruction(pc);
-
-                                if (rep == 1)
-                                {
-                                    std::cerr << "Step : " << step << std::endl;
-#ifdef DEBUG
-                                    std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
-#endif // DEBUG
-
-                                    printProgram(true);
-                                    printInstruction(instruction);
-                                }
-                                executeInstruction(instruction);
-                                ++step;
-                                if (rep == 1)
-                                {
-                                    std::cerr << std::endl;
-                                }
-                            }
-                            else if (gdbCommand == "c")
-                            {
-                                if (rep == 1)
-                                {
-                                    std::cerr << "heading to eBreak..." << std::endl;
-                                    printBoundary();
-                                }
-                                breakMode = true;
-                            }
-                            else if (gdbCommand == "quit" || gdbCommand == "q")
-                            {
-                                isQuit = true;
-                                break;
-                            }
-                            else
-                            {
-
-                                isUnknownCommand = true;
-                            }
                         }
                     }
-                    if (isUnknownCommand)
-                    {
-                        if (rep == 1)
-                        {
-                            std::cerr << "Unknown command: " << gdbCommand << std::endl;
-                        }
-                        rep = 1;
-                    }
-                    else
-                    {
-                        if (rep == 1)
-                        {
-                            std::cerr << buffer.str();
-                        }
-                        if (breakMode)
-                        {
-
-                            buffer.str("");
-                        }
-                    }
-                    // update
-                    rep--;
-                    isUnknownCommand = false;
                 }
-                while (breakMode)
+                if (isQuit)
                 {
-                    std::cerr << buffer.str();
-                    buffer.str("");
+                    break;
+                }
+            }
+        }
+        // 通常実行
+        else
+        {
+            if (outputSize <= 2)
+            {
+                while (maxStep > step && !isBreakpoint)
+                {
+                    const uint32_t instruction = loadInstruction(pc);
+                    if (enableDebug)
                     {
-                        CerrRedirect redirect(buffer);
-                        const uint32_t instruction = loadInstruction(pc);
-
-                        executeInstruction(instruction);
-                        ++step;
+                        printInstruction(instruction);
                     }
-                    if (isBreakpoint)
+                    executeInstruction(instruction);
+                    if (getOpcode(instruction) != 0x3 &&
+                        getOpcode(instruction) != 0x4 &&
+                        getOpcode(instruction) != 0x5 &&
+                        getOpcode(instruction) != 0xE &&
+                        getOpcode(instruction) != 0xF)
                     {
-                        if (rep == 0)
-                        {
-                            std::cerr << buffer.str();
-                            std::cerr << "Program reached ebreak at Step: " << step - 1 << std::endl;
-                            std::cerr << std::endl;
-                        }
-                        breakMode = false;
-                        isBreakpoint = false;
+                        setPC(getPC() + 1);
+                    }
+                    ++step;
+                }
+            }
+            else
+            {
+                pbar::pbar bar(outputSize, 100);
+                bar.set_description("[Simulation]");
+                bar.init();
+                bar.enable_recalc_console_width(1);
+                uint64_t prevLineOutputCount = 0;
+                while (maxStep > step && !isBreakpoint)
+                {
+                    const uint32_t instruction = loadInstruction(pc);
+                    if (enableDebug)
+                    {
+                        printInstruction(instruction);
+                    }
+                    executeInstruction(instruction);
+                    if (getOpcode(instruction) != 0x3 &&
+                        getOpcode(instruction) != 0x4 &&
+                        getOpcode(instruction) != 0x5 &&
+                        getOpcode(instruction) != 0xE &&
+                        getOpcode(instruction) != 0xF)
+                    {
+                        setPC(getPC() + 1);
+                    }
+                    ++step;
+
+                    if (prevLineOutputCount != dMemory.lineOutputCount)
+                    {
+                        bar.tick();
+                    }
+                    prevLineOutputCount = dMemory.lineOutputCount;
+                }
+            }
+            if (isBreakpoint)
+            {
+                std::cerr << "Program reached breakpoint" << std::endl;
+            }
+            std::cerr << "________Simulation Ended________" << std::endl;
+            if (outputRegNum >= 0)
+            {
+                // 0-31はレジスタに対応
+                if (outputRegNum >= 0 && outputRegNum < REG_COUNT)
+                {
+                    std::cout << "x" << outputRegNum << ": " << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
+                }
+                // 32以上はfpレジスタに対応
+                else if (outputRegNum >= REG_COUNT && outputRegNum < REG_COUNT + FPREG_COUNT)
+                {
+                    std::cout << "fp" << outputRegNum - REG_COUNT << ": " << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
+                }
+                else
+                {
+                    throw std::out_of_range("-reg <RegNum>: RegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
+                }
+            }
+            printOutput();
+        }
+    }
+}
+
+void Simulator::runPipelineProgram(int outputRegNum)
+{
+    if (enableGDB)
+    {
+        runPipelineProgramGDB(outputRegNum);
+    }
+    else
+    {
+        runPipelineProgramNormal(outputRegNum);
+    }
+}
+void Simulator::runPipelineProgramGDB(int outputRegNum)
+{
+    // GDBモードでパイプライン実行
+    bool isQuit = false;
+    std::ostringstream buffer;
+    bool breakMode = false;
+    bool isUnknownCommand = false;
+    std::stringstream gdbCommandLine;
+    std::string gdbCommand;
+    std::string prevGdbCommand;
+    int rep = 0;
+
+    uint64_t cycleCount = 0;
+
+    while (true)
+    {
+        if (rep == 0)
+        {
+            gdbCommand = "";
+            gdbCommandLine.clear();
+            std::getline(std::cin, gdbCommand);
+            if (gdbCommand.empty())
+            {
+                gdbCommand = prevGdbCommand;
+                // 改行の上書き
+                std::cerr << "\033[A\33[2K\r";
+                std::cerr << gdbCommand << std::endl;
+            }
+            gdbCommandLine.str(gdbCommand);
+            prevGdbCommand = gdbCommand;
+            gdbCommandLine >> gdbCommand;
+            rep = 1;
+            try
+            {
+                rep = std::stoi(gdbCommand);
+                gdbCommandLine >> gdbCommand;
+            }
+            catch (const std::invalid_argument &e)
+            {
+                // この場合はstoiにint化できる文字列が渡されていない
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Error: out of range" << std::endl;
+            }
+        }
+
+        for (int i = 0; i < rep; ++i)
+        {
+            if (!breakMode)
+            {
+                {
+                    CerrRedirect redirect(buffer);
+                    if (gdbCommand == "r")
+                    {
+                        // リセット
                     }
                     else
                     {
                         buffer.str("");
+
+                        if (gdbCommand == "l")
+                        {
+                            if (rep == 1)
+                            {
+                                printProgram(true);
+                                std::cerr << std::endl;
+                            }
+                        }
+                        else if (gdbCommand == "m" || gdbCommand == "mem")
+                        {
+                            if (rep == 1)
+                            {
+                                dMemory.printCacheState();
+                                std::cerr << std::endl;
+                            }
+                        }
+                        else if (gdbCommand == "p" || gdbCommand == "pipeline")
+                        {
+                            // パイプラインの状態を表示
+                            if (rep == 1)
+                            {
+                                std::cerr << pipeline->getPipelineStateString() << std::endl;
+                            }
+                        }
+                        else if (gdbCommand == "info" || gdbCommand == "i")
+                        {
+                            gdbCommandLine >> gdbCommand;
+                            if (gdbCommand == "reg" || gdbCommand == "r")
+                            {
+                                gdbCommandLine >> gdbCommand;
+                                // info regの後に何もない場合、gdbCommandは不変
+                                if (gdbCommand == "reg" || gdbCommand == "r")
+                                {
+                                    printRegisters(REG);
+                                }
+                                else if (rep == 1)
+                                {
+                                    int i = std::stoi(gdbCommand);
+                                    std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
+                                              << std::setw(15) << std::hex << getRegister(i)
+                                              << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
+                                }
+                            }
+                            else if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
+                            {
+                                gdbCommandLine >> gdbCommand;
+                                // info fpregの後に何もない場合、gdbCommandは不変
+                                if (gdbCommand == "fpreg" || gdbCommand == "f" || gdbCommand == "fp")
+                                {
+                                    printRegisters(FPREG);
+                                }
+                                else if (rep == 1)
+                                {
+                                    int i = std::stoi(gdbCommand);
+                                    std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
+                                              << std::setw(15) << std::hex << getFpRegister(i)
+                                              << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")" << std::endl;
+                                }
+                            }
+                            else if (gdbCommand == "pc" || gdbCommand == "p")
+                            {
+                                if (rep == 1)
+                                {
+                                    printRegisters(PC);
+                                }
+                            }
+                            else
+                            {
+                                if (rep == 1)
+                                {
+                                    printRegisters(ALLREG);
+                                    std::cerr << std::endl;
+                                }
+                            }
+                        }
+                        else if (gdbCommand == "s")
+                        {
+                            if (pc >= instructionSize)
+                            {
+                                std::cerr << "End of program reached." << std::endl;
+                                break;
+                            }
+
+                            if (rep == 1)
+                            {
+                                std::cerr << "Step : " << step << std::endl;
+                                std::cerr << "Cycle: " << cycleCount << std::endl;
+                                printProgram(true);
+
+                                // 現在のパイプライン状態を表示
+                                std::cerr << pipeline->getPipelineStateString() << std::endl;
+                            }
+
+                            // 命令を発行しようとする
+                            const uint32_t instruction = loadInstruction(pc);
+                            bool issued = pipeline->tryIssue(instruction, pc);
+
+                            if (issued)
+                            {
+                                if (rep == 1)
+                                {
+                                    std::cerr << "Issuing: " << instToString(instruction) << std::endl;
+                                }
+                                if (getOpcode(instruction) != 0x3 &&
+                                    getOpcode(instruction) != 0x4 &&
+                                    getOpcode(instruction) != 0x5 &&
+                                    getOpcode(instruction) != 0xE &&
+                                    getOpcode(instruction) != 0xF)
+                                {
+                                    setPC(getPC() + 1);
+                                }
+                                step++;
+                            }
+                            else
+                            {
+                                if (rep == 1)
+                                {
+                                    std::cerr << "Instruction stalled: " << instToString(instruction) << std::endl;
+                                }
+                            }
+
+                            // パイプラインを1サイクル進める
+                            pipeline->advance();
+                            cycleCount++;
+
+                            if (rep == 1)
+                            {
+                                std::cerr << std::endl;
+                            }
+                        }
+                        else if (gdbCommand == "c")
+                        {
+                            if (rep == 1)
+                            {
+                                std::cerr << "heading to eBreak..." << std::endl;
+                                printBoundary();
+                            }
+                            breakMode = true;
+                        }
+                        else if (gdbCommand == "quit" || gdbCommand == "q")
+                        {
+                            isQuit = true;
+                            break;
+                        }
+                        else
+                        {
+                            isUnknownCommand = true;
+                        }
                     }
                 }
+
+                if (isUnknownCommand)
+                {
+                    if (rep == 1)
+                    {
+                        std::cerr << "Unknown command: " << gdbCommand << std::endl;
+                    }
+                    rep = 1;
+                }
+                else
+                {
+                    if (rep == 1)
+                    {
+                        std::cerr << buffer.str();
+                    }
+                    if (breakMode)
+                    {
+                        buffer.str("");
+                    }
+                }
+
+                // update
+                rep--;
+                isUnknownCommand = false;
             }
-            if (isQuit)
+
+            while (breakMode)
             {
-                break;
+                std::cerr << buffer.str();
+                buffer.str("");
+                {
+                    CerrRedirect redirect(buffer);
+
+                    if (pc >= instructionSize)
+                    {
+                        std::cerr << "End of program reached." << std::endl;
+                        breakMode = false;
+                        break;
+                    }
+
+                    const uint32_t instruction = loadInstruction(pc);
+
+                    // 命令を発行しようとする
+                    bool issued = pipeline->tryIssue(instruction, pc);
+
+                    if (issued)
+                    {
+                        // 発行成功：ステップカウントを増やす
+                        step++;
+
+                        if (getOpcode(instruction) != 0x3 &&
+                            getOpcode(instruction) != 0x4 &&
+                            getOpcode(instruction) != 0x5 &&
+                            getOpcode(instruction) != 0xE &&
+                            getOpcode(instruction) != 0xF)
+                        {
+                            setPC(getPC() + 1);
+                            ;
+                        }
+                    }
+
+                    // パイプラインを1サイクル進める
+                    pipeline->advance();
+                    cycleCount++;
+                }
+
+                if (isBreakpoint)
+                {
+                    if (rep == 0)
+                    {
+                        std::cerr << buffer.str();
+                        std::cerr << "Program reached ebreak at Step: " << step - 1 << std::endl;
+                        std::cerr << "Cycle: " << cycleCount << std::endl;
+                        std::cerr << pipeline->getPipelineStateString() << std::endl;
+                        std::cerr << std::endl;
+                    }
+                    breakMode = false;
+                    if (isBreakpoint) {
+                        // パイプライン内の残りの命令を処理
+                        finishPipelineExecution(cycleCount);
+                    }
+                    setBreakpoint(false);
+                }
+                else
+                {
+                    buffer.str("");
+                }
             }
         }
-    }
-    // 通常実行
-    else
-    {
-        if (outputSize <= 2)
+
+        if (isQuit)
         {
-            while (maxStep > step && !isBreakpoint)
-            {
-                const uint32_t instruction = loadInstruction(pc);
-                if (enableDebug)
-                {
-                    printInstruction(instruction);
-                }
-                executeInstruction(instruction);
-                ++step;
-            }
+            break;
+        }
+    }
+
+    // 結果表示
+    std::cerr << "________Simulation Ended________" << std::endl;
+    std::cerr << "Total cycles: " << cycleCount << std::endl;
+    std::cerr << "Total instructions: " << step << std::endl;
+    std::cerr << "Total stalls: " << pipeline->getStallCount() << std::endl;
+    std::cerr << "IPC: " << (double)step / cycleCount << std::endl;
+
+    if (outputRegNum >= 0)
+    {
+        // 0-31はレジスタに対応
+        if (outputRegNum >= 0 && outputRegNum < REG_COUNT)
+        {
+            std::cout << "x" << outputRegNum << ": " << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
+        }
+        // 32以上はfpレジスタに対応
+        else if (outputRegNum >= REG_COUNT && outputRegNum < REG_COUNT + FPREG_COUNT)
+        {
+            std::cout << "fp" << outputRegNum - REG_COUNT << ": " << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
         }
         else
         {
-            pbar::pbar bar(outputSize, 100);
-            bar.set_description("[Simulation]");
-            bar.init();
-            bar.enable_recalc_console_width(1);
-            uint64_t prevLineOutputCount = 0;
-            while (maxStep > step && !isBreakpoint)
-            {
-                const uint32_t instruction = loadInstruction(pc);
-                if (enableDebug)
-                {
-                    printInstruction(instruction);
-                }
-                executeInstruction(instruction);
-                ++step;
+            throw std::out_of_range("-reg <RegNum>: RegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
+        }
+    }
 
-                if (prevLineOutputCount != dMemory.lineOutputCount)
-                {
-                    bar.tick();
+    printOutput();
+}
+
+void Simulator::runPipelineProgramNormal(int outputRegNum)
+{
+    std::cerr << "________Using Pipeline Mode________" << std::endl;
+
+    uint64_t cycleCount = 0;
+
+    if (outputSize <= 2)
+    {
+        // 出力サイズが小さい場合、プログレスバーなし
+        while (maxStep > step && !isBreakpoint)
+        {
+            if (pc >= instructionSize)
+            {
+                break;
+            }
+
+            const uint32_t instruction = loadInstruction(pc);
+
+            if (enableDebug)
+            {
+                std::cerr << "Cycle: " << cycleCount
+                          << ", PC: " << pc
+                          << ", Instruction: " << instToString(instruction)
+                          << std::endl;
+            }
+
+            // 命令を発行しようとする
+            bool issued = pipeline->tryIssue(instruction, pc);
+
+            if (issued)
+            {
+                // 発行成功：ステップカウントを増やす
+                step++;
+
+                if (isBreakpoint) {
+                    pc++;
+                    // パイプライン内の残りの命令を処理
+                    finishPipelineExecution(cycleCount);
+                    break;
                 }
-                prevLineOutputCount = dMemory.lineOutputCount;
+                
+                if (getOpcode(instruction) != 0x3 &&
+                    getOpcode(instruction) != 0x4 &&
+                    getOpcode(instruction) != 0x5 &&
+                    getOpcode(instruction) != 0xE &&
+                    getOpcode(instruction) != 0xF)
+                {
+                    setPC(getPC() + 1);
+                }
             }
+
+            // パイプラインを1サイクル進める
+            pipeline->advance();
+            cycleCount++;
         }
-        if (isBreakpoint)
+    }
+    else
+    {
+        // プログレスバー表示
+        pbar::pbar bar(outputSize, 100);
+        bar.set_description("[Simulation with Pipeline]");
+        bar.init();
+        bar.enable_recalc_console_width(1);
+        uint64_t prevLineOutputCount = 0;
+
+        while (maxStep > step && !isBreakpoint)
         {
-            std::cerr << "Program reached breakpoint" << std::endl;
+            if (pc >= instructionSize)
+            {
+                break;
+            }
+
+            const uint32_t instruction = loadInstruction(pc);
+
+            if (enableDebug)
+            {
+                std::cerr << "Cycle: " << cycleCount
+                          << ", PC: " << pc
+                          << ", Instruction: " << instToString(instruction)
+                          << std::endl;
+            }
+
+            // 命令を発行しようとする
+            bool issued = pipeline->tryIssue(instruction, pc);
+
+            if (issued)
+            {
+                // 発行成功：ステップカウントを増やす
+                step++;
+
+                if (isBreakpoint) {
+                    pc++;
+                    // パイプライン内の残りの命令を処理
+                    finishPipelineExecution(cycleCount);
+                    break;
+                }
+
+                // PCが変わっていなければ、次の命令へ
+                // （分岐命令の場合、既にtryIssue内でPCが更新されている）
+                if (getOpcode(instruction) != 0x3 &&
+                    getOpcode(instruction) != 0x4 &&
+                    getOpcode(instruction) != 0x5 &&
+                    getOpcode(instruction) != 0xE &&
+                    getOpcode(instruction) != 0xF)
+                {
+                    setPC(getPC() + 1);
+                }
+            }
+
+            // パイプラインを1サイクル進める
+            pipeline->advance();
+            cycleCount++;
+
+            if (prevLineOutputCount != dMemory.lineOutputCount)
+            {
+                bar.tick();
+            }
+            prevLineOutputCount = dMemory.lineOutputCount;
         }
-        std::cerr << "________Simulation Ended________" << std::endl;
-        if (outputRegNum >= 0)
+    }
+
+    if (isBreakpoint)
+    {
+        std::cerr << "Program reached breakpoint" << std::endl;
+    }
+    std::cerr << "________Simulation Ended________" << std::endl;
+    std::cerr << "Total cycles: " << cycleCount << std::endl;
+    std::cerr << "Total instructions: " << step << std::endl;
+    std::cerr << "Total stalls: " << pipeline->getStallCount() << std::endl;
+    std::cerr << "IPC: " << (double)step / cycleCount << std::endl;
+
+    if (outputRegNum >= 0)
+    {
+        // 0-31はレジスタに対応
+        if (outputRegNum >= 0 && outputRegNum < REG_COUNT)
         {
-            // 0-31はレジスタに対応
-            if (outputRegNum >= 0 && outputRegNum < REG_COUNT)
-            {
-                std::cout << "x" << outputRegNum << ": " << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
-            }
-            // 32以上はfpレジスタに対応
-            else if (outputRegNum >= REG_COUNT && outputRegNum < REG_COUNT + FPREG_COUNT)
-            {
-                std::cout << "fp" << outputRegNum - REG_COUNT << ": " << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
-            }
-            else
-            {
-                throw std::out_of_range("-reg <RegNum>: RegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
-            }
+            std::cout << "x" << outputRegNum << ": " << std::hex << getRegister(outputRegNum) << std::dec << std::endl;
         }
-        printOutput();
+        // 32以上はfpレジスタに対応
+        else if (outputRegNum >= REG_COUNT && outputRegNum < REG_COUNT + FPREG_COUNT)
+        {
+            std::cout << "fp" << outputRegNum - REG_COUNT << ": " << std::hex << getFpRegister(outputRegNum - REG_COUNT) << std::dec << std::endl;
+        }
+        else
+        {
+            throw std::out_of_range("-reg <RegNum>: RegNum isn't between 0 to" + std::to_string(REG_COUNT + FPREG_COUNT - 1));
+        }
+    }
+
+    printOutput();
+}
+
+void Simulator::finishPipelineExecution(uint64_t& cycleCount) {
+    // パイプライン内の命令が全て完了するまでadvanceを呼び続ける
+    bool pipelineEmpty = false;
+    
+    while (!pipelineEmpty) {
+        pipeline->advance();
+        cycleCount++;
+        
+        pipelineEmpty = pipeline->isEmpty();
+        
+        if (enableDebug) {
+            std::cerr << "Finishing pipeline execution, cycle: " << cycleCount << std::endl;
+            std::cerr << pipeline->getPipelineStateString() << std::endl;
+        }
     }
 }

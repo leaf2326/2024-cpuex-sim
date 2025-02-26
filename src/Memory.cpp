@@ -13,6 +13,7 @@ Memory::Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t i
 
     setAssociativeCache.resize(linesPerWay, std::vector<CacheBlock>(cacheAssociativity, CacheBlock{false, false, 0, std::vector<int32_t>(lineSize / sizeof(int32_t))}));
     lruOrder.resize(linesPerWay, std::vector<size_t>(cacheAssociativity));
+    isFirstAccess.resize(linesPerWay, std::vector<bool>(cacheAssociativity, true));
     for (auto &setOrder : lruOrder)
     {
         std::iota(setOrder.begin(), setOrder.end(), 0);
@@ -58,13 +59,29 @@ void Memory::loadBlockToCache(uint32_t address)
         uint32_t oldAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
         uint32_t oldRange = (oldAddress >> 22) & 0x7;
         uint32_t newRange = (address >> 22) & 0x7;
-        
-        if (oldRange != newRange)
+        if (isFirstAccess[setIndex][victimIndex])
         {
+            // 初回参照ミス
+            if (availableLog) [[unlikely]]
+            {
+                std::cerr << "First access miss" << std::endl;
+            }
+            isFirstAccess[setIndex][victimIndex] = false;
+        }
+        else if (oldRange != newRange)
+        {
+            if (availableLog) [[unlikely]]
+            {
+                std::cerr << "Different range write-back" << std::endl;
+            }
             ++diffRangeWbCount;
         }
         else
         {
+            if (availableLog) [[unlikely]]
+            {
+                std::cerr << "Same range write-back" << std::endl;
+            }
             ++sameRangeWbCount;
         }
     }
@@ -121,7 +138,7 @@ int32_t Memory::loadWord(uint32_t address, bool isLw)
     }
     if (!isInitialized[address >> 2] && address != input_addr) [[unlikely]]
     {
-        throw std::out_of_range("Access to uninitialized dMemory part");
+        throw std::out_of_range("Access to uninitialized dMemory part " + std::to_string(address));
     }
     if (address == input_addr || address == output_addr)
     {
@@ -292,4 +309,57 @@ void Memory::printCacheState() const
             std::cerr << std::endl;
         }
     }
+}
+
+bool Memory::checkCacheHit(uint32_t address) {
+    if (address < 0 || address >= memorySize) [[unlikely]] {
+        throw std::out_of_range("dMemory access out of bounds");
+    }
+    
+    if (address == input_addr || address == output_addr) {
+        stallCycles = 1;
+        return true;
+    }
+    
+    // キャッシュが無効の場合常にヒット扱い
+    if (!availableCache) {
+        stallCycles = 1;
+        return true;
+    }
+    
+    uint32_t tag = getTag(address);
+    uint32_t setIndex = getSetIndex(address);
+    
+    for (size_t i = 0; i < cacheAssociativity; ++i) {
+        CacheBlock &block = setAssociativeCache[setIndex][i];
+        if (block.valid && block.tag == tag) [[unlikely]] {
+            stallCycles = 1;
+            return true;
+        }
+    }
+    
+    size_t victimIndex = findLRUVictim(setIndex);
+    CacheBlock &block = setAssociativeCache[setIndex][victimIndex];
+
+    // ミス時のストールサイクル数を計算
+    if (block.valid && block.dirty) [[unlikely]] {
+        uint32_t oldAddress = (block.tag << (indexBits + offsetBits)) | (setIndex << offsetBits);
+        uint32_t oldRange = (oldAddress >> 22) & 0x7;
+        uint32_t newRange = (address >> 22) & 0x7;
+        if (isFirstAccess[setIndex][victimIndex]) {
+            // 初回参照ミス
+            stallCycles = 2;
+        }
+        else if (oldRange != newRange) {
+            stallCycles = 57;
+        }
+        else {
+            stallCycles = 66;
+        }
+    }
+    else {
+        stallCycles = 54;
+    }
+    
+    return false;
 }

@@ -59,6 +59,9 @@ public:
     std::vector<int32_t> mainMemory{};
     std::vector<bool> isInitialized{};
 
+    int stallCycles;
+    bool checkCacheHit(uint32_t address);
+
 private:
     struct CacheBlock
     {
@@ -79,6 +82,7 @@ private:
 
     size_t cacheAssociativity;
     std::vector<std::vector<CacheBlock>> setAssociativeCache;
+    std::vector<std::vector<bool>> isFirstAccess;
     std::vector<std::vector<size_t>> lruOrder;
 
     [[nodiscard]]
