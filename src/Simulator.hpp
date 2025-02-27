@@ -65,7 +65,7 @@ public:
 
     // パイプライン内での命令実行用
     // パイプライン内での命令実行用に引数を追加
-    void executeInstructionInPipeline(uint32_t instruction, int32_t pc, int32_t rs1Value = 0, int32_t rs2Value = 0);
+    void executeInstructionInPipeline(uint64_t instruction, int32_t pc, int32_t rs1Value = 0, int32_t rs2Value = 0);
 
     [[nodiscard]]
     inline int32_t getRegister(int reg) const
@@ -190,7 +190,7 @@ private:
     bool fetchInstruction(int32_t address);
     uint64_t getInstructionCacheMissCount() const { return iCache.getMissCount(); }
 
-    std::array<uint32_t, IMEMORY_SIZE / 4> iMemory{};
+    std::array<uint64_t, IMEMORY_SIZE / 4> iMemory{};
     int instructionSize = 0;
     Memory dMemory;
     uint32_t dataSectionSize = 0;
@@ -228,9 +228,9 @@ private:
         return iMemory[address];
     }
 
-    void storeInstruction(int32_t address, int32_t instruction);
+    void storeInstruction(int32_t address, uint64_t instruction);
 
-    std::string instToString(uint32_t instruction) const;
+    std::string instToString(uint64_t instruction) const;
 
     // 直近に書き込んだレジスタの更新
     inline void updatePrevLoadReg(int currLoadReg)
@@ -250,9 +250,9 @@ private:
     void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
 
     // 命令出力
-    void printInstruction(uint32_t instruction) const;
+    void printInstruction(uint64_t instruction) const;
     // 命令実行
-    void executeInstruction(uint32_t instruction);
+    void executeInstruction(uint64_t instruction);
 
     void printInstAddrCounts();
     void printInstStats() const;

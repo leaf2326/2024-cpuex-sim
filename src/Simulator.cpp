@@ -47,7 +47,7 @@ Simulator::~Simulator()
     delete pipeline;
 }
 
-void Simulator::storeInstruction(int32_t address, int32_t instruction)
+void Simulator::storeInstruction(int32_t address, uint64_t instruction)
 {
     if (address < 0 || address >= IMEMORY_SIZE >> 2) [[unlikely]]
     {
@@ -56,7 +56,7 @@ void Simulator::storeInstruction(int32_t address, int32_t instruction)
     iMemory[address] = instruction;
 }
 
-std::string Simulator::instToString(uint32_t instruction) const
+std::string Simulator::instToString(uint64_t instruction) const
 {
     std::ostringstream sstr;
     const uint32_t opcode = getOpcode(instruction);
@@ -340,7 +340,7 @@ void Simulator::loadMemoryFromBinary(const std::string &filename)
     std::cerr << "DEBUG MODE INSTRUCTION LIST" << std::endl;
 
 #endif // DEBUG
-    uint32_t instruction;
+    uint64_t instruction;
     uint32_t data;
     uint64_t address;
     file.read(reinterpret_cast<char *>(&dataSectionSize), sizeof(dataSectionSize));
@@ -384,7 +384,7 @@ void Simulator::printInstAddrCounts()
 
     for (int i = 0; i < instructionSize; ++i)
     {
-        const uint32_t instruction = iMemory[i];
+        const uint64_t instruction = iMemory[i];
         std::cerr << std::setw(15) << std::hex << i << std::dec
                   << std::setw(14) << instAddrCounts[i] << ":        "
                   << instToString(instruction) << std::endl;
@@ -420,7 +420,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
             }
             else
             {
-                const uint32_t instruction = iMemory[address];
+                const uint64_t instruction = iMemory[address];
                 std::cerr << address << ": " << instToString(instruction);
                 if (i == 0)
                 {
@@ -434,7 +434,7 @@ void Simulator::printProgram(bool aroundPC) const noexcept
     {
         for (int i = 0; i < instructionSize; ++i)
         {
-            const uint32_t instruction = iMemory[i];
+            const uint64_t instruction = iMemory[i];
             std::cerr << i + 1 << ": " << instToString(instruction);
             if (i == getPC())
             {
@@ -566,7 +566,7 @@ int Simulator::getCacheMissPenalty() const
     return dMemory.stallCycles;
 }
 
-void Simulator::executeInstructionInPipeline(uint32_t instruction, int32_t pc, int32_t rs1Value, int32_t rs2Value)
+void Simulator::executeInstructionInPipeline(uint64_t instruction, int32_t pc, int32_t rs1Value, int32_t rs2Value)
 {
 
     // 分岐予測ミスとキャッシュミスのフラグをリセット
@@ -629,13 +629,13 @@ void Simulator::executeInstructionInPipeline(uint32_t instruction, int32_t pc, i
     }
 }
 
-void Simulator::printInstruction(uint32_t instruction) const
+void Simulator::printInstruction(uint64_t instruction) const
 {
     if (availableLog) [[unlikely]]
         std::cerr << "Executing: " << instToString(instruction) << std::endl;
 }
 
-void Simulator::executeInstruction(uint32_t instruction)
+void Simulator::executeInstruction(uint64_t instruction)
 {
     logInstAddr(getPC());
     int currLoadReg = NULLREG;
@@ -1543,7 +1543,7 @@ void Simulator::runProgram(int outputRegNum)
                                 }
                                 else if (gdbCommand == "s")
                                 {
-                                    const uint32_t instruction = loadInstruction(pc);
+                                    const uint64_t instruction = loadInstruction(pc);
 
                                     if (rep == 1)
                                     {
@@ -1621,7 +1621,7 @@ void Simulator::runProgram(int outputRegNum)
                         buffer.str("");
                         {
                             CerrRedirect redirect(buffer);
-                            const uint32_t instruction = loadInstruction(pc);
+                            const uint64_t instruction = loadInstruction(pc);
 
                             executeInstruction(instruction);
                             if (getOpcode(instruction) != 0x3 &&
@@ -1664,7 +1664,7 @@ void Simulator::runProgram(int outputRegNum)
             {
                 while (maxStep > step && !isBreakpoint)
                 {
-                    const uint32_t instruction = loadInstruction(pc);
+                    const uint64_t instruction = loadInstruction(pc);
                     if (enableDebug)
                     {
                         printInstruction(instruction);
@@ -1690,7 +1690,7 @@ void Simulator::runProgram(int outputRegNum)
                 uint64_t prevLineOutputCount = 0;
                 while (maxStep > step && !isBreakpoint)
                 {
-                    const uint32_t instruction = loadInstruction(pc);
+                    const uint64_t instruction = loadInstruction(pc);
                     if (enableDebug)
                     {
                         printInstruction(instruction);
@@ -1908,7 +1908,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                             pipeline->advance();
                             cycleCount++;
                             // 命令を発行しようとする
-                            const uint32_t instruction = loadInstruction(pc);
+                            const uint64_t instruction = loadInstruction(pc);
                             bool issued = pipeline->tryIssue(instruction, pc);
 
                             if (issued)
@@ -2000,7 +2000,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                         break;
                     }
 
-                    const uint32_t instruction = loadInstruction(pc);
+                    const uint64_t instruction = loadInstruction(pc);
                     pipeline->advance();
                     cycleCount++;
                     // 命令を発行しようとする
@@ -2098,7 +2098,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                 break;
             }
 
-            const uint32_t instruction = loadInstruction(pc);
+            const uint64_t instruction = loadInstruction(pc);
 
             if (enableDebug)
             {
@@ -2154,7 +2154,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                 break;
             }
 
-            const uint32_t instruction = loadInstruction(pc);
+            const uint64_t instruction = loadInstruction(pc);
 
             if (enableDebug)
             {

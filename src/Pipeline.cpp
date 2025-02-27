@@ -21,7 +21,7 @@ Pipeline::Pipeline(Simulator &sim) : simulator(sim)
     MAed_int = MAed_fp = std::nullopt;
 }
 
-bool Pipeline::tryIssue(uint32_t instruction, int32_t pc)
+bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
 {
     // 発行可能性をチェック
     PipelineInstruction inst;
@@ -277,7 +277,7 @@ void Pipeline::advance()
         decoded_fp[i] = next_decoded_fp[i];
     }
 }
-void Pipeline::decodeInstruction(uint32_t raw, int32_t pc, PipelineInstruction &inst)
+void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &inst)
 {
     // 命令をデコードし、種類や依存関係を決定
     inst.raw = raw;
@@ -797,7 +797,7 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
     }
 }
 
-int Pipeline::getIntLatency(uint32_t instruction) const
+int Pipeline::getIntLatency(uint64_t instruction) const
 {
     // INT命令のレイテンシを判定
     uint32_t opcode = getOpcode(instruction);
@@ -821,7 +821,7 @@ int Pipeline::getIntLatency(uint32_t instruction) const
     }
 }
 
-int Pipeline::getFpLatency(uint32_t instruction) const
+int Pipeline::getFpLatency(uint64_t instruction) const
 {
     // FP命令のレイテンシを判定
     uint32_t opcode = getOpcode(instruction);
@@ -1102,7 +1102,7 @@ bool Pipeline::isEmpty() const
     return true;
 }
 
-int Pipeline::getInstructionType(uint32_t instruction)
+int Pipeline::getInstructionType(uint64_t instruction)
 {
     uint32_t opcode = getOpcode(instruction);
     uint32_t subop = getSubop(instruction);
@@ -1195,7 +1195,7 @@ int Pipeline::getInstructionType(uint32_t instruction)
     return -1;
 }
 
-bool Pipeline::isJalInstruction(uint32_t instruction) const
+bool Pipeline::isJalInstruction(uint64_t instruction) const
 {
     return getOpcode(instruction) == 0xE;
 }

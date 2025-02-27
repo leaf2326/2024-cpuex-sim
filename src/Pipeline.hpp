@@ -12,7 +12,7 @@ class Simulator;
 // パイプラインに入る命令情報
 struct PipelineInstruction
 {
-    uint32_t raw;          // 命令の生データ
+    uint64_t raw;          // 命令の生データ
     int32_t pc;
     int rd;                // rdレジスタ（なければ-1）
     bool isFpRd;
@@ -39,7 +39,7 @@ public:
     Pipeline(Simulator &sim);
 
     // 命令を発行しようとする（成功したらtrue）
-    bool tryIssue(uint32_t instruction, int32_t pc);
+    bool tryIssue(uint64_t instruction, int32_t pc);
 
     void advance();
 
@@ -86,16 +86,16 @@ private:
 
     bool fetchInstruction(int32_t address);
 
-    void decodeInstruction(uint32_t raw, int32_t pc, PipelineInstruction &inst);
+    void decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &inst);
     bool checkDependencies(const PipelineInstruction &inst) const;
     bool checkContention(const PipelineInstruction &inst) const;
     bool checkBranchHazard(const PipelineInstruction &inst) const;
     void handleWAWHazards(const PipelineInstruction &inst);
     void executeAtExecutedStage(PipelineInstruction &inst);
-    int getIntLatency(uint32_t instruction) const;
-    int getFpLatency(uint32_t instruction) const;
+    int getIntLatency(uint64_t instruction) const;
+    int getFpLatency(uint64_t instruction) const;
     void flushPipeline();
-    int getInstructionType(uint32_t instruction);
-    bool isJalInstruction(uint32_t instruction) const;
+    int getInstructionType(uint64_t instruction);
+    bool isJalInstruction(uint64_t instruction) const;
 };
 #endif // PIPELINE_HPP

@@ -1,6 +1,6 @@
 #include "InstructionCache.hpp"
 
-InstructionCache::InstructionCache(const std::array<uint32_t, IMEMORY_SIZE / 4> &instructionMemory)
+InstructionCache::InstructionCache(const std::array<uint64_t, IMEMORY_SIZE / 4> &instructionMemory)
     : instructionMemory(instructionMemory), missCount(0) {
     init();
 }
@@ -13,7 +13,7 @@ void InstructionCache::init() {
     while (prefetchPipeline.size() < 5) prefetchPipeline.push(0);
 }
 
-int32_t InstructionCache::getJumpTarget(uint32_t instruction)
+int32_t InstructionCache::getJumpTarget(uint64_t instruction)
 {
     uint32_t opcode = getOpcode(instruction);
     if (opcode == 0x3 || opcode == 0xE)
@@ -58,7 +58,7 @@ bool InstructionCache::fetch(uint32_t addr) {
     uint32_t prevPC = pcHistory.front();
     pcHistory.pop();
     pcHistory.push(addr);
-    uint32_t instruction = instructionMemory[addr];
+    uint64_t instruction = instructionMemory[addr];
     if (isJumpOrBranch(instruction)) {
         uint32_t jumpTarget = getJumpTarget(instruction);
         jaltWrite(prevPC, jumpTarget);

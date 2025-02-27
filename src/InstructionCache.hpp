@@ -12,7 +12,7 @@ class InstructionCache
 {
 public:
     static constexpr int64_t IMEMORY_SIZE = 128 * 1024; // Iメモリサイズ（128KiB）
-    InstructionCache(const std::array<uint32_t, IMEMORY_SIZE / 4> &instructionMemory);
+    InstructionCache(const std::array<uint64_t, IMEMORY_SIZE / 4> &instructionMemory);
     void init();
     bool fetch(uint32_t addr);
     [[nodiscard]] inline uint32_t getMissCount() const
@@ -25,7 +25,7 @@ private:
     static constexpr size_t JALTSize = 2048;
     static constexpr size_t LineWords = 8;
 
-    const std::array<uint32_t, IMEMORY_SIZE / 4> &instructionMemory;
+    const std::array<uint64_t, IMEMORY_SIZE / 4> &instructionMemory;
     std::vector<std::optional<uint32_t>> cacheTag;
     std::vector<std::optional<uint32_t>> jaltTag;
     std::vector<std::optional<uint32_t>> jaltContent;
@@ -63,13 +63,13 @@ private:
         return cacheTag[index].has_value() && cacheTag[index].value() == (addr >> 12);
     }
 
-    [[nodiscard]] inline bool isJumpOrBranch(uint32_t instruction)
+    [[nodiscard]] inline bool isJumpOrBranch(uint64_t instruction)
     {
         uint32_t opcode = getOpcode(instruction);
         return opcode == 0x3 || opcode == 0x4 || opcode == 0xE || opcode == 0xF;
     }
 
-    int32_t getJumpTarget(uint32_t instruction);
+    int32_t getJumpTarget(uint64_t instruction);
 };
 
 #endif
