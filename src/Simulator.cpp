@@ -9,13 +9,13 @@
 #include <pbar.hpp>
 
 Simulator::Simulator(OptionHandler &op)
-    : iCache(iMemory), dMemory(op.memorySize, 
-        INPUT_ADDRESS * 4, 
-        OUTPUT_ADDRESS * 4, 
-        op.l1Lines, 
-        op.l2Lines, 
-        op.lineSize, 
-        op.l2Associativity)
+    : iCache(iMemory), dMemory(op.memorySize,
+                               INPUT_ADDRESS * 4,
+                               OUTPUT_ADDRESS * 4,
+                               op.l1Lines,
+                               op.l2Lines,
+                               op.lineSize,
+                               op.l2Associativity)
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                       // x0
@@ -548,66 +548,82 @@ void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isT
     }
 }
 
-bool Simulator::simulateCacheAccess(int32_t address, bool isStore) {
+bool Simulator::simulateCacheAccess(int32_t address, bool isStore)
+{
     // キャッシュアクセスをシミュレート（値の読み書きは行わない）
-    if (isStore) {
+    if (isStore)
+    {
         return dMemory.checkCacheHit(address);
-    } else {
+    }
+    else
+    {
         return dMemory.checkCacheHit(address);
     }
 }
 
-int Simulator::getCacheMissPenalty() const {
+int Simulator::getCacheMissPenalty() const
+{
     return dMemory.stallCycles;
 }
 
-void Simulator::executeInstructionInPipeline(uint32_t instruction, int32_t pc, int32_t rs1Value, int32_t rs2Value) {
-    
+void Simulator::executeInstructionInPipeline(uint32_t instruction, int32_t pc, int32_t rs1Value, int32_t rs2Value)
+{
+
     // 分岐予測ミスとキャッシュミスのフラグをリセット
     branchMispredicted = false;
     instructionCacheMiss = false;
-    
+
     uint32_t opcode = getOpcode(instruction);
-    if (opcode != 0x8 && opcode != 0x9 && opcode != 0xA && opcode != 0xB) {
+    if (opcode != 0x8 && opcode != 0x9 && opcode != 0xA && opcode != 0xB)
+    {
         // メモリ命令でない場合のみ実行
-        if (opcode == 0x3 || opcode == 0x4 || opcode == 0x5 || opcode == 0xE || opcode == 0xF) {
+        if (opcode == 0x3 || opcode == 0x4 || opcode == 0x5 || opcode == 0xE || opcode == 0xF)
+        {
             int32_t initialPc = this->pc;
-            
+
             int32_t originalRs1 = 0, originalRs2 = 0;
             uint32_t rs1 = getRs1(instruction);
             uint32_t rs2 = getRs2(instruction);
-            
-            if (rs1 != 0) {
+
+            if (rs1 != 0)
+            {
                 originalRs1 = registers[rs1];
                 registers[rs1] = rs1Value;
             }
-            
-            if (rs2 != 0) {
+
+            if (rs2 != 0)
+            {
                 originalRs2 = registers[rs2];
                 registers[rs2] = rs2Value;
             }
-            
+
             executeInstruction(instruction);
-            
+
             // レジスタの値を元に戻す
-            if (rs1 != 0) {
+            if (rs1 != 0)
+            {
                 registers[rs1] = originalRs1;
             }
-            
-            if (rs2 != 0) {
+
+            if (rs2 != 0)
+            {
                 registers[rs2] = originalRs2;
             }
-            
-            if (initialPc != this->pc) {
+
+            if (initialPc != this->pc)
+            {
                 branchMispredicted = true;
             }
-        } else {
+        }
+        else
+        {
             // 分岐命令以外の場合は元の実装を使用
             executeInstruction(instruction);
         }
-        
+
         // 命令キャッシュミスをチェック
-        if (iCache.getMissCount() > 0) {
+        if (iCache.getMissCount() > 0)
+        {
             instructionCacheMiss = true;
         }
     }
@@ -1120,7 +1136,7 @@ void Simulator::printCacheHitMissCounts() const
     const uint64_t l2HitCount = dMemory.getL2HitCount();
     const uint64_t missCount = dMemory.getMissCount();
     const uint64_t totalAccesses = l1HitCount + l2HitCount + missCount;
-    
+
     std::cerr << "L1 Cache Hit Count: " << l1HitCount << std::endl;
     std::cerr << "L2 Cache Hit Count: " << l2HitCount << std::endl;
     std::cerr << "Cache Miss Count: " << missCount << std::endl;
@@ -1141,7 +1157,8 @@ void Simulator::printLog()
     }
 }
 
-bool Simulator::fetchInstruction(int32_t address) {
+bool Simulator::fetchInstruction(int32_t address)
+{
     return iCache.fetch(address);
 }
 
@@ -1221,125 +1238,142 @@ void Simulator::printPipelineLog()
     // パイプライン版の統計情報出力
     uint64_t totalInstructions = getStep();
     uint64_t totalCycles = pipeline->getTotalCycles();
-    double cpi = (double)totalCycles / totalInstructions;
-    
-    std::cerr << "________Pipelined Execution Statistics________" << std::endl;
-    std::cerr << "Total instructions: " << std::hex << totalInstructions << std::dec 
-              << " (" << totalInstructions << ")" << std::endl;
-    std::cerr << "Total cycles: " << std::hex << totalCycles << std::dec 
-              << " (" << totalCycles << ")" << std::endl;
-    std::cerr << "CPI: " << cpi << std::endl;
-    
-    Log::printLog();
-    
-    // 分岐予測ミス
     uint64_t branchMisses = flushCount;
-    double branchMissRatio = (double)branchMisses / totalInstructions * 100.0;
-    std::cerr << "Branch prediction misses: " << branchMisses 
-              << " (" << branchMissRatio << "% of instructions)" << std::endl;
-    
-    // 命令キャッシュミス
     uint64_t icacheMisses = iCache.getMissCount();
+
+    std::cerr << "________Pipelined Execution Statistics________" << std::endl;
+    std::cerr << "Total instructions: " << std::hex << totalInstructions << std::dec
+              << " (" << totalInstructions << ")" << std::endl;
+
+    std::cerr << "Simulated cycles: " << std::hex << totalCycles << std::dec
+              << " (" << totalCycles << ")" << std::endl;
+    // 分岐予測ミス
+    double branchMissRatio = (double)branchMisses / totalInstructions * 100.0;
+    std::cerr << "Branch prediction misses: " << branchMisses
+              << " (" << branchMissRatio << "% of instructions)" << std::endl;
+
+    // 命令キャッシュミス
     double icacheMissRatio = (double)icacheMisses / totalInstructions * 100.0;
     std::cerr << "Instruction cache misses: " << icacheMisses
               << " (" << icacheMissRatio << "% of instructions)" << std::endl;
-    
+    uint64_t additionalStall = branchMisses * 2 + icacheMisses * 5;
+    totalCycles += additionalStall;
+    double cpi = (double)totalCycles / totalInstructions;
+
+    std::cerr << "Total stalls: " << pipeline->getStallCount() + additionalStall << std::endl;
+    std::cerr << "Total cycles: " << std::hex << totalCycles << std::dec
+              << " (" << totalCycles << ")" << std::endl;
+
+    std::cerr << "CPI: " << cpi << std::endl;
+
+    Log::printLog();
+
+    // 分岐予測ミス
+    std::cerr << "Branch prediction misses: " << branchMisses
+              << " (" << branchMissRatio << "% of instructions)" << std::endl;
+
+    // 命令キャッシュミス
+    std::cerr << "Instruction cache misses: " << icacheMisses
+              << " (" << icacheMissRatio << "% of instructions)" << std::endl;
+
     // WB衝突（int/fp間）
     uint64_t wbCollisionIntFp = pipeline->getWbCollisionIntFpCount();
     double wbCollisionIntFpRatio = (double)wbCollisionIntFp / totalInstructions * 100.0;
     std::cerr << "WB collisions (int/fp): " << wbCollisionIntFp
               << " (" << wbCollisionIntFpRatio << "% of instructions)" << std::endl;
-    
+
     // WB衝突（メモリ命令）
     uint64_t wbCollisionMem = pipeline->getWbCollisionMemCount();
     double wbCollisionMemRatio = (double)wbCollisionMem / totalInstructions * 100.0;
     std::cerr << "WB collisions (memory): " << wbCollisionMem
               << " (" << wbCollisionMemRatio << "% of instructions)" << std::endl;
-    
+
     // 分岐追い越し防止ストール
     uint64_t branchBypassStall = pipeline->getBranchBypassStallCount();
     double branchBypassStallRatio = (double)branchBypassStall / totalInstructions * 100.0;
-    std::cerr << "Branch bypass stalls: "<< branchBypassStall
+    std::cerr << "Branch bypass stalls: " << branchBypassStall
               << " (" << branchBypassStallRatio << "% of instructions)" << std::endl;
-    
+
     // メモリストールサイクル
     uint64_t memoryStallCycles = pipeline->getMemoryStallCycles();
     double memoryStallRatio = (double)memoryStallCycles / totalInstructions;
-    std::cerr << "Memory stall cycles: "<< memoryStallCycles
+    std::cerr << "Memory stall cycles: " << memoryStallCycles
               << " (" << memoryStallRatio << " per instruction)" << std::endl;
-    
+
     // FPU RAWストール
     uint64_t fpuRawStalls = pipeline->getFpuRawStallCount();
     double fpuRawRatio = (double)fpuRawStalls / totalInstructions * 100.0;
     std::cerr << "FPU RAW stalls: " << fpuRawStalls
               << " (" << fpuRawRatio << "% of instructions)" << std::endl;
-    
+
     // Load RAWストール
     uint64_t loadRawStalls = pipeline->getLoadRawStallCount();
     double loadRawRatio = (double)loadRawStalls / totalInstructions * 100.0;
     std::cerr << "Load RAW stalls: " << loadRawStalls
               << " (" << loadRawRatio << "% of instructions)" << std::endl;
-    
+
     // キャッシュ統計
-    if (enableCache) {
+    if (enableCache)
+    {
         printCacheHitMissCounts();
         std::cerr << "Cache miss without write back: " << dMemory.getNonWbCount() << std::endl;
         std::cerr << "Cache miss with different range write back: " << dMemory.getDiffRangeWbCount() << std::endl;
         std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
         std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
-        
-        if (enableDebug) {
+
+        if (enableDebug)
+        {
             dMemory.printCacheState();
         }
     }
-    
+
     // CPIの内訳
     std::cerr << "________CPI Breakdown________" << std::endl;
     std::cerr << "Total CPI: " << cpi * 100.0 << "%" << std::endl;
     std::cerr << "* Base: 100%" << std::endl;
-    
+
     // メモリストールのCPI貢献
     double memoryStallCpi = memoryStallRatio * 100.0;
     std::cerr << "* Memory stalls: " << memoryStallCpi << "%" << std::endl;
-    
+
     // FPU RAWのCPI貢献
     double fpuRawCpi = fpuRawRatio;
     std::cerr << "* FPU RAW hazards: " << fpuRawCpi << "%" << std::endl;
-    
+
     // Load RAWのCPI貢献
     double loadRawCpi = loadRawRatio;
     std::cerr << "* Load RAW hazards: " << loadRawCpi << "%" << std::endl;
-    
+
     // WB衝突のCPI貢献
     double wbCollisionCpi = wbCollisionIntFpRatio + wbCollisionMemRatio;
     std::cerr << "* WB collision stalls: " << wbCollisionCpi << "%" << std::endl;
-    
+
     // 分岐予測ミスのCPI貢献
     double branchMissCpi = branchMissRatio * 2.0; // ミスごとに2サイクルのペナルティ
     std::cerr << "* Branch prediction misses: " << branchMissCpi << "%" << std::endl;
-    
+
     std::cerr << "________Additional Statistics________" << std::endl;
     double estimatedTime = totalCycles / CPUFREQUENCY;
     std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
     std::cerr << "IPC: " << 1.0 / cpi << std::endl;
     std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
-    
+
     // FPU演算
-    uint64_t fpuOps = instructionCounts[FADD] + instructionCounts[FSUB] + 
-                     instructionCounts[FMUL] + instructionCounts[FDIV] + 
-                     instructionCounts[FSQRT] + instructionCounts[FFLOOR];
+    uint64_t fpuOps = instructionCounts[FADD] + instructionCounts[FSUB] +
+                      instructionCounts[FMUL] + instructionCounts[FDIV] +
+                      instructionCounts[FSQRT] + instructionCounts[FFLOOR];
     double fpuOpsRatio = (double)fpuOps / totalInstructions * 100.0;
     std::cerr << "FPU operations: " << fpuOps << " (" << fpuOpsRatio << "% of instructions)" << std::endl;
-    
+
     // メモリ命令
-    uint64_t memOps = instructionCounts[LW] + instructionCounts[LWR] + instructionCounts[SW] + 
-                     instructionCounts[FLW] + instructionCounts[FLWR] + instructionCounts[FSW];
+    uint64_t memOps = instructionCounts[LW] + instructionCounts[LWR] + instructionCounts[SW] +
+                      instructionCounts[FLW] + instructionCounts[FLWR] + instructionCounts[FSW];
     double memOpsRatio = (double)memOps / totalInstructions * 100.0;
     std::cerr << "Memory operations: " << memOps << " (" << memOpsRatio << "% of instructions)" << std::endl;
-    
+
     // 分岐命令
-    uint64_t branchOps = instructionCounts[BEQ] + instructionCounts[BNE] + instructionCounts[BLT] + 
-                        instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR];
+    uint64_t branchOps = instructionCounts[BEQ] + instructionCounts[BNE] + instructionCounts[BLT] +
+                         instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR];
     double branchOpsRatio = (double)branchOps / totalInstructions * 100.0;
     std::cerr << "Branch operations: " << branchOps << " (" << branchOpsRatio << "% of instructions)" << std::endl;
 }
@@ -1901,7 +1935,6 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                 }
                             }
 
-
                             if (rep == 1)
                             {
                                 std::cerr << std::endl;
@@ -1990,7 +2023,6 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                     }
 
                     // パイプラインを1サイクル進める
-                    
                 }
 
                 if (isBreakpoint)
@@ -2004,7 +2036,8 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                         std::cerr << std::endl;
                     }
                     breakMode = false;
-                    if (isBreakpoint) {
+                    if (isBreakpoint)
+                    {
                         // パイプライン内の残りの命令を処理
                         finishPipelineExecution(cycleCount);
                     }
@@ -2025,10 +2058,8 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
 
     // 結果表示
     std::cerr << "________Simulation Ended________" << std::endl;
-    std::cerr << "Total cycles: " << cycleCount << std::endl;
+    std::cerr << "Simulated cycles: " << cycleCount << std::endl;
     std::cerr << "Total instructions: " << step << std::endl;
-    std::cerr << "Total stalls: " << pipeline->getStallCount() << std::endl;
-    std::cerr << "IPC: " << (double)step / cycleCount << std::endl;
 
     if (outputRegNum >= 0)
     {
@@ -2088,13 +2119,14 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                 // 発行成功：ステップカウントを増やす
                 step++;
 
-                if (isBreakpoint) {
+                if (isBreakpoint)
+                {
                     pc++;
                     // パイプライン内の残りの命令を処理
                     finishPipelineExecution(cycleCount);
                     break;
                 }
-                
+
                 if (getOpcode(instruction) != 0x3 &&
                     getOpcode(instruction) != 0x4 &&
                     getOpcode(instruction) != 0x5 &&
@@ -2104,8 +2136,6 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                     setPC(getPC() + 1);
                 }
             }
-
-            
         }
     }
     else
@@ -2133,7 +2163,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                           << ", Instruction: " << instToString(instruction)
                           << std::endl;
             }
-// パイプラインを1サイクル進める
+            // パイプラインを1サイクル進める
             pipeline->advance();
             cycleCount++;
             // 命令を発行しようとする
@@ -2144,7 +2174,8 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                 // 発行成功：ステップカウントを増やす
                 step++;
 
-                if (isBreakpoint) {
+                if (isBreakpoint)
+                {
                     pc++;
                     // パイプライン内の残りの命令を処理
                     finishPipelineExecution(cycleCount);
@@ -2162,8 +2193,6 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                     setPC(getPC() + 1);
                 }
             }
-
-            
 
             if (prevLineOutputCount != dMemory.lineOutputCount)
             {
@@ -2204,17 +2233,20 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
     printOutput();
 }
 
-void Simulator::finishPipelineExecution(uint64_t& cycleCount) {
+void Simulator::finishPipelineExecution(uint64_t &cycleCount)
+{
     // パイプライン内の命令が全て完了するまでadvanceを呼び続ける
     bool pipelineEmpty = false;
-    
-    while (!pipelineEmpty) {
+
+    while (!pipelineEmpty)
+    {
         pipeline->advance();
         cycleCount++;
-        
+
         pipelineEmpty = pipeline->isEmpty();
-        
-        if (enableDebug) {
+
+        if (enableDebug)
+        {
             std::cerr << "Finishing pipeline execution, cycle: " << cycleCount << std::endl;
             std::cerr << pipeline->getPipelineStateString() << std::endl;
         }
