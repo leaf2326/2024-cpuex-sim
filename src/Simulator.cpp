@@ -9,14 +9,20 @@
 #include <pbar.hpp>
 
 Simulator::Simulator(OptionHandler &op)
-    : iCache(iMemory), dMemory(op.memorySize, CACHE_SIZE, BLOCK_SIZE, INPUT_ADDRESS * 4, OUTPUT_ADDRESS * 4, (op.cacheNumWay == 0 ? 1 : op.cacheNumWay))
+    : iCache(iMemory), dMemory(op.memorySize, 
+        INPUT_ADDRESS * 4, 
+        OUTPUT_ADDRESS * 4, 
+        op.l1Lines, 
+        op.l2Lines, 
+        op.lineSize, 
+        op.l2Associativity)
 {
     DMEMORY_SIZE = op.memorySize;
     registers[0] = 0;                       // x0
     registers[2] = (DMEMORY_SIZE >> 2) - 4; // sp
     pc = 0;
     isBreakpoint = false;
-    enableCache = op.enableCache;
+    enableCache = !op.noCache;
     enableICount = op.enableICount;
     enableIStats = op.enableIStats;
     enableDebug = op.enableDebug;
@@ -25,7 +31,7 @@ Simulator::Simulator(OptionHandler &op)
     outputSize = op.imageSize * op.imageSize + 2;
     enableGDB = op.enableGDB;
     maxStep = op.maxStep;
-    dMemory.availableCache = op.enableCache;
+    dMemory.availableCache = enableCache;
     availableLog = op.enableGDB || op.enableDebug;
     dMemory.availableLog = availableLog;
     outputFilePath = op.outputFilePath;
@@ -1110,11 +1116,17 @@ void Simulator::executeInstruction(uint32_t instruction)
 
 void Simulator::printCacheHitMissCounts() const
 {
-    const uint64_t hitCount = dMemory.getHitCount();
+    const uint64_t l1HitCount = dMemory.getL1HitCount();
+    const uint64_t l2HitCount = dMemory.getL2HitCount();
     const uint64_t missCount = dMemory.getMissCount();
-    std::cerr << "Cache Hit Count: " << hitCount << std::endl;
+    const uint64_t totalAccesses = l1HitCount + l2HitCount + missCount;
+    
+    std::cerr << "L1 Cache Hit Count: " << l1HitCount << std::endl;
+    std::cerr << "L2 Cache Hit Count: " << l2HitCount << std::endl;
     std::cerr << "Cache Miss Count: " << missCount << std::endl;
-    std::cerr << "Cache Hit Rate: " << (double)hitCount / (double)(hitCount + missCount) << std::endl;
+    std::cerr << "Total Cache Hit Rate: " << (double)(l1HitCount + l2HitCount) / (double)totalAccesses << std::endl;
+    std::cerr << "L1 Cache Hit Rate: " << (double)l1HitCount / (double)totalAccesses << std::endl;
+    std::cerr << "L2 Cache Hit Rate: " << (double)l2HitCount / (double)(l2HitCount + missCount) << " (of L1 misses)" << std::endl;
 }
 
 void Simulator::printLog()

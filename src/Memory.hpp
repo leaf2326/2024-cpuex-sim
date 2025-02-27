@@ -10,15 +10,37 @@
 class Memory
 {
 public:
-    Memory(uint64_t memorySize, size_t cacheSize, size_t lineSize, int64_t input_addr, int64_t output_addr, size_t associativity = 1);
+    // コンストラクタでL1/L2キャッシュのパラメータを指定できるように
+    Memory(uint64_t memorySize,
+           int64_t input_addr,
+           int64_t output_addr,
+           size_t l1Lines = 1024,
+           size_t l2Lines = 1024,
+           size_t lineSize = 16, // バイト単位
+           size_t l2Associativity = 4);
 
     int32_t loadWord(uint32_t address, bool toInt);
     void storeWord(uint32_t address, int32_t value);
 
+    // キャッシュアクセスをシミュレートしてヒット/ミスのみを判定する関数
+    bool checkCacheHit(uint32_t address);
+
     [[nodiscard]]
     inline uint64_t getHitCount() const noexcept
     {
-        return hitCount;
+        return l1HitCount + l2HitCount;
+    }
+
+    [[nodiscard]]
+    inline uint64_t getL1HitCount() const noexcept
+    {
+        return l1HitCount;
+    }
+
+    [[nodiscard]]
+    inline uint64_t getL2HitCount() const noexcept
+    {
+        return l2HitCount;
     }
 
     [[nodiscard]]
@@ -45,6 +67,14 @@ public:
         return diffRangeWbCount;
     }
 
+    // キャッシュ設定の取得メソッド
+    size_t getL1Lines() const { return l1Lines; }
+    size_t getL2Lines() const { return l2Lines; }
+    size_t getL2Sets() const { return l2Sets; }
+    size_t getLineSize() const { return lineSize; }
+    size_t getL2Associativity() const { return l2Associativity; }
+    size_t getWordsPerLine() const { return wordsPerLine; }
+
     void printCacheState() const;
 
     std::vector<int32_t> inputData{};
@@ -60,7 +90,6 @@ public:
     std::vector<bool> isInitialized{};
 
     int stallCycles;
-    bool checkCacheHit(uint32_t address);
 
 private:
     struct CacheBlock
@@ -73,56 +102,93 @@ private:
 
     const uint64_t memorySize;
 
-    size_t cacheSize;
-    size_t lineSize;
-    size_t offsetBits;
-    size_t indexBits;
+    // キャッシュパラメータ
+    size_t lineSize;     // バイト単位のラインサイズ
+    size_t wordsPerLine; // ラインあたりのワード数
+    size_t offsetBits;   // オフセットのビット数
+
+    // L1キャッシュパラメータ
+    size_t l1Lines;     // L1キャッシュのライン数
+    size_t l1IndexBits; // L1インデックスのビット数
+
+    // L2キャッシュパラメータ
+    size_t l2Lines;         // L2キャッシュの総ライン数
+    size_t l2Associativity; // L2キャッシュのウェイ数
+    size_t l2Sets;          // L2キャッシュのセット数
+    size_t l2IndexBits;     // L2インデックスのビット数
+
     const int64_t input_addr;
     const int64_t output_addr;
 
-    size_t cacheAssociativity;
-    std::vector<std::vector<CacheBlock>> setAssociativeCache;
-    std::vector<std::vector<bool>> isFirstAccess;
-    std::vector<std::vector<size_t>> lruOrder;
+    // L1キャッシュ (Direct Mapped)
+    std::vector<CacheBlock> l1Cache;
+
+    // L2キャッシュ (Set Associative)
+    std::vector<std::vector<CacheBlock>> l2Cache;
+    std::vector<std::vector<size_t>> l2LruOrder;
+    std::vector<std::vector<bool>> l2IsFirstAccess;
 
     [[nodiscard]]
-    inline uint32_t getTag(uint32_t address) const noexcept
+    inline uint32_t getTag(uint32_t address, bool isL1) const noexcept
     {
-        return address >> (indexBits + offsetBits);
-    }
-
-    [[nodiscard]]
-    inline uint32_t getIndex(uint32_t address) const noexcept
-    {
-        return (address >> offsetBits) & ((1 << indexBits) - 1);
-    }
-
-    [[nodiscard]]
-    inline uint32_t getSetIndex(uint32_t address) const noexcept
-    {
-        return (address >> offsetBits) & ((1 << indexBits) - 1);
+        if (isL1)
+        {
+            return address >> (l1IndexBits + offsetBits);
+        }
+        else
+        {
+            return address >> (l2IndexBits + offsetBits);
+        }
     }
 
     [[nodiscard]]
-    inline uint32_t getOffset(uint32_t address) const noexcept
+    inline uint32_t getL1Index(uint32_t address) const noexcept
     {
-        return address & ((1 << offsetBits) - 1);
+        return (address >> offsetBits) & ((1 << l1IndexBits) - 1);
     }
 
-    void writeBack(uint32_t index, uint32_t setIndex = 0);
-    void loadBlockToCache(uint32_t address);
-
-    void updateLRU(uint32_t setIndex, size_t blockIndex);
-    [[nodiscard]] inline size_t findLRUVictim(uint32_t setIndex)
+    [[nodiscard]]
+    inline uint32_t getL2SetIndex(uint32_t address) const noexcept
     {
-        return lruOrder[setIndex].front();
+        return (address >> offsetBits) & ((1 << l2IndexBits) - 1);
     }
 
-    uint64_t hitCount = 0;
+    [[nodiscard]]
+inline uint32_t getOffset(uint32_t address) const noexcept
+{
+    // バイトオフセットを計算
+    uint32_t byteOffset = address & ((1 << offsetBits) - 1);
+    // ワードオフセットに変換（4バイト = 1ワード）
+    return (byteOffset / sizeof(int32_t));
+}
+
+    // L2からL1に書き戻し
+    void writeBackL2ToL1(uint32_t address, uint32_t l1Index, const CacheBlock &l2Block);
+
+    // L1からL2に書き戻し
+    void writeBackL1ToL2(const CacheBlock &l1Block, uint32_t l1Index);
+
+    // L2からメインメモリに書き戻し
+    void writeBackL2ToMain(uint32_t l2Index, uint32_t wayIndex);
+
+    // L1キャッシュにブロックをロード
+    void loadBlockToL1Cache(uint32_t address);
+
+    // L2キャッシュにブロックをロード
+    void loadBlockToL2Cache(uint32_t address);
+
+    void updateL2LRU(uint32_t setIndex, size_t blockIndex);
+    [[nodiscard]] inline size_t findL2LRUVictim(uint32_t setIndex)
+    {
+        return l2LruOrder[setIndex].front();
+    }
+
+    uint64_t l1HitCount = 0;
+    uint64_t l2HitCount = 0;
     uint64_t missCount = 0;
     uint64_t nonWbCount = 0;
     uint64_t diffRangeWbCount = 0;
     uint64_t sameRangeWbCount = 0;
 };
 
-#endif
+#endif // MEMORY_HPP
