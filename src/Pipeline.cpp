@@ -188,7 +188,6 @@ void Pipeline::advance()
     {
         if (executed_mem_stalled)
         {
-            ++memoryStallCycles;
             next_decoded_mem = decoded_mem;
         }
         else
@@ -218,12 +217,9 @@ void Pipeline::advance()
                     }
 
                     // キャッシュアクセスをシミュレート
-                    bool isHit = simulator.simulateCacheAccess(address * 4, false);
-                    if (!isHit)
-                    {
-                        // キャッシュミスなら待機サイクル数を設定
-                        decoded_mem->cacheWaitCycles = simulator.getCacheMissPenalty();
-                    }
+                    simulator.simulateCacheAccess(address * 4, false);
+                    decoded_mem->cacheWaitCycles = simulator.getCacheMissPenalty() - 1;
+                    countMemoryStall(decoded_mem->cacheWaitCycles);
                 }
                 else if (decoded_mem->isStore)
                 {
@@ -236,12 +232,10 @@ void Pipeline::advance()
                     address += offset;
 
                     // キャッシュアクセスをシミュレート
-                    bool isHit = simulator.simulateCacheAccess(address * 4, true);
-                    if (!isHit)
-                    {
-                        // キャッシュミスなら待機サイクル数を設定
-                        decoded_mem->cacheWaitCycles = simulator.getCacheMissPenalty();
-                    }
+                    simulator.simulateCacheAccess(address * 4, true);
+                    decoded_mem->cacheWaitCycles = simulator.getCacheMissPenalty() - 1;
+
+                    countMemoryStall(decoded_mem->cacheWaitCycles);
                 }
             }
             next_executed_mem = decoded_mem;
@@ -513,7 +507,9 @@ bool Pipeline::checkBranchHazard(const PipelineInstruction &inst) const
     // 分岐命令が他の命令を追い越すか
     if ((inst.isBranch || inst.isJalr) && isJalInstruction(inst.raw))
     {
-        return decoded_int[2].has_value() ||
+        return decoded_int[1].has_value() ||
+               decoded_int[2].has_value() ||
+               decoded_fp[1].has_value() ||
                decoded_fp[2].has_value() ||
                decoded_fp[3].has_value() ||
                decoded_fp[4].has_value() ||
@@ -815,8 +811,9 @@ int Pipeline::getIntLatency(uint32_t instruction) const
     case 0x5:     // jalr
         return 1; // レイテンシ1
     case 0xC:     // ftoi, flt, feq
-        if(fpuop == 0x4){
-        return 2; // ftoiはレイテンシ2
+        if (fpuop == 0x4)
+        {
+            return 2; // ftoiはレイテンシ2
         }
         return 1;
     default:
