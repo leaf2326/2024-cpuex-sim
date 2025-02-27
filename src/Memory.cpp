@@ -434,6 +434,15 @@ void Memory::storeWord(uint32_t address, int32_t value)
         ++l1HitCount;
         l1Block.data[offset] = value;
         l1Block.dirty = true;
+        // ログ出力
+        if (availableLog)
+        {
+            std::cerr << "L1 cache hit for address " << std::hex << address
+                      << " tag=" << l1Tag << " index=" << l1Index
+                      << " offset=" << (address & ((1 << offsetBits) - 1))
+                      << " word_offset=" << offset << std::dec << std::endl;
+            std::cerr << "  Storing value: " << std::hex << value << std::dec << std::endl;
+        }
         return;
     }
 
