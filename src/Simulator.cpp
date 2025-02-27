@@ -320,7 +320,7 @@ std::string Simulator::instToString(uint32_t instruction) const
     }
     default:
         std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
+        ss << "instToString: Unknown instruction " << std::hex << instruction;
         throw std::runtime_error(ss.str());
     }
 
@@ -669,7 +669,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         break;
@@ -732,7 +732,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         break;
@@ -774,7 +774,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
@@ -858,7 +858,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         currLoadReg = rd;
@@ -950,7 +950,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
@@ -1016,7 +1016,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         break;
@@ -1093,7 +1093,7 @@ void Simulator::executeInstruction(uint32_t instruction)
         else [[unlikely]]
         {
             std::stringstream ss;
-            ss << "Unknown instruction 0x" << std::hex << instruction;
+            ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
         break;
@@ -1106,7 +1106,7 @@ void Simulator::executeInstruction(uint32_t instruction)
     }
     [[unlikely]] default:
         std::stringstream ss;
-        ss << "Unknown instruction 0x" << std::hex << instruction;
+        ss << "Unknown instruction " << std::hex << instruction;
         throw std::runtime_error(ss.str());
     }
     prevInstIsLoadOrStore = currentInstIsLoadOrStore;
@@ -1871,6 +1871,8 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                 std::cerr << pipeline->getPipelineStateString() << std::endl;
                             }
 
+                            pipeline->advance();
+                            cycleCount++;
                             // 命令を発行しようとする
                             const uint32_t instruction = loadInstruction(pc);
                             bool issued = pipeline->tryIssue(instruction, pc);
@@ -1899,9 +1901,6 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                 }
                             }
 
-                            // パイプラインを1サイクル進める
-                            pipeline->advance();
-                            cycleCount++;
 
                             if (rep == 1)
                             {
@@ -1969,7 +1968,8 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                     }
 
                     const uint32_t instruction = loadInstruction(pc);
-
+                    pipeline->advance();
+                    cycleCount++;
                     // 命令を発行しようとする
                     bool issued = pipeline->tryIssue(instruction, pc);
 
@@ -1990,8 +1990,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                     }
 
                     // パイプラインを1サイクル進める
-                    pipeline->advance();
-                    cycleCount++;
+                    
                 }
 
                 if (isBreakpoint)
@@ -2077,6 +2076,9 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                           << ", Instruction: " << instToString(instruction)
                           << std::endl;
             }
+            // パイプラインを1サイクル進める
+            pipeline->advance();
+            cycleCount++;
 
             // 命令を発行しようとする
             bool issued = pipeline->tryIssue(instruction, pc);
@@ -2103,9 +2105,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                 }
             }
 
-            // パイプラインを1サイクル進める
-            pipeline->advance();
-            cycleCount++;
+            
         }
     }
     else
@@ -2133,7 +2133,9 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                           << ", Instruction: " << instToString(instruction)
                           << std::endl;
             }
-
+// パイプラインを1サイクル進める
+            pipeline->advance();
+            cycleCount++;
             // 命令を発行しようとする
             bool issued = pipeline->tryIssue(instruction, pc);
 
@@ -2161,9 +2163,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                 }
             }
 
-            // パイプラインを1サイクル進める
-            pipeline->advance();
-            cycleCount++;
+            
 
             if (prevLineOutputCount != dMemory.lineOutputCount)
             {

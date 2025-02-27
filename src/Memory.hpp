@@ -10,13 +10,12 @@
 class Memory
 {
 public:
-    // コンストラクタでL1/L2キャッシュのパラメータを指定できるように
     Memory(uint64_t memorySize,
            int64_t input_addr,
            int64_t output_addr,
            size_t l1Lines = 1024,
            size_t l2Lines = 1024,
-           size_t lineSize = 16, // バイト単位
+           size_t lineSize = 16,
            size_t l2Associativity = 4);
 
     int32_t loadWord(uint32_t address, bool toInt);
@@ -67,7 +66,6 @@ public:
         return diffRangeWbCount;
     }
 
-    // キャッシュ設定の取得メソッド
     size_t getL1Lines() const { return l1Lines; }
     size_t getL2Lines() const { return l2Lines; }
     size_t getL2Sets() const { return l2Sets; }
@@ -103,19 +101,19 @@ private:
     const uint64_t memorySize;
 
     // キャッシュパラメータ
-    size_t lineSize;     // バイト単位のラインサイズ
-    size_t wordsPerLine; // ラインあたりのワード数
-    size_t offsetBits;   // オフセットのビット数
+    size_t lineSize;
+    size_t wordsPerLine;
+    size_t offsetBits;
 
     // L1キャッシュパラメータ
-    size_t l1Lines;     // L1キャッシュのライン数
-    size_t l1IndexBits; // L1インデックスのビット数
+    size_t l1Lines;
+    size_t l1IndexBits;
 
     // L2キャッシュパラメータ
-    size_t l2Lines;         // L2キャッシュの総ライン数
-    size_t l2Associativity; // L2キャッシュのウェイ数
-    size_t l2Sets;          // L2キャッシュのセット数
-    size_t l2IndexBits;     // L2インデックスのビット数
+    size_t l2Lines;
+    size_t l2Associativity;
+    size_t l2Sets;
+    size_t l2IndexBits;
 
     const int64_t input_addr;
     const int64_t output_addr;
@@ -154,27 +152,18 @@ private:
     }
 
     [[nodiscard]]
-inline uint32_t getOffset(uint32_t address) const noexcept
-{
-    // バイトオフセットを計算
-    uint32_t byteOffset = address & ((1 << offsetBits) - 1);
-    // ワードオフセットに変換（4バイト = 1ワード）
-    return (byteOffset / sizeof(int32_t));
-}
+    inline uint32_t getOffset(uint32_t address) const noexcept
+    {
+        uint32_t byteOffset = address & ((1 << offsetBits) - 1);
+        // ワードオフセットに変換
+        return (byteOffset / sizeof(int32_t));
+    }
 
-    // L2からL1に書き戻し
     void writeBackL2ToL1(uint32_t address, uint32_t l1Index, const CacheBlock &l2Block);
-
-    // L1からL2に書き戻し
     void writeBackL1ToL2(const CacheBlock &l1Block, uint32_t l1Index);
-
-    // L2からメインメモリに書き戻し
     void writeBackL2ToMain(uint32_t l2Index, uint32_t wayIndex);
 
-    // L1キャッシュにブロックをロード
     void loadBlockToL1Cache(uint32_t address);
-
-    // L2キャッシュにブロックをロード
     void loadBlockToL2Cache(uint32_t address);
 
     void updateL2LRU(uint32_t setIndex, size_t blockIndex);

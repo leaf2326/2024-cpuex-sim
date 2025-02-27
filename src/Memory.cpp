@@ -177,7 +177,6 @@ void Memory::loadBlockToL1Cache(uint32_t address)
 
     if (l2Hit)
     {
-        stallCycles = 7;
         ++l2HitCount;
 
         const CacheBlock &l2Block = l2Cache[l2Index][l2WayIndex];
@@ -220,33 +219,24 @@ void Memory::loadBlockToL2Cache(uint32_t address)
 
     size_t victimIndex = findL2LRUVictim(l2Index);
     CacheBlock &block = l2Cache[l2Index][victimIndex];
-
     if (block.valid && block.dirty) [[unlikely]]
     {
         uint32_t oldAddress = (block.tag << (l2IndexBits + offsetBits)) | (l2Index << offsetBits);
         uint32_t oldRange = (oldAddress >> 22) & 0x7;
         uint32_t newRange = (address >> 22) & 0x7;
-        if (l2IsFirstAccess[l2Index][victimIndex])
-        {
-            // 初回参照ミス
-            stallCycles = 2;
-            l2IsFirstAccess[l2Index][victimIndex] = false;
-        }
-        else if (oldRange != newRange)
+
+        if (oldRange != newRange)
         {
             ++diffRangeWbCount;
-            stallCycles = 57;
         }
         else
         {
             ++sameRangeWbCount;
-            stallCycles = 65;
         }
     }
     else
     {
         ++nonWbCount;
-        stallCycles = 53;
     }
 
     writeBackL2ToMain(l2Index, victimIndex);
@@ -360,7 +350,6 @@ int32_t Memory::loadWord(uint32_t address, bool toInt)
     {
         // L1キャッシュヒット
         ++l1HitCount;
-        stallCycles = 1;
 
         uint32_t byteOffset = address & ((1 << offsetBits) - 1);
         uint32_t wordOffset = byteOffset / sizeof(int32_t);
@@ -443,7 +432,6 @@ void Memory::storeWord(uint32_t address, int32_t value)
     {
         // L1キャッシュヒット
         ++l1HitCount;
-        stallCycles = 1;
         l1Block.data[offset] = value;
         l1Block.dirty = true;
         return;
@@ -466,7 +454,6 @@ void Memory::storeWord(uint32_t address, int32_t value)
 
     if (l2Hit)
     {
-        stallCycles = 7; // L2ヒットは7クロック
         ++l2HitCount;
 
         // L1ブロックの置き換え
@@ -568,29 +555,31 @@ bool Memory::checkCacheHit(uint32_t address)
     size_t victimIndex = findL2LRUVictim(l2Index);
     const CacheBlock &block = l2Cache[l2Index][victimIndex];
 
+    if (l2IsFirstAccess[l2Index][victimIndex])
+    {
+        // 初回参照ミス
+        l2IsFirstAccess[l2Index][victimIndex] = false;
+        stallCycles = 2;
+    }
     // ライトバック必要性の判断
-    if (block.valid && block.dirty) [[unlikely]]
+    else if (block.valid && block.dirty) [[unlikely]]
     {
         uint32_t oldAddress = (block.tag << (l2IndexBits + offsetBits)) | (l2Index << offsetBits);
         uint32_t oldRange = (oldAddress >> 22) & 0x7;
         uint32_t newRange = (address >> 22) & 0x7;
-        if (l2IsFirstAccess[l2Index][victimIndex])
+
+        if (oldRange != newRange)
         {
-            // 初回参照ミス
-            stallCycles = 2;
-        }
-        else if (oldRange != newRange)
-        {
-            stallCycles = 57;
+            stallCycles = 90;
         }
         else
         {
-            stallCycles = 66;
+            stallCycles = 90;
         }
     }
     else
     {
-        stallCycles = 54;
+        stallCycles = 90;
     }
 
     return false;

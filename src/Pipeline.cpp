@@ -40,40 +40,31 @@ bool Pipeline::tryIssue(uint32_t instruction, int32_t pc)
         return true;
     }
 
-    // 分岐命令のハザードをチェック
-    if ((inst.isBranch || inst.isJalr) &&
-        (decoded_int[2].has_value() ||
-         decoded_fp[2].has_value() ||
-         decoded_fp[3].has_value() ||
-         decoded_fp[4].has_value() ||
-         decoded_fp[5].has_value()) &&
-        !isJalInstruction(inst.raw))
-    {
-        stallCount++;
-        branchBypassStallCount++;
-        return false;
-    }
+    // 分岐命令のハザードと依存関係と競合をチェック
 
-    // 依存関係と競合をチェック
+    bool branchStall = checkBranchHazard(inst);
     bool depStall = checkDependencies(inst);
     bool contentionStall = checkContention(inst);
 
-    if (depStall)
+    if (depStall || branchStall || contentionStall)
     {
         stallCount++;
-        return false;
-    }
-    // ストールの種類をカウント
-    if (contentionStall)
-    {
-        // WB衝突の種類を判別
-        if (inst.isMemory)
+        // ストールの種類をカウント
+        if (branchStall)
         {
-            wbCollisionMemCount++;
+            branchBypassStallCount++;
         }
-        else
+        if (contentionStall)
         {
-            wbCollisionIntFpCount++;
+            // WB衝突の種類を判別
+            if (inst.isMemory)
+            {
+                wbCollisionMemCount++;
+            }
+            else
+            {
+                wbCollisionIntFpCount++;
+            }
         }
         return false;
     }
@@ -137,13 +128,11 @@ void Pipeline::advance()
     if (executed_int)
     {
         next_MAed_int = executed_int;
-        executeAtExecutedStage(*executed_int);
     }
 
     if (executed_fp)
     {
         next_MAed_fp = executed_fp;
-        executeAtExecutedStage(*executed_fp);
     }
 
     bool executed_mem_stalled = false;
@@ -199,6 +188,7 @@ void Pipeline::advance()
     {
         if (executed_mem_stalled)
         {
+            ++memoryStallCycles;
             next_decoded_mem = decoded_mem;
         }
         else
@@ -233,7 +223,6 @@ void Pipeline::advance()
                     {
                         // キャッシュミスなら待機サイクル数を設定
                         decoded_mem->cacheWaitCycles = simulator.getCacheMissPenalty();
-                        countMemoryStall(decoded_mem->cacheWaitCycles);
                     }
                 }
                 else if (decoded_mem->isStore)
@@ -252,21 +241,26 @@ void Pipeline::advance()
                     {
                         // キャッシュミスなら待機サイクル数を設定
                         decoded_mem->cacheWaitCycles = simulator.getCacheMissPenalty();
-                        countMemoryStall(decoded_mem->cacheWaitCycles);
                     }
                 }
             }
-
             next_executed_mem = decoded_mem;
         }
     }
 
+    if (decoded_int[0])
+    {
+        executeAtExecutedStage(*decoded_int[0]);
+    }
     next_executed_int = decoded_int[0];
     for (int i = 0; i < 2; i++)
     {
         next_decoded_int[i] = decoded_int[i + 1];
     }
-
+    if (decoded_fp[0])
+    {
+        executeAtExecutedStage(*decoded_fp[0]);
+    }
     next_executed_fp = decoded_fp[0];
     for (int i = 0; i < 5; i++)
     {
@@ -475,20 +469,6 @@ bool Pipeline::checkDependencies(const PipelineInstruction &inst) const
     if (hasDep1 && source1)
     {
         const_cast<Pipeline *>(this)->countRawHazard(inst, *source1);
-        return true;
-    }
-
-    auto [hasDep2, source2] = checkDep(executed_int);
-    if (hasDep2 && source2)
-    {
-        const_cast<Pipeline *>(this)->countRawHazard(inst, *source2);
-        return true;
-    }
-
-    auto [hasDep3, source3] = checkDep(executed_fp);
-    if (hasDep3 && source3)
-    {
-        const_cast<Pipeline *>(this)->countRawHazard(inst, *source3);
         return true;
     }
 
@@ -825,6 +805,7 @@ int Pipeline::getIntLatency(uint32_t instruction) const
 {
     // INT命令のレイテンシを判定
     uint32_t opcode = getOpcode(instruction);
+    uint32_t fpuop = getFpuop(instruction);
 
     switch (opcode)
     {
@@ -834,7 +815,10 @@ int Pipeline::getIntLatency(uint32_t instruction) const
     case 0x5:     // jalr
         return 1; // レイテンシ1
     case 0xC:     // ftoi, flt, feq
-        return 2; // レイテンシ2
+        if(fpuop == 0x4){
+        return 2; // ftoiはレイテンシ2
+        }
+        return 1;
     default:
         return 1; // デフォルトはレイテンシ1
     }
@@ -855,19 +839,19 @@ int Pipeline::getFpLatency(uint32_t instruction) const
     case 0x1:     // fsub
         return 3; // レイテンシ3
     case 0x2:     // fmul
-        return 4; // レイテンシ4
+        return 2; // レイテンシ4
     case 0x3:     // fdiv
-        return 6; // レイテンシ6
+        return 5; // レイテンシ6
     case 0x4:     // fmv
     case 0x5:     // fneg
     case 0x6:     // fabs
         return 1; // レイテンシ1
     case 0x7:     // fsqrt
-        return 6; // レイテンシ6
+        return 3; // レイテンシ6
     case 0x8:     // ffloor
-        return 3; // レイテンシ3
+        return 5; // レイテンシ3
     case 0x9:     // itof
-        return 2; // レイテンシ2
+        return 3; // レイテンシ2
     default:
         return 1; // デフォルトはレイテンシ1
     }
