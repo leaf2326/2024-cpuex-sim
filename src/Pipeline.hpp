@@ -96,5 +96,6 @@ private:
     int getFpLatency(uint32_t instruction) const;
     void flushPipeline();
     int getInstructionType(uint32_t instruction);
+    bool isJalInstruction(uint32_t instruction) const;
 };
 #endif // PIPELINE_HPP

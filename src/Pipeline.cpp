@@ -42,15 +42,12 @@ bool Pipeline::tryIssue(uint32_t instruction, int32_t pc)
 
     // 分岐命令のハザードをチェック
     if ((inst.isBranch || inst.isJalr) &&
-        (decoded_int[0].has_value() ||
-         decoded_int[1].has_value() ||
-         decoded_int[2].has_value() ||
-         decoded_fp[0].has_value() ||
-         decoded_fp[1].has_value() ||
+        (decoded_int[2].has_value() ||
          decoded_fp[2].has_value() ||
          decoded_fp[3].has_value() ||
          decoded_fp[4].has_value() ||
-         decoded_fp[5].has_value() || decoded_mem.has_value()))
+         decoded_fp[5].has_value()) &&
+        !isJalInstruction(inst.raw))
     {
         stallCount++;
         branchBypassStallCount++;
@@ -61,43 +58,34 @@ bool Pipeline::tryIssue(uint32_t instruction, int32_t pc)
     bool depStall = checkDependencies(inst);
     bool contentionStall = checkContention(inst);
 
-    if (depStall || contentionStall)
+    if (depStall)
     {
         stallCount++;
-
-        // ストールの種類をカウント
-        if (contentionStall)
+        return false;
+    }
+    // ストールの種類をカウント
+    if (contentionStall)
+    {
+        // WB衝突の種類を判別
+        if (inst.isMemory)
         {
-            // WB衝突の種類を判別
-            if (inst.isMemory)
-            {
-                wbCollisionMemCount++;
-            }
-            else
-            {
-                wbCollisionIntFpCount++;
-            }
+            wbCollisionMemCount++;
         }
-
+        else
+        {
+            wbCollisionIntFpCount++;
+        }
         return false;
     }
 
     // WAWハザードの処理
     handleWAWHazards(inst);
 
-    // 分岐命令（jal, jalr, b*）は特別扱い - 即座に実行してPCを更新
+    // 分岐命令（jalr, b*）は即座に実行してPCを更新
     if (inst.isBranch || inst.isJalr)
     {
-        simulator.fetchInstruction(pc);
-
         // Simulatorのメソッドを使用し分岐命令を実行
         simulator.executeInstruction(instruction);
-
-        flushPipeline();
-
-        int instType = getInstructionType(instruction);
-        simulator.logInstruction(instType);
-        simulator.logInstAddr(pc);
         return true;
     }
 
@@ -543,7 +531,7 @@ bool Pipeline::checkContention(const PipelineInstruction &inst) const
 bool Pipeline::checkBranchHazard(const PipelineInstruction &inst) const
 {
     // 分岐命令が他の命令を追い越すか
-    if (inst.isBranch || inst.isJalr)
+    if ((inst.isBranch || inst.isJalr) && isJalInstruction(inst.raw))
     {
         return decoded_int[2].has_value() ||
                decoded_fp[2].has_value() ||
@@ -1224,4 +1212,9 @@ int Pipeline::getInstructionType(uint32_t instruction)
     }
 
     return -1;
+}
+
+bool Pipeline::isJalInstruction(uint32_t instruction) const
+{
+    return getOpcode(instruction) == 0xE;
 }
