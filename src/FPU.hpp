@@ -33,6 +33,8 @@ public:
 
     bool feq(uint32_t x1, uint32_t x2);
 
+    int32_t applyFpModifier(int32_t value, uint8_t modifier);
+
 private:
     uint32_t addOrSub(uint32_t x1, uint32_t x2, bool isSubtraction);
 };

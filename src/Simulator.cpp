@@ -55,7 +55,6 @@ void Simulator::storeInstruction(int32_t address, uint64_t instruction)
     }
     iMemory[address] = instruction;
 }
-
 std::string Simulator::instToString(uint64_t instruction) const
 {
     std::ostringstream sstr;
@@ -63,35 +62,44 @@ std::string Simulator::instToString(uint64_t instruction) const
 
     switch (opcode)
     {
+    case 0x0:
+        sstr << "nop";
+        break;
     case 0x1:
     {
-        // add, sub
         const uint32_t subop = getSubop(instruction);
-        const uint32_t rd = getRd(instruction);
-        const uint32_t rs1 = getRs1(instruction);
-        const uint32_t rs2 = getRs2(instruction);
+        const uint32_t subsubop = getSubsubop(instruction);
 
         if (subop == 0x0)
         {
-            sstr << "add x" << rd << ", x" << rs1 << ", x" << rs2;
+            const uint32_t rd = getRd(instruction);
+            const uint32_t rs1 = getRs1(instruction);
+            const uint32_t rs2 = getRs2(instruction);
+
+            if (subsubop == 0x0)
+            {
+                sstr << "add x" << rd << ", x" << rs1 << ", x" << rs2;
+            }
+            else if (subsubop == 0x1)
+            {
+                sstr << "sub x" << rd << ", x" << rs1 << ", x" << rs2;
+            }
+            else if (subsubop == 0x2)
+            {
+                const uint32_t shamt = getShamt(instruction);
+                sstr << "slli x" << rd << ", x" << rs1 << ", " << shamt;
+            }
+            else if (subsubop == 0x3)
+            {
+                const uint32_t shamt = getShamt(instruction);
+                sstr << "srli x" << rd << ", x" << rs1 << ", " << shamt;
+            }
         }
         else if (subop == 0x1)
         {
-            sstr << "sub x" << rd << ", x" << rs1 << ", x" << rs2;
-        }
-
-        break;
-    }
-    case 0x2:
-    {
-        // addi, lui, slli, srli
-        const uint32_t subop = getSubop(instruction);
-        const uint32_t rd = getRd(instruction);
-        const uint32_t rs1 = getRs1(instruction);
-
-        if (subop == 0x0)
-        {
-            int32_t imm = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            const uint32_t rd = getRd(instruction);
+            const uint32_t rs1 = getRs1(instruction);
+            int32_t imm = getOffset6_8(instruction);
             if ((imm >> 13) & 1)
             {
                 imm -= 1 << 14;
@@ -100,103 +108,127 @@ std::string Simulator::instToString(uint64_t instruction) const
         }
         else if (subop == 0x2)
         {
-            const int32_t shamt = (instruction >> 6) & 0x3;
-            sstr << "slli x" << rd << ", x" << rs1 << ", " << shamt;
+            const uint32_t rd = getRd(instruction);
+            int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
+            sstr << "lui x" << rd << ", " << std::hex << (imm >> 12) << std::dec;
         }
         else if (subop == 0x3)
         {
-            const int32_t shamt = (instruction >> 6) & 0x3;
-            sstr << "srli x" << rd << ", x" << rs1 << ", " << shamt;
-        }
-        else if (subop == 0x1)
-        {
-            const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
-            sstr << "lui x" << rd << ", " << std::hex << imm << std::dec;
+            if (subsubop == 0x0)
+            {
+                const uint32_t rd = getRd(instruction);
+                sstr << "in x" << rd;
+            }
+            else if (subsubop == 0x1)
+            {
+                const uint32_t rd = getRd(instruction);
+                sstr << "fin fp" << rd;
+            }
+            else if (subsubop == 0x2)
+            {
+                const uint32_t rs1 = getRs1(instruction);
+                sstr << "out x" << rs1;
+            }
         }
         break;
     }
-    case 0x3:
-    case 0xE:
+    case 0x2:
     {
-        // beq, bne, blt, bge
-        const uint32_t subop = getSubop(instruction);
+        const uint32_t branchop = getBranchop(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
-        if (opcode == 0xE)
-        {
-            imm |= 1 << 14;
-        }
 
-        if (subop == 0x0)
+        if (branchop == 0x0)
         {
             sstr << "beq x" << rs1 << ", x" << rs2 << ", " << imm;
         }
-        else if (subop == 0x1)
+        else if (branchop == 0x1)
         {
             sstr << "bne x" << rs1 << ", x" << rs2 << ", " << imm;
         }
-        else if (subop == 0x2)
+        break;
+    }
+    case 0x6:
+    {
+        const uint32_t branchop = getBranchop(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = getImmediate(instruction);
+
+        if (branchop == 0x0)
         {
             sstr << "blt x" << rs1 << ", x" << rs2 << ", " << imm;
         }
-        else if (subop == 0x3)
+        else if (branchop == 0x1)
         {
             sstr << "bge x" << rs1 << ", x" << rs2 << ", " << imm;
         }
         break;
     }
-    case 0x4:
-    case 0xF:
+    case 0xA:
     {
-        // jal
+        const uint32_t branchop = getBranchop(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        const uint32_t m1 = getM1(instruction);
+        const uint32_t m2 = getM2(instruction);
+        int32_t imm = getImmediate(instruction);
+
+        std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+        std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+
+        if (branchop == 0x0)
+        {
+            sstr << "bflt " << rs1Str << ", " << rs2Str << ", " << imm;
+        }
+        else if (branchop == 0x1)
+        {
+            sstr << "bfge " << rs1Str << ", " << rs2Str << ", " << imm;
+        }
+        break;
+    }
+    case 0xE:
+    {
         const uint32_t rd = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
-        if (opcode == 0xF)
-        {
-            imm |= 1 << 14;
-        }
         sstr << "jal x" << rd << ", " << imm;
         break;
     }
-    case 0x5:
+    case 0xF:
     {
-        // jalr
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
         sstr << "jalr x" << rd << ", x" << rs1;
         break;
     }
-    case 0x8:
+    case 0x3:
     {
-        // lw, lwr
         const uint32_t subop = getSubop(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
 
         if (subop == 0x0)
         {
-            int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            int32_t offset = getOffset6_8(instruction);
             if ((offset >> 13) & 1)
             {
                 offset -= 1 << 14;
             }
             sstr << "lw x" << rd << ", " << offset << "(x" << rs1 << ")";
         }
-        if (subop == 0x1)
+        else if (subop == 0x1)
         {
             const uint32_t rs2 = getRs2(instruction);
             sstr << "lwr x" << rd << ", x" << rs2 << "(x" << rs1 << ")";
         }
         break;
     }
-    case 0x9:
+    case 0x4:
     {
-        // sw
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t offset = getImmediate(instruction);
-        // 符号ビットを処理
+        int32_t offset = getOffset14(instruction);
         if ((offset >> 13) & 1)
         {
             offset -= 1 << 14;
@@ -204,127 +236,180 @@ std::string Simulator::instToString(uint64_t instruction) const
         sstr << "sw x" << rs2 << ", " << offset << "(x" << rs1 << ")";
         break;
     }
-    case 0xA:
+    case 0x5:
     {
-        // flw, flwr
         const uint32_t subop = getSubop(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
 
         if (subop == 0x0)
         {
-            int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            int32_t offset = getOffset6_8(instruction);
             if ((offset >> 13) & 1)
             {
                 offset -= 1 << 14;
             }
             sstr << "flw fp" << rd << ", " << offset << "(x" << rs1 << ")";
         }
-        if (subop == 0x1)
+        else if (subop == 0x1)
         {
             const uint32_t rs2 = getRs2(instruction);
             sstr << "flwr fp" << rd << ", x" << rs2 << "(x" << rs1 << ")";
         }
-
         break;
     }
-    case 0xB:
+    case 0x7:
     {
-        // fsw
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t imm = getImmediate(instruction);
-        // 符号ビットを処理
-        if ((imm >> 13) & 1)
+        const uint32_t m2 = getM2(instruction);
+        int32_t offset = getOffset14(instruction);
+        if ((offset >> 13) & 1)
         {
-            imm -= 1 << 14;
+            offset -= 1 << 14;
         }
-        sstr << "fsw fp" << rs2 << ", " << imm << "(x" << rs1 << ")";
+
+        std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+        sstr << "fsw " << rs2Str << ", " << offset << "(x" << rs1 << ")";
+        break;
+    }
+    case 0x9:
+    {
+        sstr << "ebreak";
         break;
     }
     case 0xC:
     {
-        // ftoi, flt, feq
         const uint32_t fpuop = getFpuop(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
-        const uint32_t rs2 = getRs2(instruction);
+        const uint32_t m1 = getM1(instruction);
 
         if (fpuop == 0x4)
         {
-            sstr << "ftoi x" << rd << ", fp" << rs1;
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            sstr << "ftoi x" << rd << ", " << rs1Str;
         }
         else if (fpuop == 0x0)
         {
-            sstr << "flt x" << rd << ", fp" << rs1 << ", fp " << rs2;
+            const uint32_t rs2 = getRs2(instruction);
+            const uint32_t m2 = getM2(instruction);
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+            sstr << "flt x" << rd << ", " << rs1Str << ", " << rs2Str;
         }
         else if (fpuop == 0x1)
         {
-            sstr << "feq x" << rd << ", fp" << rs1 << ", fp " << rs2;
+            const uint32_t rs2 = getRs2(instruction);
+            const uint32_t m2 = getM2(instruction);
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+            sstr << "feq x" << rd << ", " << rs1Str << ", " << rs2Str;
         }
         break;
     }
     case 0xD:
     {
-        // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor
         const uint32_t fpuop = getFpuop(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
-        const uint32_t rs2 = getRs2(instruction);
-        if (fpuop == 0x9)
+        const uint32_t m1 = getM1(instruction);
+
+        if (fpuop == 0x7)
         {
             sstr << "itof fp" << rd << ", x" << rs1;
         }
         else if (fpuop == 0x0)
         {
-            sstr << "fadd fp" << rd << ", fp" << rs1 << ", fp" << rs2;
-        }
-        else if (fpuop == 0x1)
-        {
-            sstr << "fsub fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+            const uint32_t rs2 = getRs2(instruction);
+            const uint32_t m2 = getM2(instruction);
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+            sstr << "fadd fp" << rd << ", " << rs1Str << ", " << rs2Str;
         }
         else if (fpuop == 0x2)
         {
-            sstr << "fmul fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+            const uint32_t rs2 = getRs2(instruction);
+            const uint32_t m2 = getM2(instruction);
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+            sstr << "fmul fp" << rd << ", " << rs1Str << ", " << rs2Str;
         }
         else if (fpuop == 0x3)
         {
-            sstr << "fdiv fp" << rd << ", fp" << rs1 << ", fp" << rs2;
+            const uint32_t rs2 = getRs2(instruction);
+            const uint32_t m2 = getM2(instruction);
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+            sstr << "fdiv fp" << rd << ", " << rs1Str << ", " << rs2Str;
         }
         else if (fpuop == 0x4)
         {
-            sstr << "fmv fp" << rd << ", fp" << rs1;
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            sstr << "fmv fp" << rd << ", " << rs1Str;
         }
         else if (fpuop == 0x5)
         {
-            sstr << "fneg fp" << rd << ", fp" << rs1;
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            sstr << "fsqrt fp" << rd << ", " << rs1Str;
         }
         else if (fpuop == 0x6)
         {
-            sstr << "fabs fp" << rd << ", fp" << rs1;
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            sstr << "ffloor fp" << rd << ", " << rs1Str;
         }
-        else if (fpuop == 0x7)
+        else if (fpuop == 0x1)
         {
-            sstr << "fsqrt fp" << rd << ", fp" << rs1;
+            const uint32_t rs2 = getRs2(instruction);
+            const uint32_t rs3 = getRs3(instruction);
+            const uint32_t m2 = getM2(instruction);
+            const uint32_t m3 = getM3(instruction);
+
+            std::string rs1Str = formatFpRegWithModifier(rs1, m1);
+            std::string rs2Str = formatFpRegWithModifier(rs2, m2);
+            std::string rs3Str;
+            if (m3)
+            {
+                rs3Str = "-fp" + std::to_string(rs3);
+            }
+            else
+            {
+                rs3Str = "fp" + std::to_string(rs3);
+            }
+
+            sstr << "fmadd fp" << rd << ", " << rs1Str << ", " << rs2Str << ", " << rs3Str;
         }
-        else if (fpuop == 0x8)
-        {
-            sstr << "ffloor fp" << rd << ", fp" << rs1;
-        }
-        break;
-    }
-    case 0x6:
-    {
-        sstr << "ebreak";
         break;
     }
     default:
-        std::stringstream ss;
-        ss << "instToString: Unknown instruction " << std::hex << instruction;
-        throw std::runtime_error(ss.str());
+        sstr << "Unknown instruction " << std::hex << instruction;
+        break;
     }
 
     return sstr.str();
+}
+
+std::string Simulator::formatFpRegWithModifier(uint32_t reg, uint32_t modifier) const
+{
+    std::string result;
+
+    switch (modifier)
+    {
+    case 0:
+        result = "fp" + std::to_string(reg);
+        break;
+    case 1:
+        result = "-fp" + std::to_string(reg);
+        break;
+    case 2:
+        result = "abs(fp" + std::to_string(reg) + ")";
+        break;
+    case 3:
+        result = "-abs(fp" + std::to_string(reg) + ")";
+        break;
+    }
+
+    return result;
 }
 
 void Simulator::loadMemoryFromBinary(const std::string &filename)
@@ -514,7 +599,7 @@ void Simulator::printRegisters(int regType) const
 }
 
 // 分岐予測
-void Simulator::branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken)
+void Simulator::branchPrediction(int32_t imm, bool isTaken)
 {
     int32_t pc = getPC();
     bool predictedTaken = predictor.predict(pc);
@@ -658,10 +743,14 @@ void Simulator::executeInstruction(uint64_t instruction)
     const uint32_t opcode = getOpcode(instruction);
     switch (opcode)
     {
+    case 0x0:
+        logInstruction(NOP);
+        break;
     case 0x1:
     {
-        // R-type (add, sub)
+        // R-type (add, sub, slli, srli, addi, lui)
         const uint32_t subop = getSubop(instruction);
+        const uint32_t subsubop = getSubsubop(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
@@ -670,17 +759,101 @@ void Simulator::executeInstruction(uint64_t instruction)
 
         if (subop == 0x0)
         {
-            logInstruction(ADD);
-            if (rs1 == 0 || rs2 == 0)
+            if (subsubop == 0x0)
             {
-                ++mvCount;
+                logInstruction(ADD);
+                if (rs1 == 0 || rs2 == 0)
+                {
+                    ++mvCount;
+                }
+                setRegister(rd, getRegister(rs1) + getRegister(rs2));
             }
-            setRegister(rd, getRegister(rs1) + getRegister(rs2));
+            else if (subsubop == 0x1)
+            {
+                logInstruction(SUB);
+                setRegister(rd, getRegister(rs1) - getRegister(rs2));
+            }
+            else if (subsubop == 0x2)
+            {
+                detectPrevLoad(rs1, NOLOADREG);
+
+                const int32_t shamt = getShamt(instruction);
+                if (!(shamt >= 0 && shamt <= 3)) [[unlikely]]
+                {
+                    throw std::runtime_error("Error: shamt is not between 0 and 3");
+                }
+                logInstruction(SLLI);
+                setRegister(rd, getRegister(rs1) << shamt);
+            }
+            else if (subsubop == 0x3)
+            {
+                detectPrevLoad(rs1, NOLOADREG);
+
+                const int32_t shamt = getShamt(instruction);
+                if (!(shamt >= 0 && shamt <= 3)) [[unlikely]]
+                {
+                    throw std::runtime_error("Error: shamt is not between 0 and 3");
+                }
+                logInstruction(SRLI);
+                setRegister(rd, getRegister(rs1) >> shamt);
+            }
+            else [[unlikely]]
+            {
+                std::stringstream ss;
+                ss << "Unknown instruction " << std::hex << instruction;
+                throw std::runtime_error(ss.str());
+            }
         }
         else if (subop == 0x1)
         {
-            logInstruction(SUB);
-            setRegister(rd, getRegister(rs1) - getRegister(rs2));
+            detectPrevLoad(rs1, NOLOADREG);
+
+            int32_t imm = getOffset6_8(instruction);
+            if ((imm >> 13) & 1)
+            {
+                imm -= 1 << 14;
+            }
+            logInstruction(ADDI);
+            if (rs1 == 0)
+            {
+                // mvi
+                ++mviCount;
+            }
+            setRegister(rd, getRegister(rs1) + imm);
+        }
+        else if (subop == 0x2)
+        {
+            // ?-type (lui)
+            const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
+            logInstruction(LUI);
+            setRegister(rd, imm);
+        }
+        else if (subop == 0x3)
+        {
+            if (subsubop == 0x0)
+            {
+                // ?-type (in)
+                logInstruction(IN);
+                setRegister(rd, dMemory.loadWord(INPUT_ADDRESS * 4, true));
+            }
+            else if (subsubop == 0x1)
+            {
+                // ?-type (fin)
+                logInstruction(FIN);
+                setFpRegister(rd, dMemory.loadWord(INPUT_ADDRESS * 4, false));
+            }
+            else if (subsubop == 0x2)
+            {
+                // ?-type (out)
+                logInstruction(OUT);
+                dMemory.storeWord(OUTPUT_ADDRESS * 4, getRegister(rs1));
+            }
+            else [[unlikely]]
+            {
+                std::stringstream ss;
+                ss << "Unknown instruction " << std::hex << instruction;
+                throw std::runtime_error(ss.str());
+            }
         }
         else [[unlikely]]
         {
@@ -692,58 +865,22 @@ void Simulator::executeInstruction(uint64_t instruction)
     }
     case 0x2:
     {
-        // addi, lui, slli, srli
-        const uint32_t subop = getSubop(instruction);
-        const uint32_t rd = getRd(instruction);
+        // B-type (beq, bne)
+        const uint32_t branchop = getBranchop(instruction);
         const uint32_t rs1 = getRs1(instruction);
-
-        if (subop == 0x0)
+        const uint32_t rs2 = getRs2(instruction);
+        int32_t imm = getImmediate(instruction);
+        bool isTaken = false;
+        detectPrevLoad(rs1, rs2);
+        if (branchop == 0x0)
         {
-            detectPrevLoad(rs1, NOLOADREG);
-
-            int32_t imm = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
-            if ((imm >> 13) & 1)
-            {
-                imm -= 1 << 14;
-            }
-            logInstruction(ADDI);
-            // count mvi
-            if (rs1 == 0)
-            {
-                ++mviCount;
-            }
-            setRegister(rd, getRegister(rs1) + imm);
+            logInstruction(BEQ);
+            isTaken = (getRegister(rs1) == getRegister(rs2));
         }
-        else if (subop == 0x2)
+        else if (branchop == 0x1)
         {
-            detectPrevLoad(rs1, NOLOADREG);
-
-            const int32_t shamt = (instruction >> 6) & 0x3;
-            if (!(shamt >= 0 && shamt <= 3)) [[unlikely]]
-            {
-                throw std::runtime_error("Warning: shamt is not between 0 and 3");
-            }
-            logInstruction(SLLI);
-            setRegister(rd, getRegister(rs1) << shamt);
-        }
-        else if (subop == 0x3)
-        {
-            detectPrevLoad(rs1, NOLOADREG);
-
-            const int32_t shamt = (instruction >> 6) & 0x3;
-            if (!(shamt >= 0 && shamt <= 3)) [[unlikely]]
-            {
-                throw std::runtime_error("Warning: shamt is not between 0 and 3");
-            }
-            logInstruction(SRLI);
-            setRegister(rd, getRegister(rs1) >> shamt);
-        }
-        else if (subop == 0x1)
-        {
-            // ?-type (lui)
-            const int32_t imm = ((((instruction >> 20) & 0xFFF) << 8) | ((instruction >> 6) & 0xFF)) << 12;
-            logInstruction(LUI);
-            setRegister(rd, imm);
+            logInstruction(BNE);
+            isTaken = (getRegister(rs1) != getRegister(rs2));
         }
         else [[unlikely]]
         {
@@ -751,38 +888,24 @@ void Simulator::executeInstruction(uint64_t instruction)
             ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
+        branchPrediction(imm, isTaken); // 分岐予測の実行
         break;
     }
-    case 0x3:
-    case 0xE:
+    case 0x6:
     {
-        // B-type (beq, bne, blt, bge)
-        const uint32_t subop = getSubop(instruction);
+        // B-type (blt, bge)
+        const uint32_t branchop = getBranchop(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
         int32_t imm = getImmediate(instruction);
-        if (opcode == 0xE)
-        {
-            imm |= 1 << 14;
-        }
         bool isTaken = false;
         detectPrevLoad(rs1, rs2);
-        if (subop == 0x0)
-        {
-            logInstruction(BEQ);
-            isTaken = (getRegister(rs1) == getRegister(rs2));
-        }
-        else if (subop == 0x1)
-        {
-            logInstruction(BNE);
-            isTaken = (getRegister(rs1) != getRegister(rs2));
-        }
-        else if (subop == 0x2)
+        if (branchop == 0x0)
         {
             logInstruction(BLT);
             isTaken = (getRegister(rs1) < getRegister(rs2));
         }
-        else if (subop == 0x3)
+        else if (branchop == 0x1)
         {
             logInstruction(BGE);
             isTaken = (getRegister(rs1) >= getRegister(rs2));
@@ -793,25 +916,52 @@ void Simulator::executeInstruction(uint64_t instruction)
             ss << "Unknown instruction " << std::hex << instruction;
             throw std::runtime_error(ss.str());
         }
-        branchPrediction(rs1, rs2, imm, isTaken); // 分岐予測の実行
+        branchPrediction(imm, isTaken); // 分岐予測の実行
         break;
     }
-    case 0x4:
-    case 0xF:
+    case 0xA:
+    {
+        // B-type (bflt, bfge)
+        const uint32_t branchop = getBranchop(instruction);
+        const uint32_t rs1 = getRs1(instruction);
+        const uint32_t rs2 = getRs2(instruction);
+        const uint32_t m1 = getM1(instruction);
+        const uint32_t m2 = getM2(instruction);
+        int32_t fprs1 = fpu.applyFpModifier(getFpRegister(rs1), m1);
+        int32_t fprs2 = fpu.applyFpModifier(getFpRegister(rs2), m2);
+        int32_t imm = getImmediate(instruction);
+        bool isTaken = false;
+        detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+        if (branchop == 0x0)
+        {
+            logInstruction(BFLT);
+            isTaken = fpu.flt(fprs1, fprs2);
+        }
+        else if (branchop == 0x1)
+        {
+            logInstruction(BFGE);
+            isTaken = !fpu.flt(fprs1, fprs2);
+        }
+        else [[unlikely]]
+        {
+            std::stringstream ss;
+            ss << "Unknown instruction " << std::hex << instruction;
+            throw std::runtime_error(ss.str());
+        }
+        branchPrediction(imm, isTaken); // 分岐予測の実行
+        break;
+    }
+    case 0xE:
     {
         // J-type (jal)
         const uint32_t rd = getRs2(instruction); // jalは特例でrs2の位置にrd
         int32_t imm = getImmediate(instruction);
-        if (opcode == 0xF)
-        {
-            imm |= 1 << 14;
-        }
         logInstruction(JAL);
         setRegister(rd, getPC() + 1);
         setPC(imm);
         break;
     }
-    case 0x5:
+    case 0xF:
     {
         // I-type (jalr)
         const uint32_t rd = getRd(instruction);
@@ -824,7 +974,7 @@ void Simulator::executeInstruction(uint64_t instruction)
         setPC(getRegister(rs1));
         break;
     }
-    case 0x8:
+    case 0x3:
     {
         // I-type (lw), R-type (lwr)
         const uint32_t subop = getSubop(instruction);
@@ -835,7 +985,7 @@ void Simulator::executeInstruction(uint64_t instruction)
         {
             detectPrevLoad(rs1, NOLOADREG);
 
-            int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            int32_t offset = getOffset6_8(instruction);
             if ((offset >> 13) & 1)
             {
                 offset -= 1 << 14;
@@ -880,12 +1030,12 @@ void Simulator::executeInstruction(uint64_t instruction)
         currLoadReg = rd;
         break;
     }
-    case 0x9:
+    case 0x4:
     {
         // S-type (sw)
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t offset = getImmediate(instruction);
+        int32_t offset = getOffset14(instruction);
         // 符号ビットを処理
         if ((offset >> 13) & 1)
         {
@@ -911,7 +1061,7 @@ void Simulator::executeInstruction(uint64_t instruction)
         currentInstIsLoadOrStore = true;
         break;
     }
-    case 0xA:
+    case 0x5:
     {
         // I-type, (flw), R-type (flwr)
         const uint32_t subop = getSubop(instruction);
@@ -920,7 +1070,7 @@ void Simulator::executeInstruction(uint64_t instruction)
 
         if (subop == 0x0)
         {
-            int32_t offset = ((((instruction >> 26) & 0x3F) << 8) | ((instruction >> 6) & 0xFF));
+            int32_t offset = getOffset6_8(instruction);
             if ((offset >> 13) & 1)
             {
                 offset -= 1 << 14;
@@ -972,18 +1122,21 @@ void Simulator::executeInstruction(uint64_t instruction)
         currLoadReg = rd + REG_COUNT; // Register:0~REG_COUNT-1, fpRegister: REG_COUNT~REG_COUNT+FPREG_COUNT-1
         break;
     }
-    case 0xB:
+    case 0x7:
     {
         // S-type (fsw)
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        int32_t imm = getImmediate(instruction);
+        int32_t imm = getOffset14(instruction);
+        const uint32_t m2 = getM2(instruction);
+        int32_t fprs2 = fpu.applyFpModifier(getFpRegister(rs2), m2);
+
         // 符号ビットを処理
         if ((imm >> 13) & 1)
         {
             imm -= 1 << 14;
         }
-        detectPrevLoad(rs1, rs2);
+        detectPrevLoad(rs1, rs2 + REG_COUNT);
 
         const int64_t address = getRegister(rs1) + imm;
         logInstruction(FSW); // 命令の記録
@@ -995,7 +1148,7 @@ void Simulator::executeInstruction(uint64_t instruction)
         {
             ++fswNegativeCount;
         }
-        dMemory.storeWord(address * 4, getFpRegister(rs2));
+        dMemory.storeWord(address * 4, fprs2);
         if (prevInstIsLoadOrStore)
         {
             ++loadStoreSequence;
@@ -1010,24 +1163,28 @@ void Simulator::executeInstruction(uint64_t instruction)
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
+        const uint32_t m1 = getM1(instruction);
+        const uint32_t m2 = getM2(instruction);
+        int32_t fprs1 = fpu.applyFpModifier(getFpRegister(rs1), m1);
+        int32_t fprs2 = fpu.applyFpModifier(getFpRegister(rs2), m2);
         if (fpuop == 0x4)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction(FTOI);
-            setRegister(rd, fpu.ftoi(getFpRegister(rs1)));
+            setRegister(rd, fpu.ftoi(fprs1));
         }
         else if (fpuop == 0x0)
         {
 
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction(FLT);
-            setRegister(rd, fpu.flt(getFpRegister(rs1), getFpRegister(rs2)));
+            setRegister(rd, fpu.flt(fprs1, fprs2));
         }
         else if (fpuop == 0x1)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction(FEQ);
-            setRegister(rd, fpu.feq(getFpRegister(rs1), getFpRegister(rs2)));
+            setRegister(rd, fpu.feq(fprs1, fprs2));
         }
         else [[unlikely]]
         {
@@ -1039,14 +1196,17 @@ void Simulator::executeInstruction(uint64_t instruction)
     }
     case 0xD:
     {
-        // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor
+        // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor, fmadd
         const uint32_t fpuop = getFpuop(instruction);
         const uint32_t rd = getRd(instruction);
         const uint32_t rs1 = getRs1(instruction);
         const uint32_t rs2 = getRs2(instruction);
-        if (fpuop == 0x9)
+        const uint32_t m1 = getM1(instruction);
+        const uint32_t m2 = getM2(instruction);
+        int32_t fprs1 = fpu.applyFpModifier(getFpRegister(rs1), m1);
+        int32_t fprs2 = fpu.applyFpModifier(getFpRegister(rs2), m2);
+        if (fpuop == 0x7)
         {
-
             detectPrevLoad(rs1, NOLOADREG);
             logInstruction(ITOF);
             setFpRegister(rd, fpu.itof(getRegister(rs1)));
@@ -1056,55 +1216,47 @@ void Simulator::executeInstruction(uint64_t instruction)
 
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction(FADD);
-            setFpRegister(rd, fpu.fadd(getFpRegister(rs1), getFpRegister(rs2)));
-        }
-        else if (fpuop == 0x1)
-        {
-            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction(FSUB);
-            setFpRegister(rd, fpu.fsub(getFpRegister(rs1), getFpRegister(rs2)));
+            setFpRegister(rd, fpu.fadd(fprs1, fprs2));
         }
         else if (fpuop == 0x2)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction(FMUL);
-            setFpRegister(rd, fpu.fmul(getFpRegister(rs1), getFpRegister(rs2)));
+            setFpRegister(rd, fpu.fmul(fprs1, fprs2));
         }
         else if (fpuop == 0x3)
         {
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             logInstruction(FDIV);
-            setFpRegister(rd, fpu.fdiv(getFpRegister(rs1), getFpRegister(rs2)));
+            setFpRegister(rd, fpu.fdiv(fprs1, fprs2));
         }
         else if (fpuop == 0x4)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction(FMV);
-            setFpRegister(rd, getFpRegister(rs1));
+            setFpRegister(rd, fprs1);
         }
         else if (fpuop == 0x5)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction(FNEG);
-            setFpRegister(rd, fpu.fneg(getFpRegister(rs1)));
+            logInstruction(FSQRT);
+            setFpRegister(rd, fpu.fsqrt(fprs1));
         }
         else if (fpuop == 0x6)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction(FABS);
-            setFpRegister(rd, fpu.fabs(getFpRegister(rs1)));
-        }
-        else if (fpuop == 0x7)
-        {
-            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
-            logInstruction(FSQRT);
-            setFpRegister(rd, fpu.fsqrt(getFpRegister(rs1)));
-        }
-        else if (fpuop == 0x8)
-        {
-            detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
             logInstruction(FFLOOR);
-            setFpRegister(rd, fpu.ffloor(getFpRegister(rs1)));
+            setFpRegister(rd, fpu.ffloor(fprs1));
+        }
+        else if (fpuop == 0x1)
+        {
+            const uint32_t rs3 = getRs3(instruction);
+            const uint32_t m3 = getM3(instruction);
+            int32_t fprs3 = fpu.applyFpModifier(getFpRegister(rs3), m3);
+            detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
+            detectPrevLoad(rs3 + REG_COUNT, NOLOADREG);
+            logInstruction(FMADD);
+            setFpRegister(rd, fpu.fmul(fpu.fadd(fprs1, fprs2), fprs3));
         }
         else [[unlikely]]
         {
@@ -1114,7 +1266,7 @@ void Simulator::executeInstruction(uint64_t instruction)
         }
         break;
     }
-    case 0x6:
+    case 0x9:
     {
         logInstruction(EBREAK);
         setBreakpoint(true);
@@ -1207,13 +1359,14 @@ void Simulator::printNonPipelineLog()
     std::cerr << "  Sequencial load and store: " << loadStoreSequence << std::endl;
     estimatedClock += loadStoreSequence;
     uint64_t floatingStall = 0;
-    floatingStall += ((instructionCounts[FADD]) + (instructionCounts[FSUB])) * 4;
+    floatingStall += (instructionCounts[FADD]) * 2;
+    floatingStall += (instructionCounts[FMADD]) * 3;
     floatingStall += (instructionCounts[FMUL]) * 1;
     floatingStall += (instructionCounts[FDIV]) * 4;
     floatingStall += (instructionCounts[FSQRT]) * 2;
     floatingStall += (instructionCounts[FFLOOR]) * 4;
     floatingStall += (instructionCounts[ITOF]) * 2;
-    floatingStall += (instructionCounts[FTOI]) * 2;
+    floatingStall += (instructionCounts[FTOI]) * 1;
     estimatedClock += floatingStall;
     std::cerr << "  floating instructions: " << floatingStall << std::endl;
     uint64_t cacheStall = 0;
@@ -1359,7 +1512,7 @@ void Simulator::printPipelineLog()
     std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
 
     // FPU演算
-    uint64_t fpuOps = instructionCounts[FADD] + instructionCounts[FSUB] +
+    uint64_t fpuOps = instructionCounts[FADD] +
                       instructionCounts[FMUL] + instructionCounts[FDIV] +
                       instructionCounts[FSQRT] + instructionCounts[FFLOOR];
     double fpuOpsRatio = (double)fpuOps / totalInstructions * 100.0;
@@ -1551,16 +1704,11 @@ void Simulator::runProgram(int outputRegNum)
 #ifdef DEBUG
                                         std::cerr << "instruction : 0b" << std::bitset<32>(instruction) << std::endl;
 #endif // DEBUG
-
                                         printProgram(true);
                                         printInstruction(instruction);
                                     }
                                     executeInstruction(instruction);
-                                    if (getOpcode(instruction) != 0x3 &&
-                                        getOpcode(instruction) != 0x4 &&
-                                        getOpcode(instruction) != 0x5 &&
-                                        getOpcode(instruction) != 0xE &&
-                                        getOpcode(instruction) != 0xF)
+                                    if (isBranchInst(instruction))
                                     {
                                         setPC(getPC() + 1);
                                     }
@@ -1624,11 +1772,7 @@ void Simulator::runProgram(int outputRegNum)
                             const uint64_t instruction = loadInstruction(pc);
 
                             executeInstruction(instruction);
-                            if (getOpcode(instruction) != 0x3 &&
-                                getOpcode(instruction) != 0x4 &&
-                                getOpcode(instruction) != 0x5 &&
-                                getOpcode(instruction) != 0xE &&
-                                getOpcode(instruction) != 0xF)
+                            if (isBranchInst(instruction))
                             {
                                 setPC(getPC() + 1);
                             }
@@ -1670,11 +1814,7 @@ void Simulator::runProgram(int outputRegNum)
                         printInstruction(instruction);
                     }
                     executeInstruction(instruction);
-                    if (getOpcode(instruction) != 0x3 &&
-                        getOpcode(instruction) != 0x4 &&
-                        getOpcode(instruction) != 0x5 &&
-                        getOpcode(instruction) != 0xE &&
-                        getOpcode(instruction) != 0xF)
+                    if (isBranchInst(instruction))
                     {
                         setPC(getPC() + 1);
                     }
@@ -1696,11 +1836,7 @@ void Simulator::runProgram(int outputRegNum)
                         printInstruction(instruction);
                     }
                     executeInstruction(instruction);
-                    if (getOpcode(instruction) != 0x3 &&
-                        getOpcode(instruction) != 0x4 &&
-                        getOpcode(instruction) != 0x5 &&
-                        getOpcode(instruction) != 0xE &&
-                        getOpcode(instruction) != 0xF)
+                    if (isBranchInst(instruction))
                     {
                         setPC(getPC() + 1);
                     }
@@ -1917,11 +2053,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                 {
                                     std::cerr << "Issuing: " << instToString(instruction) << std::endl;
                                 }
-                                if (getOpcode(instruction) != 0x3 &&
-                                    getOpcode(instruction) != 0x4 &&
-                                    getOpcode(instruction) != 0x5 &&
-                                    getOpcode(instruction) != 0xE &&
-                                    getOpcode(instruction) != 0xF)
+                                if (isBranchInst(instruction))
                                 {
                                     setPC(getPC() + 1);
                                 }
@@ -2011,11 +2143,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                         // 発行成功：ステップカウントを増やす
                         step++;
 
-                        if (getOpcode(instruction) != 0x3 &&
-                            getOpcode(instruction) != 0x4 &&
-                            getOpcode(instruction) != 0x5 &&
-                            getOpcode(instruction) != 0xE &&
-                            getOpcode(instruction) != 0xF)
+                        if (isBranchInst(instruction))
                         {
                             setPC(getPC() + 1);
                             ;
@@ -2127,11 +2255,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                     break;
                 }
 
-                if (getOpcode(instruction) != 0x3 &&
-                    getOpcode(instruction) != 0x4 &&
-                    getOpcode(instruction) != 0x5 &&
-                    getOpcode(instruction) != 0xE &&
-                    getOpcode(instruction) != 0xF)
+                if (isBranchInst(instruction))
                 {
                     setPC(getPC() + 1);
                 }
@@ -2184,11 +2308,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
 
                 // PCが変わっていなければ、次の命令へ
                 // （分岐命令の場合、既にtryIssue内でPCが更新されている）
-                if (getOpcode(instruction) != 0x3 &&
-                    getOpcode(instruction) != 0x4 &&
-                    getOpcode(instruction) != 0x5 &&
-                    getOpcode(instruction) != 0xE &&
-                    getOpcode(instruction) != 0xF)
+                if (isBranchInst(instruction))
                 {
                     setPC(getPC() + 1);
                 }

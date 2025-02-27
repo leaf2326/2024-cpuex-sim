@@ -277,18 +277,22 @@ void Pipeline::advance()
         decoded_fp[i] = next_decoded_fp[i];
     }
 }
-void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &inst)
-{
-    // 命令をデコードし、種類や依存関係を決定
+void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction& inst) {
+    // 命令をデコードして、種類や依存関係を決定
     inst.raw = raw;
     inst.pc = pc;
-
+    
     uint32_t opcode = getOpcode(raw);
     uint32_t subop = getSubop(raw);
+    uint32_t subsubop = getSubsubop(raw);
+    uint32_t fpuop = getFpuop(raw);
     uint32_t rd = getRd(raw);
     uint32_t rs1 = getRs1(raw);
     uint32_t rs2 = getRs2(raw);
-
+    uint32_t m1 = getM1(raw);
+    uint32_t m2 = getM2(raw);
+    
+    // 初期化
     inst.rd = -1;
     inst.isFpRd = false;
     inst.rs1 = -1;
@@ -296,127 +300,171 @@ void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &
     inst.isFpRs1 = inst.isFpRs2 = false;
     inst.isMemory = inst.isLoad = inst.isStore = false;
     inst.isBranch = inst.isJalr = false;
-    inst.isEbreak = false;
     inst.cacheWaitCycles = 0;
     inst.shouldDisappear = false;
     inst.rs1Value = 0;
     inst.rs2Value = 0;
-
-    // 命令タイプの判別及びソースレジスタの設定
-    switch (opcode)
-    {
-    case 0x1: // add, sub
-        inst.rd = rd;
-        inst.rs1 = rs1;
-        inst.rs2 = rs2;
-        inst.rs1Value = simulator.getRegister(rs1);
-        inst.rs2Value = simulator.getRegister(rs2);
-        break;
-    case 0x2: // addi, lui, slli, srli
-        inst.rd = rd;
-        if (subop != 0x1)
-        { // luiでなければrs1を使用
+    
+    // 命令タイプの判別
+    switch (opcode) {
+        case 0x0:  // nop
+            // nopは何も設定しない
+            break;
+            
+        case 0x1:  // ALU命令と入出力命令
+            if (subop == 0x0) {  // add, sub, slli, srli
+                inst.rd = rd;
+                inst.rs1 = rs1;
+                
+                if (subsubop == 0x0 || subsubop == 0x1) {  // add, sub
+                    inst.rs2 = rs2;
+                    inst.rs1Value = simulator.getRegister(rs1);
+                    inst.rs2Value = simulator.getRegister(rs2);
+                } else if (subsubop == 0x2 || subsubop == 0x3) {  // slli, srli
+                    inst.rs1Value = simulator.getRegister(rs1);
+                }
+            } else if (subop == 0x1) {  // addi
+                inst.rd = rd;
+                inst.rs1 = rs1;
+                inst.rs1Value = simulator.getRegister(rs1);
+            } else if (subop == 0x2) {  // lui
+                inst.rd = rd;
+            } else if (subop == 0x3) {  // in, fin, out
+                if (subsubop == 0x0) {  // in
+                    inst.rd = rd;
+                } else if (subsubop == 0x1) {  // fin
+                    inst.rd = rd;
+                    inst.isFpRd = true;
+                } else if (subsubop == 0x2) {  // out
+                    inst.rs1 = rs1;
+                    inst.rs1Value = simulator.getRegister(rs1);
+                }
+            }
+            break;
+            
+        case 0x2:  // beq, bne
+        case 0x6:  // blt, bge
             inst.rs1 = rs1;
+            inst.rs2 = rs2;
+            inst.isBranch = true;
             inst.rs1Value = simulator.getRegister(rs1);
-        }
-        break;
-    case 0x3:
-    case 0xE: // beq, bne, blt, bge
-        inst.rs1 = rs1;
-        inst.rs2 = rs2;
-        inst.isBranch = true;
-        inst.rs1Value = simulator.getRegister(rs1);
-        inst.rs2Value = simulator.getRegister(rs2);
-        break;
-    case 0x4:
-    case 0xF:          // jal
-        inst.rd = rs2; // jalは特例でrs2の位置にrd
-        inst.isBranch = true;
-        break;
-    case 0x5: // jalr
-        inst.rd = rd;
-        inst.rs1 = rs1;
-        inst.isJalr = true;
-        inst.rs1Value = simulator.getRegister(rs1);
-        break;
-    case 0x8: // lw, lwr
-        inst.rd = rd;
-        inst.rs1 = rs1;
-        inst.isMemory = true;
-        inst.isLoad = true;
-        inst.rs1Value = simulator.getRegister(rs1);
-        if (subop == 0x1)
-        { // lwr
-            inst.rs2 = rs2;
             inst.rs2Value = simulator.getRegister(rs2);
-        }
-        break;
-    case 0x9: // sw
-        inst.rs1 = rs1;
-        inst.rs2 = rs2;
-        inst.isMemory = true;
-        inst.isStore = true;
-        inst.rs1Value = simulator.getRegister(rs1);
-        inst.rs2Value = simulator.getRegister(rs2);
-        break;
-    case 0xA: // flw, flwr
-        inst.rd = rd;
-        inst.isFpRd = true;
-        inst.rs1 = rs1;
-        inst.isMemory = true;
-        inst.isLoad = true;
-        inst.rs1Value = simulator.getRegister(rs1);
-        if (subop == 0x1)
-        { // flwr
+            break;
+            
+        case 0xA:  // bflt, bfge
+            inst.rs1 = rs1;
             inst.rs2 = rs2;
+            inst.isFpRs1 = true;
+            inst.isFpRs2 = true;
+            inst.isBranch = true;
+            inst.rs1Value = simulator.getFpRegister(rs1);
+            inst.rs2Value = simulator.getFpRegister(rs2);
+            break;
+            
+        case 0xE:  // jal
+            inst.rd = rs2;  // jalは特例でrs2の位置にrd
+            inst.isBranch = true;
+            break;
+            
+        case 0xF:  // jalr
+            inst.rd = rd;
+            inst.rs1 = rs1;
+            inst.isJalr = true;
+            inst.rs1Value = simulator.getRegister(rs1);
+            break;
+            
+        case 0x3:  // lw, lwr
+            inst.rd = rd;
+            inst.rs1 = rs1;
+            inst.isMemory = true;
+            inst.isLoad = true;
+            inst.rs1Value = simulator.getRegister(rs1);
+            
+            if (subop == 0x1) {  // lwr
+                inst.rs2 = rs2;
+                inst.rs2Value = simulator.getRegister(rs2);
+            }
+            break;
+            
+        case 0x4:  // sw
+            inst.rs1 = rs1;
+            inst.rs2 = rs2;
+            inst.isMemory = true;
+            inst.isStore = true;
+            inst.rs1Value = simulator.getRegister(rs1);
             inst.rs2Value = simulator.getRegister(rs2);
-        }
-        break;
-    case 0xB: // fsw
-        inst.rs1 = rs1;
-        inst.rs2 = rs2;
-        inst.isFpRs2 = true;
-        inst.isMemory = true;
-        inst.isStore = true;
-        inst.rs1Value = simulator.getRegister(rs1);
-        inst.rs2Value = simulator.getFpRegister(rs2);
-        break;
-    case 0xC: // ftoi, flt, feq
-        inst.rd = rd;
-        inst.rs1 = rs1;
-        inst.isFpRs1 = true;
-        inst.rs1Value = simulator.getFpRegister(rs1);
-        if (getFpuop(raw) != 0x4)
-        { // flt, feq
+            break;
+            
+        case 0x5:  // flw, flwr
+            inst.rd = rd;
+            inst.isFpRd = true;
+            inst.rs1 = rs1;
+            inst.isMemory = true;
+            inst.isLoad = true;
+            inst.rs1Value = simulator.getRegister(rs1);
+            
+            if (subop == 0x1) {  // flwr
+                inst.rs2 = rs2;
+                inst.rs2Value = simulator.getRegister(rs2);
+            }
+            break;
+            
+        case 0x7:  // fsw
+            inst.rs1 = rs1;
             inst.rs2 = rs2;
             inst.isFpRs2 = true;
-            inst.rs2Value = simulator.getFpRegister(rs2);
-        }
-        break;
-    case 0xD: // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor
-        inst.rd = rd;
-        inst.isFpRd = true;
-        inst.rs1 = rs1;
-        if (getFpuop(raw) == 0x9)
-        { // itof
-            // rs1はint
+            inst.isMemory = true;
+            inst.isStore = true;
             inst.rs1Value = simulator.getRegister(rs1);
-        }
-        else
-        {
+            inst.rs2Value = simulator.applyFpModifier(simulator.getFpRegister(rs2), m2);
+            break;
+            
+        case 0x9:  // ebreak
+            inst.isEbreak = true;
+            break;
+            
+        case 0xC:  // ftoi, flt, feq
+            inst.rd = rd;
+            inst.rs1 = rs1;
             inst.isFpRs1 = true;
-            inst.rs1Value = simulator.getFpRegister(rs1);
-            if (getFpuop(raw) <= 0x3)
-            { // fadd, fsub, fmul, fdiv
+            inst.rs1Value = simulator.applyFpModifier(simulator.getFpRegister(rs1), m1);
+            
+            if (fpuop != 0x4) {  // flt, feq
                 inst.rs2 = rs2;
                 inst.isFpRs2 = true;
-                inst.rs2Value = simulator.getFpRegister(rs2);
+                inst.rs2Value = simulator.applyFpModifier(simulator.getFpRegister(rs2), m2);
             }
-        }
-        break;
-    case 0x6: // ebreak
-        inst.isEbreak = true;
-        break;
+            break;
+            
+        case 0xD:  // itof, fadd, fmul, fdiv, fmv, fsqrt, ffloor, fmadd
+            inst.rd = rd;
+            inst.isFpRd = true;
+            inst.rs1 = rs1;
+            
+            if (fpuop == 0x7) {  // itof
+                inst.rs1Value = simulator.getRegister(rs1);
+            } else {
+                inst.isFpRs1 = true;
+                inst.rs1Value = simulator.applyFpModifier(simulator.getFpRegister(rs1), m1);
+                
+                if (fpuop <= 0x3 && fpuop != 0x1) {  // fadd, fmul, fdiv
+                    inst.rs2 = rs2;
+                    inst.isFpRs2 = true;
+                    inst.rs2Value = simulator.applyFpModifier(simulator.getFpRegister(rs2), m2);
+                } else if (fpuop == 0x1) {  // fmadd
+                    inst.rs2 = rs2;
+                    inst.isFpRs2 = true;
+                    inst.rs2Value = simulator.applyFpModifier(simulator.getFpRegister(rs2), m2);
+                    
+                    uint32_t rs3 = getRs3(raw);
+                    uint32_t m3 = getM3(raw);
+                    // rs3の依存関係を追加（実際には別のフィールドを用意する必要があるかも）
+                    inst.rs3 = rs3;
+                    inst.isFpRs3 = true;
+                    inst.rs3Value = m3 ? -simulator.getFpRegister(rs3) : simulator.getFpRegister(rs3);
+                }
+            }
+            break;
     }
 }
 
@@ -1106,61 +1154,95 @@ int Pipeline::getInstructionType(uint64_t instruction)
 {
     uint32_t opcode = getOpcode(instruction);
     uint32_t subop = getSubop(instruction);
+    uint32_t subsubop = getSubsubop(instruction);
     uint32_t fpuop = getFpuop(instruction);
+    uint32_t branchop = getBranchop(instruction);
 
     switch (opcode)
     {
-    case 0x1: // add, sub
+    case 0x0:
+        return Simulator::NOP;
+
+    case 0x1:
         if (subop == 0x0)
-            return Simulator::ADD;
+        {
+            if (subsubop == 0x0)
+                return Simulator::ADD;
+            else if (subsubop == 0x1)
+                return Simulator::SUB;
+            else if (subsubop == 0x2)
+                return Simulator::SLLI;
+            else if (subsubop == 0x3)
+                return Simulator::SRLI;
+        }
         else if (subop == 0x1)
-            return Simulator::SUB;
-        break;
-    case 0x2: // addi, lui, slli, srli
-        if (subop == 0x0)
+        {
             return Simulator::ADDI;
-        else if (subop == 0x1)
+        }
+        else if (subop == 0x2)
+        {
             return Simulator::LUI;
-        else if (subop == 0x2)
-            return Simulator::SLLI;
+        }
         else if (subop == 0x3)
-            return Simulator::SRLI;
+        {
+            if (subsubop == 0x0)
+                return Simulator::IN;
+            else if (subsubop == 0x1)
+                return Simulator::FIN;
+            else if (subsubop == 0x2)
+                return Simulator::OUT;
+        }
         break;
-    case 0x3:
-    case 0xE: // beq, bne, blt, bge
-        if (subop == 0x0)
+
+    case 0x2:
+        if (branchop == 0x0)
             return Simulator::BEQ;
-        else if (subop == 0x1)
+        else if (branchop == 0x1)
             return Simulator::BNE;
-        else if (subop == 0x2)
+        break;
+
+    case 0x6:
+        if (branchop == 0x0)
             return Simulator::BLT;
-        else if (subop == 0x3)
+        else if (branchop == 0x1)
             return Simulator::BGE;
         break;
-    case 0x4:
-    case 0xF: // jal
+
+    case 0xA:
+        if (branchop == 0x0)
+            return Simulator::BFLT;
+        else if (branchop == 0x1)
+            return Simulator::BFGE;
+        break;
+
+    case 0xE:
         return Simulator::JAL;
-    case 0x5: // jalr
+    case 0xF:
         return Simulator::JALR;
-    case 0x8: // lw, lwr
+
+    case 0x3:
         if (subop == 0x0)
             return Simulator::LW;
         else if (subop == 0x1)
             return Simulator::LWR;
         break;
-    case 0x9: // sw
+
+    case 0x4:
         return Simulator::SW;
-    case 0xA: // flw, flwr
+
+    case 0x5:
         if (subop == 0x0)
             return Simulator::FLW;
         else if (subop == 0x1)
             return Simulator::FLWR;
         break;
-    case 0xB: // fsw
+
+    case 0x7:
         return Simulator::FSW;
-    case 0x6: // ebreak
+    case 0x9:
         return Simulator::EBREAK;
-    case 0xC: // ftoi, flt, feq
+
+    case 0xC:
         if (fpuop == 0x4)
             return Simulator::FTOI;
         else if (fpuop == 0x0)
@@ -1168,13 +1250,12 @@ int Pipeline::getInstructionType(uint64_t instruction)
         else if (fpuop == 0x1)
             return Simulator::FEQ;
         break;
-    case 0xD: // itof, fadd, fsub, fmul, fdiv, fmv, fneg, fabs, fsqrt, ffloor
-        if (fpuop == 0x9)
+
+    case 0xD:
+        if (fpuop == 0x7)
             return Simulator::ITOF;
         else if (fpuop == 0x0)
             return Simulator::FADD;
-        else if (fpuop == 0x1)
-            return Simulator::FSUB;
         else if (fpuop == 0x2)
             return Simulator::FMUL;
         else if (fpuop == 0x3)
@@ -1182,17 +1263,15 @@ int Pipeline::getInstructionType(uint64_t instruction)
         else if (fpuop == 0x4)
             return Simulator::FMV;
         else if (fpuop == 0x5)
-            return Simulator::FNEG;
-        else if (fpuop == 0x6)
-            return Simulator::FABS;
-        else if (fpuop == 0x7)
             return Simulator::FSQRT;
-        else if (fpuop == 0x8)
+        else if (fpuop == 0x6)
             return Simulator::FFLOOR;
+        else if (fpuop == 0x1)
+            return Simulator::FMADD;
         break;
     }
 
-    return -1;
+    return -1; // Unknown instruction type
 }
 
 bool Pipeline::isJalInstruction(uint64_t instruction) const

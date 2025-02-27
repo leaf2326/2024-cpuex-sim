@@ -11,7 +11,7 @@
 class InstructionCache
 {
 public:
-    static constexpr int64_t IMEMORY_SIZE = 128 * 1024; // Iメモリサイズ（128KiB）
+    static constexpr int64_t IMEMORY_SIZE = 512 * 1024; // Iメモリサイズ（128KiB）
     InstructionCache(const std::array<uint64_t, IMEMORY_SIZE / 4> &instructionMemory);
     void init();
     bool fetch(uint32_t addr);

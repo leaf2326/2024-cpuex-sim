@@ -16,8 +16,8 @@ struct PipelineInstruction
     int32_t pc;
     int rd;                // rdレジスタ（なければ-1）
     bool isFpRd;
-    int rs1, rs2;          // ソースレジスタ（なければ-1）
-    bool isFpRs1, isFpRs2;
+    int rs1, rs2, rs3;          // ソースレジスタ（なければ-1）
+    bool isFpRs1, isFpRs2, isFpRs3;
     bool isMemory;
     bool isLoad;
     bool isStore;
@@ -29,6 +29,7 @@ struct PipelineInstruction
 
     int32_t rs1Value;
     int32_t rs2Value;
+    int32_t rs3Value;
 };
 
 using InstSlot = std::optional<PipelineInstruction>;

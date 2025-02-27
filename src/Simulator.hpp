@@ -137,6 +137,8 @@ public:
 
     inline void setBreakpoint(bool bp) { isBreakpoint = bp; }
 
+    int32_t applyFpModifier(int32_t value, uint32_t modifier) { return applyFpModifier(value, modifier); }
+
 private:
     Pipeline *pipeline = nullptr;
     // パイプラインサポート
@@ -219,7 +221,7 @@ private:
     }
 
     [[nodiscard]]
-    inline int32_t loadInstruction(int32_t address) const
+    inline uint64_t loadInstruction(int32_t address) const
     {
         if (address < 0 || address >= IMEMORY_SIZE >> 2)
         {
@@ -231,7 +233,16 @@ private:
     void storeInstruction(int32_t address, uint64_t instruction);
 
     std::string instToString(uint64_t instruction) const;
-
+    std::string formatFpRegWithModifier(uint32_t reg, uint32_t modifier) const;
+    [[nodiscard]] inline bool isBranchInst(uint64_t instruction)
+    {
+        uint32_t opcode = getOpcode(instruction);
+        return opcode != 0x2 &&
+               opcode != 0x6 &&
+               opcode != 0xA &&
+               opcode != 0xE &&
+               opcode != 0xF;
+    }
     // 直近に書き込んだレジスタの更新
     inline void updatePrevLoadReg(int currLoadReg)
     {
@@ -247,7 +258,7 @@ private:
             ++hazardRAW;
         }
     }
-    void branchPrediction(int32_t rs1, int32_t rs2, int32_t imm, bool isTaken);
+    void branchPrediction(int32_t imm, bool isTaken);
 
     // 命令出力
     void printInstruction(uint64_t instruction) const;

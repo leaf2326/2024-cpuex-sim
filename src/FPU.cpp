@@ -288,3 +288,19 @@ bool FPU::feq(uint32_t x1, uint32_t x2)
     bool is_zero2 = (e2 == 0);
     return (is_zero1 && is_zero2) ? true : (x1 == x2);
 }
+
+// m1, m2, m3による修飾子の適用
+int32_t FPU::applyFpModifier(int32_t value, uint8_t modifier) {
+    switch (modifier) {
+        case 0:
+            return value;
+        case 1:
+            return fneg(value);
+        case 2:
+            return fabs(value);
+        case 3:
+            return fneg(fabs(value));
+        default:
+            return value;
+    }
+}

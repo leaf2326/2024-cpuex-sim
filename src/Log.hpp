@@ -15,24 +15,33 @@ protected:
     uint64_t branchPredCount = 0;               // 分岐予測の回数
     uint64_t flushCount = 0;                    // パイプラインのフラッシュ回数
 
-    enum InstructionType
-    {
+    enum InstructionType {
+        // NOP
+        NOP = 0,
+
         // ALU命令
-        ADD = 0,
+        ADD,
         SUB,
         SLLI,
         SRLI,
         ADDI,
         LUI,
-
+        
+        // 入出力命令
+        IN,
+        FIN,
+        OUT,
+        
         // ジャンプ命令
         BEQ,
         BNE,
         BLT,
         BGE,
+        BFLT,
+        BFGE,
         JAL,
         JALR,
-
+        
         // メモリ命令
         LW,
         LWR,
@@ -40,35 +49,34 @@ protected:
         FLW,
         FLWR,
         FSW,
-
+        
         // 特別命令
         EBREAK,
-
+        
         // FPU命令
         FTOI,
         ITOF,
         FADD,
-        FSUB,
         FMUL,
         FDIV,
         FMV,
-        FNEG,
-        FABS,
         FSQRT,
         FFLOOR,
         FLT,
         FEQ,
-
+        FMADD,
+        
         MAX_INSTRUCTION_TYPE
     };
 
     const std::array<std::string, MAX_INSTRUCTION_TYPE> InstructionTypeNames = {
-        "add", "sub", "slli", "srli", "addi", "lui",
-        "beq", "bne", "blt", "bge", "jal", "jalr",
+        "nop", "add", "sub", "slli", "srli", "addi", "lui",
+        "in", "fin", "out",
+        "beq", "bne", "blt", "bge", "bflt", "bfge", "jal", "jalr",
         "lw", "lwr", "sw", "flw", "flwr", "fsw",
-        "ebreak", "ftoi", "itof", "fadd", "fsub", "fmul",
-        "fdiv", "fmv", "fneg", "fabs", "fsqrt", "ffloor",
-        "flt", "feq"};
+        "ebreak",
+        "ftoi", "itof", "fadd", "fmul", "fdiv", "fmv", "fsqrt", "ffloor", "flt", "feq", "fmadd"
+    };
 
     [[nodiscard]]
     inline std::string typeToString(int type) const noexcept
