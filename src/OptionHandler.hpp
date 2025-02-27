@@ -36,9 +36,9 @@ public:
 
     static constexpr uint64_t DEFAULT_MAX_STEP = UINT64_MAX;
     static constexpr uint64_t DEFAULT_MEMORY_SIZE = 4 * 1024 * 1024; // 4MiB (Default dMemory Size)
-    static constexpr size_t DEFAULT_L1LINES = 256;
-    static constexpr size_t DEFAULT_L2LINES = 1024;
-    static constexpr size_t DEFAULT_LINESIZE = 64; // 512bits
+    static constexpr size_t DEFAULT_L1LINES = 512;
+    static constexpr size_t DEFAULT_L2LINES = 2048;
+    static constexpr size_t DEFAULT_LINESIZE = 128; // 1024 bits
     static constexpr size_t DEFAULT_L2ASSOCIATIVITY = 4;
 
 private:
