@@ -845,6 +845,7 @@ void Simulator::executeInstruction(uint64_t instruction)
             else if (subsubop == 0x2)
             {
                 // ?-type (out)
+                detectPrevLoad(rs1, NOLOADREG);
                 logInstruction(OUT);
                 dMemory.storeWord(OUTPUT_ADDRESS * 4, getRegister(rs1));
             }
@@ -1256,7 +1257,7 @@ void Simulator::executeInstruction(uint64_t instruction)
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
             detectPrevLoad(rs3 + REG_COUNT, NOLOADREG);
             logInstruction(FMADD);
-            setFpRegister(rd, fpu.fmul(fpu.fadd(fprs1, fprs2), fprs3));
+            setFpRegister(rd, fpu.fadd(fpu.fmul(fprs1, fprs2), fprs3));
         }
         else [[unlikely]]
         {
