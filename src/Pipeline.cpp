@@ -1186,11 +1186,11 @@ int Pipeline::getInstructionType(uint64_t instruction)
         else if (subop == 0x3)
         {
             if (subsubop == 0x0)
-                return Simulator::IN;
+                return Simulator::INST_IN;
             else if (subsubop == 0x1)
-                return Simulator::FIN;
+                return Simulator::INST_FIN;
             else if (subsubop == 0x2)
-                return Simulator::OUT;
+                return Simulator::INST_OUT;
         }
         break;
 

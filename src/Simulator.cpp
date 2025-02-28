@@ -833,20 +833,20 @@ void Simulator::executeInstruction(uint64_t instruction)
             if (subsubop == 0x0)
             {
                 // ?-type (in)
-                logInstruction(IN);
+                logInstruction(INST_IN);
                 setRegister(rd, dMemory.loadWord(INPUT_ADDRESS * 4, true));
             }
             else if (subsubop == 0x1)
             {
                 // ?-type (fin)
-                logInstruction(FIN);
+                logInstruction(INST_FIN);
                 setFpRegister(rd, dMemory.loadWord(INPUT_ADDRESS * 4, false));
             }
             else if (subsubop == 0x2)
             {
                 // ?-type (out)
                 detectPrevLoad(rs1, NOLOADREG);
-                logInstruction(OUT);
+                logInstruction(INST_OUT);
                 dMemory.storeWord(OUTPUT_ADDRESS * 4, getRegister(rs1));
             }
             else [[unlikely]]
