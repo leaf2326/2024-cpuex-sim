@@ -2045,29 +2045,69 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                             pipeline->advance();
                             cycleCount++;
                             // 命令を発行しようとする
-                            const uint64_t instruction = loadInstruction(pc);
-                            bool issued = pipeline->tryIssue(instruction, pc);
 
-                            if (issued)
+                            // スーパースカラ発行の判断
+                            int32_t currentPC = pc;
+                            bool pairIssued = false;
+
+                            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                             {
-                                if (rep == 1)
+                                const uint64_t instruction1 = loadInstruction(currentPC);
+                                const uint64_t instruction2 = loadInstruction(currentPC + 1);
+
+                                // 同時実行可能なペアかチェック
+                                if (pipeline->canIssueInPair(instruction1, instruction2))
                                 {
-                                    std::cerr << "Issuing: " << instToString(instruction) << std::endl;
-                                }
-                                if (isBranchInst(instruction))
-                                {
-                                    setPC(getPC() + 1);
-                                }
-                                step++;
-                            }
-                            else
-                            {
-                                if (rep == 1)
-                                {
-                                    std::cerr << "Instruction stalled: " << instToString(instruction) << std::endl;
+                                    // ペアとして発行を試みる
+                                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                                    if (pairIssued)
+                                    {
+                                        // 発行成功：ステップカウントとPCを2つ進める
+                                        step += 2;
+                                        pc = currentPC + 2;
+
+                                        if (rep == 1)
+                                        {
+                                            std::cerr << "Issued pair: " << instToString(instruction1)
+                                                      << " and " << instToString(instruction2) << std::endl;
+                                        }
+                                    }
                                 }
                             }
 
+                            if (!pairIssued)
+                            {
+                                // 単独命令の発行
+                                const uint64_t instruction = loadInstruction(currentPC);
+
+                                // 命令を発行しようとする
+                                bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                                if (issued)
+                                {
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << "Issued: " << instToString(instruction) << std::endl;
+                                    }
+                                    // 発行成功：ステップカウントを増やす
+                                    step++;
+
+                                    // PCを更新
+                                    if (isBranchInst(instruction))
+                                    {
+                                        // 分岐/ジャンプ/ebreak命令以外はPCを1増やす
+                                        setPC(currentPC + 1);
+                                    }
+                                }
+                                else
+                                {
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << "Instruction stalled: " << instToString(instruction) << std::endl;
+                                    }
+                                }
+                            }
                             if (rep == 1)
                             {
                                 std::cerr << std::endl;
@@ -2137,20 +2177,51 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                     pipeline->advance();
                     cycleCount++;
                     // 命令を発行しようとする
-                    bool issued = pipeline->tryIssue(instruction, pc);
+                    // サイクル開始時のPCを保存
+                    int32_t currentPC = pc;
 
-                    if (issued)
+                    // スーパースカラ発行の判断
+                    bool pairIssued = false;
+
+                    if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                     {
-                        // 発行成功：ステップカウントを増やす
-                        step++;
+                        const uint64_t instruction1 = loadInstruction(currentPC);
+                        const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                        if (isBranchInst(instruction))
+                        // 同時実行可能なペアかチェック
+                        if (pipeline->canIssueInPair(instruction1, instruction2))
                         {
-                            setPC(getPC() + 1);
-                            ;
+                            // ペアとして発行を試みる
+                            pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                            if (pairIssued)
+                            {
+                                // 発行成功：ステップカウントとPCを2つ進める
+                                step += 2;
+                                pc = currentPC + 2;
+                            }
                         }
                     }
 
+                    if (!pairIssued)
+                    {
+                        // 単独命令の発行
+                        const uint64_t instruction = loadInstruction(currentPC);
+
+                        // 命令を発行しようとする
+                        bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                        if (issued)
+                        {
+                            // 発行成功：ステップカウントを増やす
+                            step++;
+
+                            if (isBranchInst(instruction))
+                            {
+                                setPC(getPC() + 1);
+                            }
+                        }
+                    }
                     // パイプラインを1サイクル進める
                 }
 
@@ -2239,26 +2310,67 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
             // パイプラインを1サイクル進める
             pipeline->advance();
             cycleCount++;
+            // スーパースカラ発行の判断
 
-            // 命令を発行しようとする
-            bool issued = pipeline->tryIssue(instruction, pc);
+            int32_t currentPC = pc;
+            bool pairIssued = false;
 
-            if (issued)
+            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
             {
-                // 発行成功：ステップカウントを増やす
-                step++;
+                const uint64_t instruction1 = loadInstruction(currentPC);
+                const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                if (isBreakpoint)
+                // 同時実行可能なペアかチェック
+                if (pipeline->canIssueInPair(instruction1, instruction2))
                 {
-                    pc++;
-                    // パイプライン内の残りの命令を処理
-                    finishPipelineExecution(cycleCount);
-                    break;
+                    // ペアとして発行を試みる
+                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                    if (pairIssued)
+                    {
+                        // 発行成功：ステップカウントとPCを2つ進める
+                        step += 2;
+                        pc = currentPC + 2;
+
+                        if (enableDebug)
+                        {
+                            std::cerr << "Issued pair: " << instToString(instruction1)
+                                      << " and " << instToString(instruction2) << std::endl;
+                        }
+                    }
+                }
+            }
+
+            if (!pairIssued)
+            {
+                // 単独命令の発行
+                const uint64_t instruction = loadInstruction(currentPC);
+
+                if (enableDebug)
+                {
+                    std::cerr << "Instruction: " << instToString(instruction) << std::endl;
                 }
 
-                if (isBranchInst(instruction))
+                // 命令を発行しようとする
+                bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                if (issued)
                 {
-                    setPC(getPC() + 1);
+                    // 発行成功：ステップカウントを増やす
+                    step++;
+
+                    if (isBranchInst(instruction))
+                    {
+                        setPC(getPC() + 1);
+                    }
+                    if (enableDebug)
+                    {
+                        std::cerr << "Issued: " << instToString(instruction) << std::endl;
+                    }
+                }
+                else if (enableDebug)
+                {
+                    std::cerr << "Stalled" << std::endl;
                 }
             }
         }
@@ -2291,27 +2403,66 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
             // パイプラインを1サイクル進める
             pipeline->advance();
             cycleCount++;
-            // 命令を発行しようとする
-            bool issued = pipeline->tryIssue(instruction, pc);
 
-            if (issued)
+            int32_t currentPC = pc;
+            bool pairIssued = false;
+
+            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
             {
-                // 発行成功：ステップカウントを増やす
-                step++;
+                const uint64_t instruction1 = loadInstruction(currentPC);
+                const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                if (isBreakpoint)
+                // 同時実行可能なペアかチェック
+                if (pipeline->canIssueInPair(instruction1, instruction2))
                 {
-                    pc++;
-                    // パイプライン内の残りの命令を処理
-                    finishPipelineExecution(cycleCount);
-                    break;
+                    // ペアとして発行を試みる
+                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                    if (pairIssued)
+                    {
+                        // 発行成功：ステップカウントとPCを2つ進める
+                        step += 2;
+                        pc = currentPC + 2;
+
+                        if (enableDebug)
+                        {
+                            std::cerr << "Issued pair: " << instToString(instruction1)
+                                      << " and " << instToString(instruction2) << std::endl;
+                        }
+                    }
+                }
+            }
+
+            if (!pairIssued)
+            {
+                // 単独命令の発行
+                const uint64_t instruction = loadInstruction(currentPC);
+
+                if (enableDebug)
+                {
+                    std::cerr << "Instruction: " << instToString(instruction) << std::endl;
                 }
 
-                // PCが変わっていなければ、次の命令へ
-                // （分岐命令の場合、既にtryIssue内でPCが更新されている）
-                if (isBranchInst(instruction))
+                // 命令を発行しようとする
+                bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                if (issued)
                 {
-                    setPC(getPC() + 1);
+                    // 発行成功：ステップカウントを増やす
+                    step++;
+
+                    if (isBranchInst(instruction))
+                    {
+                        setPC(getPC() + 1);
+                    }
+                    if (enableDebug)
+                    {
+                        std::cerr << "Issued: " << instToString(instruction) << std::endl;
+                    }
+                }
+                else if (enableDebug)
+                {
+                    std::cerr << "Stalled" << std::endl;
                 }
             }
 
