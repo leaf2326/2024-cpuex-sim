@@ -272,6 +272,10 @@ private:
     void printCacheHitMissCounts() const;
 
     void printOutput();
+    [[nodiscard]] inline bool isJalrInstruction(uint64_t instruction) const
+{
+    return getOpcode(instruction) == 0xF;
+}
 };
 
 #endif // SIMULATOR_HPP

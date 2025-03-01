@@ -709,12 +709,6 @@ void Simulator::executeInstructionInPipeline(uint64_t instruction, int32_t pc, i
             // 分岐命令以外の場合は元の実装を使用
             executeInstruction(instruction);
         }
-
-        // 命令キャッシュミスをチェック
-        if (iCache.getMissCount() > 0)
-        {
-            instructionCacheMiss = true;
-        }
     }
 }
 
@@ -728,7 +722,7 @@ void Simulator::executeInstruction(uint64_t instruction)
 {
     logInstAddr(getPC());
     int currLoadReg = NULLREG;
-    if (enableICache)
+    if (enableICache && !enablePipeline)
     {
         bool hit = iCache.fetch(getPC());
         if (availableLog)
@@ -1323,7 +1317,9 @@ bool Simulator::fetchInstruction(int32_t address)
 
 bool Simulator::fetch2Instruction(int32_t address1, int32_t address2)
 {
-    bool hit = iCache.fetch(address1) || iCache.fetch(address2);
+    bool hit1 = iCache.fetch(address1);
+    bool hit2 = iCache.fetch(address2);
+    bool hit = (hit1 || hit2);
     if (!hit)
     {
         --iCache.missCount;
@@ -2109,7 +2105,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                         {
                                             step += 1;
                                             // Untaken
-                                            if (getPC() != getImmediate(instruction1))
+                                            if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                                             {
                                                 step += 1;
                                                 if (!isBranchInst(instruction2))
@@ -2258,7 +2254,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                 {
                                     step += 1;
                                     // Untaken
-                                    if (getPC() != getImmediate(instruction1))
+                                    if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                                     {
                                         step += 1;
                                         if (!isBranchInst(instruction2))
@@ -2410,7 +2406,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                         {
                             step += 1;
                             // Untaken
-                            if (getPC() != getImmediate(instruction1))
+                            if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                             {
                                 step += 1;
                                 if (!isBranchInst(instruction2))
@@ -2521,7 +2517,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                         {
                             step += 1;
                             // Untaken
-                            if (getPC() != getImmediate(instruction1))
+                            if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                             {
                                 step += 1;
                                 if (!isBranchInst(instruction2))
