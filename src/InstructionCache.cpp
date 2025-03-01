@@ -1,7 +1,7 @@
 #include "InstructionCache.hpp"
 
 InstructionCache::InstructionCache(const std::array<uint64_t, IMEMORY_SIZE / 4> &instructionMemory)
-    : instructionMemory(instructionMemory), missCount(0) {
+    : missCount(0), instructionMemory(instructionMemory) {
     init();
 }
 
@@ -15,26 +15,7 @@ void InstructionCache::init() {
 
 int32_t InstructionCache::getJumpTarget(uint64_t instruction)
 {
-    uint32_t opcode = getOpcode(instruction);
-    if (opcode == 0x3 || opcode == 0xE)
-    {
-        int32_t imm = getImmediate(instruction);
-        if (opcode == 0xE)
-        {
-            imm |= 1 << 14;
-        }
-        return imm;
-    }
-    if (opcode == 0x4 || opcode == 0xF)
-    {
-        int32_t imm = getImmediate(instruction);
-        if (opcode == 0xF)
-        {
-            imm |= 1 << 14;
-        }
-        return imm;
-    }
-    return 0;
+    return getImmediate(instruction);
 }
 
 bool InstructionCache::fetch(uint32_t addr) {

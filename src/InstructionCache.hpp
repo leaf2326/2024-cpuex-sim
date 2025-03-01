@@ -19,7 +19,7 @@ public:
     {
         return missCount;
     }
-    
+
     size_t missCount;
 
 private:
@@ -67,7 +67,10 @@ private:
     [[nodiscard]] inline bool isJumpOrBranch(uint64_t instruction)
     {
         uint32_t opcode = getOpcode(instruction);
-        return opcode == 0x3 || opcode == 0x4 || opcode == 0xE || opcode == 0xF;
+        return opcode == 0x2 ||
+               opcode == 0x6 ||
+               opcode == 0xA ||
+               opcode == 0xE;
     }
 
     int32_t getJumpTarget(uint64_t instruction);
