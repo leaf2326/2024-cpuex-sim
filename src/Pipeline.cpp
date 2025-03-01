@@ -29,6 +29,8 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     PipelineInstruction inst;
     decodeInstruction(instruction, pc, inst);
 
+    singleIssueAttempts++;
+
     // ebreak命令
     if (inst.isEbreak)
     {
@@ -39,11 +41,11 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
         int instType = getInstructionType(instruction);
         simulator.logInstruction(instType);
         simulator.logInstAddr(pc);
+        singleIssueSuccess++;
         return true;
     }
 
     // 分岐命令のハザードと依存関係と競合をチェック
-
     bool branchStall = checkBranchHazard(inst);
     bool depStall = checkDependencies(inst);
     bool contentionStall = checkContention(inst);
@@ -79,6 +81,7 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     {
         // Simulatorのメソッドを使用し分岐命令を実行
         simulator.executeInstruction(instruction);
+        singleIssueSuccess++;
         return true;
     }
 
@@ -104,10 +107,15 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
         int slot = latency - 1;
         decoded_int[slot].emplace_back(inst);
     }
+    else if (inst.isOut)
+    {
+        simulator.storeWord(simulator.OUTPUT_ADDRESS * 4, inst.rs1Value);
+    }
     simulator.fetchInstruction(pc);
     int instType = getInstructionType(instruction);
     simulator.logInstruction(instType);
     simulator.logInstAddr(pc);
+    singleIssueSuccess++;
     return true;
 }
 
@@ -117,8 +125,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
     PipelineInstruction inst1, inst2;
     decodeInstruction(instruction1, pc1, inst1);
     decodeInstruction(instruction2, pc2, inst2);
-    std::cerr << simulator.instToString(inst1.raw) << std::endl
-              << simulator.instToString(inst2.raw) << std::endl;
+    superscalarAttempts++;
     // ebreak命令のチェック
     if (inst1.isEbreak)
     {
@@ -128,16 +135,59 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
         int instType = getInstructionType(instruction1);
         simulator.logInstruction(instType);
         simulator.logInstAddr(pc1);
+        superscalarSuccess++;
         return true;
     }
 
     // 両方の命令の発行可能性をチェック
-    bool stall1 = checkBranchHazard(inst1) || checkDependencies(inst1) || checkContention(inst1);
-    bool stall2 = checkBranchHazard(inst2) || checkDependencies(inst2) || checkContention(inst2);
+
+    bool branchStall1 = checkBranchHazard(inst1);
+    bool branchStall2 = checkBranchHazard(inst2);
+    bool depStall1 = checkDependencies(inst1);
+    bool depStall2 = checkDependencies(inst2);
+    bool contentionStall1 = checkContention(inst1);
+    bool contentionStall2 = checkContention(inst2);
+    // 両方の命令の発行可能性をチェック
+    bool stall1 = branchStall1 || depStall1 || contentionStall1;
+    bool stall2 = branchStall2 || depStall2 || contentionStall2;
 
     if (stall1 || stall2)
     {
-        // どちらかがストールするなら両方発行しない
+        stallCount++;
+        // ストールの種類をカウント
+        if (branchStall1)
+        {
+            branchBypassStallCount++;
+        }
+        if (contentionStall1)
+        {
+            // WB衝突の種類を判別
+            if (inst1.isMemory)
+            {
+                wbCollisionMemCount++;
+            }
+            else
+            {
+                wbCollisionIntFpCount++;
+            }
+        }
+
+        if (branchStall2)
+        {
+            branchBypassStallCount++;
+        }
+        if (contentionStall2)
+        {
+            // WB衝突の種類を判別
+            if (inst1.isMemory)
+            {
+                wbCollisionMemCount++;
+            }
+            else
+            {
+                wbCollisionIntFpCount++;
+            }
+        }
         return false;
     }
 
@@ -148,20 +198,12 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
         handleWAWHazards(inst2);
     }
 
-    // 命令キャッシュアクセスと統計の記録
     simulator.fetchInstruction(pc1); // pc1のフェッチで同時にpc+1もフェッチされる
-    int instType1 = getInstructionType(instruction1);
-    int instType2 = getInstructionType(instruction2);
-    simulator.logInstruction(instType1);
-    simulator.logInstAddr(pc1);
-    simulator.logInstruction(instType2);
-    simulator.logInstAddr(pc2);
 
     // 1つ目の命令の処理
     if (inst1.isBranch || inst1.isJalr)
     {
         // 分岐命令は即座に実行
-        int32_t oldPC = simulator.getPC();
         simulator.executeInstruction(instruction1);
 
         // 分岐が取られたかチェック
@@ -169,34 +211,51 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
 
         if (!isBranchTaken)
         {
+
             // 分岐が取られなければ2番目の命令も発行
-            if (inst2.isEbreak)
+
+            if (isJalInstruction(inst2.raw))
             {
-                simulator.setBreakpoint(true);
+                simulator.executeInstruction(instruction2);
             }
-            else if (inst2.isMemory)
+            else
             {
-                decoded_mem = inst2;
-            }
-            else if (inst2.isFpRd)
-            {
-                int latency = getFpLatency(instruction2);
-                int slot = latency - 1;
-                if (slot >= 0 && slot < 6)
+                int instType2 = getInstructionType(instruction2);
+                simulator.logInstruction(instType2);
+                simulator.logInstAddr(pc2);
+                if (inst2.isEbreak)
                 {
-                    decoded_fp[slot] = inst2;
+                    simulator.setBreakpoint(true);
+                }
+                else if (inst2.isMemory)
+                {
+                    decoded_mem = inst2;
+                }
+                else if (inst2.isFpRd)
+                {
+                    int latency = getFpLatency(instruction2);
+                    int slot = latency - 1;
+                    if (slot >= 0 && slot < 6)
+                    {
+                        decoded_fp[slot] = inst2;
+                    }
+                }
+                else if (inst2.rd != -1 && !inst2.isFpRd)
+                {
+                    int latency = getIntLatency(instruction2);
+                    int slot = latency - 1;
+                    decoded_int[slot].push_back(inst2);
                 }
             }
-            else if (inst2.rd != -1 && !inst2.isFpRd)
-            {
-                int latency = getIntLatency(instruction2);
-                int slot = latency - 1;
-                decoded_int[slot].push_back(inst2);
-            }
         }
-
+        superscalarSuccess++;
         return true;
     }
+
+    // 命令キャッシュアクセスと統計の記録
+    int instType1 = getInstructionType(instruction1);
+    simulator.logInstruction(instType1);
+    simulator.logInstAddr(pc1);
 
     // 1つ目が通常命令の場合
     if (inst1.isMemory)
@@ -218,19 +277,30 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
         int slot = latency - 1;
         decoded_int[slot].push_back(inst1);
     }
+    else if (inst1.isOut)
+    {
+        simulator.storeWord(simulator.OUTPUT_ADDRESS * 4, inst1.rs1Value);
+    }
 
     // 2つ目の命令も処理
     if (inst2.isEbreak)
     {
+        int instType2 = getInstructionType(instruction2);
+        simulator.logInstruction(instType2);
+        simulator.logInstAddr(pc2);
         simulator.setBreakpoint(true);
     }
     else if (inst2.isBranch || inst2.isJalr)
     {
         // 2つ目が分岐命令の場合は即座に実行
+        simulator.pc++;
         simulator.executeInstruction(instruction2);
     }
     else
     {
+        int instType2 = getInstructionType(instruction2);
+        simulator.logInstruction(instType2);
+        simulator.logInstAddr(pc2);
         // 2つ目が通常命令の場合
         if (inst2.isMemory)
         {
@@ -252,7 +322,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
             decoded_int[slot].push_back(inst2);
         }
     }
-
+    superscalarSuccess++;
     return true;
 }
 
@@ -350,7 +420,7 @@ void Pipeline::advance()
                     else
                     {
                         // lw/flw
-                        int32_t offset = ((((decoded_mem->raw >> 26) & 0x3F) << 8) | ((decoded_mem->raw >> 6) & 0xFF));
+                        int32_t offset = getOffset6_8(decoded_mem->raw);
                         if ((offset >> 13) & 1)
                         {
                             offset -= 1 << 14;
@@ -366,7 +436,7 @@ void Pipeline::advance()
                 else if (decoded_mem->isStore)
                 {
                     // sw/fsw
-                    int32_t offset = getImmediate(decoded_mem->raw);
+                    int32_t offset = getOffset14(decoded_mem->raw);
                     if ((offset >> 13) & 1)
                     {
                         offset -= 1 << 14;
@@ -445,7 +515,9 @@ void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &
     inst.rs1 = -1;
     inst.rs2 = -1;
     inst.rs3 = -1;
-    inst.isFpRs1 = inst.isFpRs2 = false;
+    inst.isFpRs1 = inst.isFpRs2 = inst.isFpRs3 = false;
+    inst.isEbreak = false;
+    inst.isOut = false;
     inst.isMemory = inst.isLoad = inst.isStore = false;
     inst.isBranch = inst.isJalr = false;
     inst.cacheWaitCycles = 0;
@@ -502,6 +574,7 @@ void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &
             else if (subsubop == 0x2)
             { // out
                 inst.rs1 = rs1;
+                inst.isOut = true;
                 inst.rs1Value = simulator.getRegister(rs1);
             }
         }
@@ -728,10 +801,10 @@ bool Pipeline::checkContention(const PipelineInstruction &inst) const
 bool Pipeline::checkBranchHazard(const PipelineInstruction &inst) const
 {
     // 分岐命令が他の命令を追い越すか
-    if ((inst.isBranch || inst.isJalr) && isJalInstruction(inst.raw))
+    if ((inst.isBranch || inst.isJalr) && !isJalInstruction(inst.raw))
     {
         return !decoded_int[1].empty() ||
-               decoded_int[2].empty() ||
+               !decoded_int[2].empty() ||
                decoded_fp[1].has_value() ||
                decoded_fp[2].has_value() ||
                decoded_fp[3].has_value() ||
@@ -885,17 +958,7 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
             {
                 // ストア値を取得
                 int32_t value;
-                if (inst.isFpRs2)
-                {
-                    // FSW - 修飾子を適用
-                    uint32_t m2 = getM2(inst.raw);
-                    value = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
-                }
-                else
-                {
-                    // SW
-                    value = simulator.getRegister(inst.rs2);
-                }
+                value = inst.rs2Value;
 
                 // Memory::storeWordを直接呼び出し
                 if (logEnabled)
@@ -984,23 +1047,23 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
             if (fpuop == 0x4)
             { // ftoi
                 uint32_t m1 = getM1(inst.raw);
-                int32_t value = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
+                int32_t value = inst.rs1Value;
                 simulator.setRegister(inst.rd, simulator.fpu.ftoi(value));
             }
             else if (fpuop == 0x0)
             { // flt
                 uint32_t m1 = getM1(inst.raw);
                 uint32_t m2 = getM2(inst.raw);
-                int32_t value1 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
-                int32_t value2 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
+                int32_t value1 = inst.rs1Value;
+                int32_t value2 = inst.rs2Value;
                 simulator.setRegister(inst.rd, simulator.fpu.flt(value1, value2));
             }
             else if (fpuop == 0x1)
             { // feq
                 uint32_t m1 = getM1(inst.raw);
                 uint32_t m2 = getM2(inst.raw);
-                int32_t value1 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
-                int32_t value2 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
+                int32_t value1 = inst.rs1Value;
+                int32_t value2 = inst.rs2Value;
                 simulator.setRegister(inst.rd, simulator.fpu.feq(value1, value2));
             }
             break;
@@ -1014,42 +1077,42 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
             { // fadd
                 uint32_t m1 = getM1(inst.raw);
                 uint32_t m2 = getM2(inst.raw);
-                int32_t value1 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
-                int32_t value2 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
+                int32_t value1 = inst.rs1Value;
+                int32_t value2 = inst.rs2Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fadd(value1, value2));
             }
             else if (fpuop == 0x2)
             { // fmul
                 uint32_t m1 = getM1(inst.raw);
                 uint32_t m2 = getM2(inst.raw);
-                int32_t value1 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
-                int32_t value2 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
+                int32_t value1 = inst.rs1Value;
+                int32_t value2 = inst.rs2Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fmul(value1, value2));
             }
             else if (fpuop == 0x3)
             { // fdiv
                 uint32_t m1 = getM1(inst.raw);
                 uint32_t m2 = getM2(inst.raw);
-                int32_t value1 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
-                int32_t value2 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
+                int32_t value1 = inst.rs1Value;
+                int32_t value2 = inst.rs2Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fdiv(value1, value2));
             }
             else if (fpuop == 0x4)
             { // fmv
                 uint32_t m1 = getM1(inst.raw);
-                int32_t value = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
+                int32_t value = inst.rs1Value;
                 simulator.setFpRegister(inst.rd, value);
             }
             else if (fpuop == 0x5)
             { // fsqrt
                 uint32_t m1 = getM1(inst.raw);
-                int32_t value = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
+                int32_t value = inst.rs1Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fsqrt(value));
             }
             else if (fpuop == 0x6)
             { // ffloor
                 uint32_t m1 = getM1(inst.raw);
-                int32_t value = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
+                int32_t value = inst.rs1Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.ffloor(value));
             }
             else if (fpuop == 0x1)
@@ -1059,9 +1122,9 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
                 uint32_t rs3 = getRs3(inst.raw);
                 uint32_t m3 = getM3(inst.raw);
 
-                int32_t value1 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs1), m1);
-                int32_t value2 = simulator.applyFpModifier(simulator.getFpRegister(inst.rs2), m2);
-                int32_t value3 = m3 ? -simulator.getFpRegister(rs3) : simulator.getFpRegister(rs3);
+                int32_t value1 = inst.rs1Value;
+                int32_t value2 = inst.rs2Value;
+                int32_t value3 = inst.rs3Value;
 
                 // FMA演算: value1 * value2 + value3
                 int32_t result = simulator.fpu.fadd(simulator.fpu.fmul(value1, value2), value3);
@@ -1344,7 +1407,7 @@ void Pipeline::countRawHazard(const PipelineInstruction &inst, const PipelineIns
     }
 
     // ロード命令かどうかチェック
-    if (opcode == 0x8 || opcode == 0xA)
+    if (opcode == 0x3 || opcode == 0x5)
     {
         isLoadInst = true;
     }
@@ -1447,11 +1510,11 @@ int Pipeline::getInstructionType(uint64_t instruction)
         else if (subop == 0x3)
         {
             if (subsubop == 0x0)
-                return Simulator::IN;
+                return Simulator::INST_IN;
             else if (subsubop == 0x1)
-                return Simulator::FIN;
+                return Simulator::INST_FIN;
             else if (subsubop == 0x2)
-                return Simulator::OUT;
+                return Simulator::INST_OUT;
         }
         break;
 

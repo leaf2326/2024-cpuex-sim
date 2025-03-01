@@ -24,6 +24,7 @@ struct PipelineInstruction
     bool isBranch;
     bool isJalr;
     bool isEbreak;
+    bool isOut;
     int cacheWaitCycles;  // キャッシュ待機サイクル数
     bool shouldDisappear; // executed_memから消滅するべきか
 
@@ -67,10 +68,22 @@ public:
     void countMemoryStall(uint64_t cycles);
 
     bool isEmpty() const;
-    
+
     bool canIssueInPair(const uint64_t inst1, const uint64_t inst2);
     bool hasDataDependency(const uint64_t inst1, const uint64_t inst2);
     
+    [[nodiscard]] inline uint64_t getSuperscalarAttempts() const { return superscalarAttempts; }
+    [[nodiscard]] inline uint64_t getSuperscalarSuccess() const { return superscalarSuccess; }
+    [[nodiscard]] inline uint64_t getSingleIssueAttempts() const { return singleIssueAttempts; }
+    [[nodiscard]] inline uint64_t getSingleIssueSuccess() const { return singleIssueSuccess; }
+    [[nodiscard]] inline float getSuperscalarEfficiency() const { 
+        return superscalarAttempts > 0 ? 
+            static_cast<float>(superscalarSuccess) / superscalarAttempts : 0.0f; 
+    }
+    [[nodiscard]] inline uint64_t getDataHazardStalls() const { return dataHazardStalls; }
+    [[nodiscard]] inline uint64_t getControlHazardStalls() const { return controlHazardStalls; }
+    [[nodiscard]] inline uint64_t getStructuralStalls() const { return structuralStalls; }
+
 private:
     Simulator &simulator;
 
@@ -82,6 +95,13 @@ private:
     uint64_t loadRawStallCount = 0;      // Load RAWストール数
     uint64_t memoryStallCycles = 0;      // メモリストールサイクル数
     uint64_t totalCycles = 0;            // 合計サイクル数
+    uint64_t singleIssueAttempts = 0;    // スーパースカラー発行の試行回数
+    uint64_t singleIssueSuccess = 0;     // 成功したスーパースカラー発行の回数
+    uint64_t superscalarAttempts = 0;    // スーパースカラー発行の試行回数
+    uint64_t superscalarSuccess = 0;     // 成功したスーパースカラー発行の回数
+    uint64_t dataHazardStalls = 0;       // データハザードによるストール回数
+    uint64_t controlHazardStalls = 0;
+    uint64_t structuralStalls = 0;
 
     // パイプラインステージ
     std::vector<PipelineInstruction> decoded_int[3];

@@ -28,9 +28,9 @@ protected:
         LUI,
         
         // 入出力命令
-        IN,
-        FIN,
-        OUT,
+        INST_IN,
+        INST_FIN,
+        INST_OUT,
         
         // ジャンプ命令
         BEQ,
