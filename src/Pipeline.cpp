@@ -1046,22 +1046,17 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
         case 0xC: // ftoi, flt, feq
             if (fpuop == 0x4)
             { // ftoi
-                uint32_t m1 = getM1(inst.raw);
                 int32_t value = inst.rs1Value;
                 simulator.setRegister(inst.rd, simulator.fpu.ftoi(value));
             }
             else if (fpuop == 0x0)
             { // flt
-                uint32_t m1 = getM1(inst.raw);
-                uint32_t m2 = getM2(inst.raw);
                 int32_t value1 = inst.rs1Value;
                 int32_t value2 = inst.rs2Value;
                 simulator.setRegister(inst.rd, simulator.fpu.flt(value1, value2));
             }
             else if (fpuop == 0x1)
             { // feq
-                uint32_t m1 = getM1(inst.raw);
-                uint32_t m2 = getM2(inst.raw);
                 int32_t value1 = inst.rs1Value;
                 int32_t value2 = inst.rs2Value;
                 simulator.setRegister(inst.rd, simulator.fpu.feq(value1, value2));
@@ -1075,52 +1070,39 @@ void Pipeline::executeAtExecutedStage(PipelineInstruction &inst)
             }
             else if (fpuop == 0x0)
             { // fadd
-                uint32_t m1 = getM1(inst.raw);
-                uint32_t m2 = getM2(inst.raw);
                 int32_t value1 = inst.rs1Value;
                 int32_t value2 = inst.rs2Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fadd(value1, value2));
             }
             else if (fpuop == 0x2)
             { // fmul
-                uint32_t m1 = getM1(inst.raw);
-                uint32_t m2 = getM2(inst.raw);
                 int32_t value1 = inst.rs1Value;
                 int32_t value2 = inst.rs2Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fmul(value1, value2));
             }
             else if (fpuop == 0x3)
             { // fdiv
-                uint32_t m1 = getM1(inst.raw);
-                uint32_t m2 = getM2(inst.raw);
                 int32_t value1 = inst.rs1Value;
                 int32_t value2 = inst.rs2Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fdiv(value1, value2));
             }
             else if (fpuop == 0x4)
             { // fmv
-                uint32_t m1 = getM1(inst.raw);
                 int32_t value = inst.rs1Value;
                 simulator.setFpRegister(inst.rd, value);
             }
             else if (fpuop == 0x5)
             { // fsqrt
-                uint32_t m1 = getM1(inst.raw);
                 int32_t value = inst.rs1Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.fsqrt(value));
             }
             else if (fpuop == 0x6)
             { // ffloor
-                uint32_t m1 = getM1(inst.raw);
                 int32_t value = inst.rs1Value;
                 simulator.setFpRegister(inst.rd, simulator.fpu.ffloor(value));
             }
             else if (fpuop == 0x1)
             { // fmadd
-                uint32_t m1 = getM1(inst.raw);
-                uint32_t m2 = getM2(inst.raw);
-                uint32_t rs3 = getRs3(inst.raw);
-                uint32_t m3 = getM3(inst.raw);
 
                 int32_t value1 = inst.rs1Value;
                 int32_t value2 = inst.rs2Value;
@@ -1200,7 +1182,9 @@ int Pipeline::getFpLatency(uint64_t instruction) const
     {
         return 1; // finはレイテンシ1
     }
+    return 1;
 }
+
 std::string Pipeline::getPipelineStateString() const
 {
     std::stringstream ss;
@@ -1579,7 +1563,12 @@ int Pipeline::getInstructionType(uint64_t instruction)
         if (fpuop == 0x7)
             return Simulator::ITOF;
         else if (fpuop == 0x0)
-            return Simulator::FADD;
+        {
+            if ((getM2(instruction) & 1) == 1)
+                return Simulator::FSUB;
+            else
+                return Simulator::FADD;
+        }
         else if (fpuop == 0x2)
             return Simulator::FMUL;
         else if (fpuop == 0x3)

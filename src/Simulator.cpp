@@ -1218,9 +1218,11 @@ void Simulator::executeInstruction(uint64_t instruction)
         }
         else if (fpuop == 0x0)
         {
-
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction(FADD);
+            if ((m2 & 1) == 1)
+                logInstruction(FSUB);
+            else
+                logInstruction(FADD);
             setFpRegister(rd, fpu.fadd(fprs1, fprs2));
         }
         else if (fpuop == 0x2)
@@ -1394,29 +1396,29 @@ void Simulator::printNonPipelineLog()
 void Simulator::printPipelineLog()
 {
     // パイプライン版の統計情報出力
-    uint64_t totalInstructions = getStep();
+    uint64_t totalSteps = getStep();
     uint64_t totalCycles = pipeline->getTotalCycles();
     uint64_t branchMisses = flushCount;
     uint64_t icacheMisses = iCache.getMissCount();
 
     std::cerr << "\n________Superscalar Statistics________" << std::endl;
-    std::cerr << "Total instructions: " << std::hex << totalInstructions << std::dec
-              << " (" << totalInstructions << ")" << std::endl;
+    std::cerr << "Total instructions: " << std::hex << totalSteps << std::dec
+              << " (" << totalSteps << ")" << std::endl;
 
     std::cerr << "Simulated cycles: " << std::hex << totalCycles << std::dec
               << " (" << totalCycles << ")" << std::endl;
     // 分岐予測ミス
-    double branchMissRatio = (double)branchMisses / totalInstructions * 100.0;
+    double branchMissRatio = (double)branchMisses / totalSteps * 100.0;
     std::cerr << "Branch prediction misses: " << branchMisses
               << " (" << branchMissRatio << "% of instructions)" << std::endl;
 
     // 命令キャッシュミス
-    double icacheMissRatio = (double)icacheMisses / totalInstructions * 100.0;
+    double icacheMissRatio = (double)icacheMisses / totalSteps * 100.0;
     std::cerr << "Instruction cache misses: " << icacheMisses
               << " (" << icacheMissRatio << "% of instructions)" << std::endl;
     uint64_t additionalStall = branchMisses * 2 + icacheMisses * 5;
     totalCycles += additionalStall;
-    double cpi = (double)totalCycles / totalInstructions;
+    double cpi = (double)totalCycles / totalSteps;
 
     std::cerr << "Total stalls: " << pipeline->getStallCount() + additionalStall << std::endl;
     std::cerr << "Total cycles: " << std::hex << totalCycles << std::dec
@@ -1429,24 +1431,22 @@ void Simulator::printPipelineLog()
     uint64_t singleIssueAttempts = pipeline->getSingleIssueAttempts();
     uint64_t singleIssueSuccess = pipeline->getSingleIssueSuccess();
     std::cerr << "Superscalar issue attempts: " << superscalarAttempts << std::endl;
-    std::cerr << "Successful superscalar issues: " << superscalarSuccess 
-              << " (" << (superscalarAttempts > 0 ? 
-                    (static_cast<float>(superscalarSuccess) / superscalarAttempts * 100.0) : 0.0) 
+    std::cerr << "Successful superscalar issues: " << superscalarSuccess
+              << " (" << (superscalarAttempts > 0 ? (static_cast<float>(superscalarSuccess) / superscalarAttempts * 100.0) : 0.0)
               << "% success rate)" << std::endl;
-    
+
     std::cerr << "Single issue attempts: " << singleIssueAttempts << std::endl;
     std::cerr << "Successful single issues: " << singleIssueSuccess
-              << " (" << (singleIssueAttempts > 0 ? 
-                    (static_cast<float>(singleIssueSuccess) / singleIssueAttempts * 100.0) : 0.0)
+              << " (" << (singleIssueAttempts > 0 ? (static_cast<float>(singleIssueSuccess) / singleIssueAttempts * 100.0) : 0.0)
               << "% success rate)" << std::endl;
-              float avgInstructionsPerCycle = static_cast<float>(totalInstructions) / totalCycles;
-              float theoreticalMaxIPC = 2.0f; // Superscalar with 2-wide issue
-              float ipcEfficiency = avgInstructionsPerCycle / theoreticalMaxIPC * 100.0f;
-              
-              std::cerr << "Superscalar efficiency: " << pipeline->getSuperscalarEfficiency() * 100.0f 
-                        << "% (percentage of superscalar attempts that succeeded)" << std::endl;
-              std::cerr << "IPC efficiency: " << ipcEfficiency 
-                        << "% (percentage of theoretical max IPC achieved)" << std::endl;
+    float avgInstructionsPerCycle = static_cast<float>(totalSteps) / totalCycles;
+    float theoreticalMaxIPC = 2.0f; // Superscalar with 2-wide issue
+    float ipcEfficiency = avgInstructionsPerCycle / theoreticalMaxIPC * 100.0f;
+
+    std::cerr << "Superscalar efficiency: " << pipeline->getSuperscalarEfficiency() * 100.0f
+              << "% (percentage of superscalar attempts that succeeded)" << std::endl;
+    std::cerr << "IPC efficiency: " << ipcEfficiency
+              << "% (percentage of theoretical max IPC achieved)" << std::endl;
 
     Log::printLog();
 
@@ -1460,37 +1460,37 @@ void Simulator::printPipelineLog()
 
     // WB衝突（int/fp間）
     uint64_t wbCollisionIntFp = pipeline->getWbCollisionIntFpCount();
-    double wbCollisionIntFpRatio = (double)wbCollisionIntFp / totalInstructions * 100.0;
+    double wbCollisionIntFpRatio = (double)wbCollisionIntFp / totalSteps * 100.0;
     std::cerr << "WB collisions (int/fp): " << wbCollisionIntFp
               << " (" << wbCollisionIntFpRatio << "% of instructions)" << std::endl;
 
     // WB衝突（メモリ命令）
     uint64_t wbCollisionMem = pipeline->getWbCollisionMemCount();
-    double wbCollisionMemRatio = (double)wbCollisionMem / totalInstructions * 100.0;
+    double wbCollisionMemRatio = (double)wbCollisionMem / totalSteps * 100.0;
     std::cerr << "WB collisions (memory): " << wbCollisionMem
               << " (" << wbCollisionMemRatio << "% of instructions)" << std::endl;
 
     // 分岐追い越し防止ストール
     uint64_t branchBypassStall = pipeline->getBranchBypassStallCount();
-    double branchBypassStallRatio = (double)branchBypassStall / totalInstructions * 100.0;
+    double branchBypassStallRatio = (double)branchBypassStall / totalSteps * 100.0;
     std::cerr << "Branch bypass stalls: " << branchBypassStall
               << " (" << branchBypassStallRatio << "% of instructions)" << std::endl;
 
     // メモリストールサイクル
     uint64_t memoryStallCycles = pipeline->getMemoryStallCycles();
-    double memoryStallRatio = (double)memoryStallCycles / totalInstructions;
+    double memoryStallRatio = (double)memoryStallCycles / totalSteps;
     std::cerr << "Memory stall cycles: " << memoryStallCycles
               << " (" << memoryStallRatio << " per instruction)" << std::endl;
 
     // FPU RAWストール
     uint64_t fpuRawStalls = pipeline->getFpuRawStallCount();
-    double fpuRawRatio = (double)fpuRawStalls / totalInstructions * 100.0;
+    double fpuRawRatio = (double)fpuRawStalls / totalSteps * 100.0;
     std::cerr << "FPU RAW stalls: " << fpuRawStalls
               << " (" << fpuRawRatio << "% of instructions)" << std::endl;
 
     // Load RAWストール
     uint64_t loadRawStalls = pipeline->getLoadRawStallCount();
-    double loadRawRatio = (double)loadRawStalls / totalInstructions * 100.0;
+    double loadRawRatio = (double)loadRawStalls / totalSteps * 100.0;
     std::cerr << "Load RAW stalls: " << loadRawStalls
               << " (" << loadRawRatio << "% of instructions)" << std::endl;
 
@@ -1538,25 +1538,27 @@ void Simulator::printPipelineLog()
     double estimatedTime = totalCycles / CPUFREQUENCY;
     std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
     std::cerr << "IPC: " << 1.0 / cpi << std::endl;
-    std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
+    std::cerr << "Estimated instruction per sec: " << totalSteps / estimatedTime << std::endl;
 
     // FPU演算
     uint64_t fpuOps = instructionCounts[FADD] +
                       instructionCounts[FMUL] + instructionCounts[FDIV] +
-                      instructionCounts[FSQRT] + instructionCounts[FFLOOR] + instructionCounts[FMADD];;
-    double fpuOpsRatio = (double)fpuOps / totalInstructions * 100.0;
+                      instructionCounts[FSQRT] + instructionCounts[FFLOOR] + instructionCounts[FMADD];
+    ;
+    double fpuOpsRatio = (double)fpuOps / totalSteps * 100.0;
     std::cerr << "FPU operations: " << fpuOps << " (" << fpuOpsRatio << "% of instructions)" << std::endl;
 
     // メモリ命令
     uint64_t memOps = instructionCounts[LW] + instructionCounts[LWR] + instructionCounts[SW] +
                       instructionCounts[FLW] + instructionCounts[FLWR] + instructionCounts[FSW];
-    double memOpsRatio = (double)memOps / totalInstructions * 100.0;
+    double memOpsRatio = (double)memOps / totalSteps * 100.0;
     std::cerr << "Memory operations: " << memOps << " (" << memOpsRatio << "% of instructions)" << std::endl;
 
     // 分岐命令
     uint64_t branchOps = instructionCounts[BEQ] + instructionCounts[BNE] + instructionCounts[BLT] +
-                         instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR] + instructionCounts[BFLT] + instructionCounts[BFGE];;
-    double branchOpsRatio = (double)branchOps / totalInstructions * 100.0;
+                         instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR] + instructionCounts[BFLT] + instructionCounts[BFGE];
+    ;
+    double branchOpsRatio = (double)branchOps / totalSteps * 100.0;
     std::cerr << "Branch operations: " << branchOps << " (" << branchOpsRatio << "% of instructions)" << std::endl;
 }
 
@@ -2096,7 +2098,7 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                         {
                                             step += 1;
                                             // Untaken
-                                            if (getPC() == currentPC + 1)
+                                            if (getPC() != getImmediate(instruction1))
                                             {
                                                 step += 1;
                                                 if (!isBranchInst(instruction2))
@@ -2219,7 +2221,6 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                         break;
                     }
 
-                    const uint64_t instruction = loadInstruction(pc);
                     pipeline->advance();
                     cycleCount++;
                     // 命令を発行しようとする
@@ -2246,10 +2247,9 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                                 {
                                     step += 1;
                                     // Untaken
-                                    if (getPC() == currentPC + 1)
+                                    if (getPC() != getImmediate(instruction1))
                                     {
-                                        
-                                    step += 1;
+                                        step += 1;
                                         if (!isBranchInst(instruction2))
                                         {
                                             setPC(getPC() + 1);
@@ -2399,7 +2399,7 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                         {
                             step += 1;
                             // Untaken
-                            if (getPC() == currentPC + 1)
+                            if (getPC() != getImmediate(instruction1))
                             {
                                 step += 1;
                                 if (!isBranchInst(instruction2))
@@ -2507,10 +2507,10 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
                     {
                         // 発行成功：ステップカウントとPCを2つ進める
                         if (isBranchInst(instruction1))
-                        {   
+                        {
                             step += 1;
                             // Untaken
-                            if (getPC() == currentPC + 1)
+                            if (getPC() != getImmediate(instruction1))
                             {
                                 step += 1;
                                 if (!isBranchInst(instruction2))
