@@ -76,6 +76,8 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     // WAWハザードの処理
     handleWAWHazards(inst);
 
+    simulator.fetchInstruction(pc);
+
     // 分岐命令（jalr, b*）は即座に実行してPCを更新
     if (inst.isBranch || inst.isJalr)
     {
@@ -111,7 +113,6 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     {
         simulator.storeWord(simulator.OUTPUT_ADDRESS * 4, inst.rs1Value);
     }
-    simulator.fetchInstruction(pc);
     int instType = getInstructionType(instruction);
     simulator.logInstruction(instType);
     simulator.logInstAddr(pc);
@@ -595,8 +596,8 @@ void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &
         inst.isFpRs1 = true;
         inst.isFpRs2 = true;
         inst.isBranch = true;
-        inst.rs1Value = simulator.getFpRegister(rs1);
-        inst.rs2Value = simulator.getFpRegister(rs2);
+        inst.rs1Value = simulator.applyFpModifier(simulator.getFpRegister(rs1), m1);
+        inst.rs2Value = simulator.applyFpModifier(simulator.getFpRegister(rs2), m2);
         break;
 
     case 0xE:          // jal
@@ -702,13 +703,12 @@ void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &
                 inst.rs2 = rs2;
                 inst.isFpRs2 = true;
                 inst.rs2Value = simulator.applyFpModifier(simulator.getFpRegister(rs2), m2);
-
                 uint32_t rs3 = getRs3(raw);
                 uint32_t m3 = getM3(raw);
                 // rs3の依存関係を追加（実際には別のフィールドを用意する必要があるかも）
                 inst.rs3 = rs3;
                 inst.isFpRs3 = true;
-                inst.rs3Value = m3 ? -simulator.getFpRegister(rs3) : simulator.getFpRegister(rs3);
+                inst.rs3Value = simulator.applyFpModifier(simulator.getFpRegister(rs3), m3);
             }
         }
         break;
