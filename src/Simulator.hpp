@@ -137,8 +137,8 @@ public:
 
     inline void setBreakpoint(bool bp) { isBreakpoint = bp; }
 
-    int32_t applyFpModifier(int32_t value, uint32_t modifier) { return applyFpModifier(value, modifier); }
-
+    int32_t applyFpModifier(int32_t value, uint32_t modifier) { return fpu.applyFpModifier(value, modifier); }
+    
 private:
     Pipeline *pipeline = nullptr;
     // パイプラインサポート
@@ -237,11 +237,11 @@ private:
     [[nodiscard]] inline bool isBranchInst(uint64_t instruction)
     {
         uint32_t opcode = getOpcode(instruction);
-        return opcode != 0x2 &&
-               opcode != 0x6 &&
-               opcode != 0xA &&
-               opcode != 0xE &&
-               opcode != 0xF;
+        return opcode == 0x2 ||
+               opcode == 0x6 ||
+               opcode == 0xA ||
+               opcode == 0xE ||
+               opcode == 0xF;
     }
     // 直近に書き込んだレジスタの更新
     inline void updatePrevLoadReg(int currLoadReg)

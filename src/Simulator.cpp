@@ -575,6 +575,7 @@ void Simulator::printRegisters(int regType) const
                   << std::setw(15) << std::hex << getPC()
                   << std::setw(15) << std::dec << "(" + std::to_string(getPC()) + ")" << std::endl;
     }
+
     if (regType == REG || regType == ALLREG)
     {
         std::cerr << "________Registers state________" << std::endl;
@@ -582,7 +583,9 @@ void Simulator::printRegisters(int regType) const
         {
             std::cerr << std::setw(8) << ("x" + std::to_string(i) + ":")
                       << std::setw(15) << std::hex << getRegister(i)
-                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")" << std::endl;
+                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<int32_t>(getRegister(i))) + ")";
+
+            std::cerr << std::endl;
         }
     }
 
@@ -593,7 +596,9 @@ void Simulator::printRegisters(int regType) const
         {
             std::cerr << std::setw(8) << ("fp" + std::to_string(i) + ":")
                       << std::setw(15) << std::hex << getFpRegister(i)
-                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")" << std::endl;
+                      << std::setw(15) << std::dec << "(" + std::to_string(std::bit_cast<float>(getFpRegister(i))) + ")";
+
+            std::cerr << std::endl;
         }
     }
 }
@@ -653,7 +658,6 @@ int Simulator::getCacheMissPenalty() const
 
 void Simulator::executeInstructionInPipeline(uint64_t instruction, int32_t pc, int32_t rs1Value, int32_t rs2Value)
 {
-
     // 分岐予測ミスとキャッシュミスのフラグをリセット
     branchMispredicted = false;
     instructionCacheMiss = false;
@@ -1214,9 +1218,11 @@ void Simulator::executeInstruction(uint64_t instruction)
         }
         else if (fpuop == 0x0)
         {
-
             detectPrevLoad(rs1 + REG_COUNT, rs2 + REG_COUNT);
-            logInstruction(FADD);
+            if ((m2 & 1) == 1)
+                logInstruction(FSUB);
+            else
+                logInstruction(FADD);
             setFpRegister(rd, fpu.fadd(fprs1, fprs2));
         }
         else if (fpuop == 0x2)
@@ -1390,35 +1396,57 @@ void Simulator::printNonPipelineLog()
 void Simulator::printPipelineLog()
 {
     // パイプライン版の統計情報出力
-    uint64_t totalInstructions = getStep();
+    uint64_t totalSteps = getStep();
     uint64_t totalCycles = pipeline->getTotalCycles();
     uint64_t branchMisses = flushCount;
     uint64_t icacheMisses = iCache.getMissCount();
 
-    std::cerr << "________Pipelined Execution Statistics________" << std::endl;
-    std::cerr << "Total instructions: " << std::hex << totalInstructions << std::dec
-              << " (" << totalInstructions << ")" << std::endl;
+    std::cerr << "\n________Superscalar Statistics________" << std::endl;
+    std::cerr << "Total instructions: " << std::hex << totalSteps << std::dec
+              << " (" << totalSteps << ")" << std::endl;
 
     std::cerr << "Simulated cycles: " << std::hex << totalCycles << std::dec
               << " (" << totalCycles << ")" << std::endl;
     // 分岐予測ミス
-    double branchMissRatio = (double)branchMisses / totalInstructions * 100.0;
+    double branchMissRatio = (double)branchMisses / totalSteps * 100.0;
     std::cerr << "Branch prediction misses: " << branchMisses
               << " (" << branchMissRatio << "% of instructions)" << std::endl;
 
     // 命令キャッシュミス
-    double icacheMissRatio = (double)icacheMisses / totalInstructions * 100.0;
+    double icacheMissRatio = (double)icacheMisses / totalSteps * 100.0;
     std::cerr << "Instruction cache misses: " << icacheMisses
               << " (" << icacheMissRatio << "% of instructions)" << std::endl;
     uint64_t additionalStall = branchMisses * 2 + icacheMisses * 5;
     totalCycles += additionalStall;
-    double cpi = (double)totalCycles / totalInstructions;
+    double cpi = (double)totalCycles / totalSteps;
 
     std::cerr << "Total stalls: " << pipeline->getStallCount() + additionalStall << std::endl;
     std::cerr << "Total cycles: " << std::hex << totalCycles << std::dec
               << " (" << totalCycles << ")" << std::endl;
 
     std::cerr << "CPI: " << cpi << std::endl;
+
+    uint64_t superscalarAttempts = pipeline->getSuperscalarAttempts();
+    uint64_t superscalarSuccess = pipeline->getSuperscalarSuccess();
+    uint64_t singleIssueAttempts = pipeline->getSingleIssueAttempts();
+    uint64_t singleIssueSuccess = pipeline->getSingleIssueSuccess();
+    std::cerr << "Superscalar issue attempts: " << superscalarAttempts << std::endl;
+    std::cerr << "Successful superscalar issues: " << superscalarSuccess
+              << " (" << (superscalarAttempts > 0 ? (static_cast<float>(superscalarSuccess) / superscalarAttempts * 100.0) : 0.0)
+              << "% success rate)" << std::endl;
+
+    std::cerr << "Single issue attempts: " << singleIssueAttempts << std::endl;
+    std::cerr << "Successful single issues: " << singleIssueSuccess
+              << " (" << (singleIssueAttempts > 0 ? (static_cast<float>(singleIssueSuccess) / singleIssueAttempts * 100.0) : 0.0)
+              << "% success rate)" << std::endl;
+    float avgInstructionsPerCycle = static_cast<float>(totalSteps) / totalCycles;
+    float theoreticalMaxIPC = 2.0f; // Superscalar with 2-wide issue
+    float ipcEfficiency = avgInstructionsPerCycle / theoreticalMaxIPC * 100.0f;
+
+    std::cerr << "Superscalar efficiency: " << pipeline->getSuperscalarEfficiency() * 100.0f
+              << "% (percentage of superscalar attempts that succeeded)" << std::endl;
+    std::cerr << "IPC efficiency: " << ipcEfficiency
+              << "% (percentage of theoretical max IPC achieved)" << std::endl;
 
     Log::printLog();
 
@@ -1432,37 +1460,37 @@ void Simulator::printPipelineLog()
 
     // WB衝突（int/fp間）
     uint64_t wbCollisionIntFp = pipeline->getWbCollisionIntFpCount();
-    double wbCollisionIntFpRatio = (double)wbCollisionIntFp / totalInstructions * 100.0;
+    double wbCollisionIntFpRatio = (double)wbCollisionIntFp / totalSteps * 100.0;
     std::cerr << "WB collisions (int/fp): " << wbCollisionIntFp
               << " (" << wbCollisionIntFpRatio << "% of instructions)" << std::endl;
 
     // WB衝突（メモリ命令）
     uint64_t wbCollisionMem = pipeline->getWbCollisionMemCount();
-    double wbCollisionMemRatio = (double)wbCollisionMem / totalInstructions * 100.0;
+    double wbCollisionMemRatio = (double)wbCollisionMem / totalSteps * 100.0;
     std::cerr << "WB collisions (memory): " << wbCollisionMem
               << " (" << wbCollisionMemRatio << "% of instructions)" << std::endl;
 
     // 分岐追い越し防止ストール
     uint64_t branchBypassStall = pipeline->getBranchBypassStallCount();
-    double branchBypassStallRatio = (double)branchBypassStall / totalInstructions * 100.0;
+    double branchBypassStallRatio = (double)branchBypassStall / totalSteps * 100.0;
     std::cerr << "Branch bypass stalls: " << branchBypassStall
               << " (" << branchBypassStallRatio << "% of instructions)" << std::endl;
 
     // メモリストールサイクル
     uint64_t memoryStallCycles = pipeline->getMemoryStallCycles();
-    double memoryStallRatio = (double)memoryStallCycles / totalInstructions;
+    double memoryStallRatio = (double)memoryStallCycles / totalSteps;
     std::cerr << "Memory stall cycles: " << memoryStallCycles
               << " (" << memoryStallRatio << " per instruction)" << std::endl;
 
     // FPU RAWストール
     uint64_t fpuRawStalls = pipeline->getFpuRawStallCount();
-    double fpuRawRatio = (double)fpuRawStalls / totalInstructions * 100.0;
+    double fpuRawRatio = (double)fpuRawStalls / totalSteps * 100.0;
     std::cerr << "FPU RAW stalls: " << fpuRawStalls
               << " (" << fpuRawRatio << "% of instructions)" << std::endl;
 
     // Load RAWストール
     uint64_t loadRawStalls = pipeline->getLoadRawStallCount();
-    double loadRawRatio = (double)loadRawStalls / totalInstructions * 100.0;
+    double loadRawRatio = (double)loadRawStalls / totalSteps * 100.0;
     std::cerr << "Load RAW stalls: " << loadRawStalls
               << " (" << loadRawRatio << "% of instructions)" << std::endl;
 
@@ -1510,25 +1538,27 @@ void Simulator::printPipelineLog()
     double estimatedTime = totalCycles / CPUFREQUENCY;
     std::cerr << "Estimated execution time: " << estimatedTime << "sec" << std::endl;
     std::cerr << "IPC: " << 1.0 / cpi << std::endl;
-    std::cerr << "Estimated instruction per sec: " << totalInstructions / estimatedTime << std::endl;
+    std::cerr << "Estimated instruction per sec: " << totalSteps / estimatedTime << std::endl;
 
     // FPU演算
     uint64_t fpuOps = instructionCounts[FADD] +
                       instructionCounts[FMUL] + instructionCounts[FDIV] +
-                      instructionCounts[FSQRT] + instructionCounts[FFLOOR];
-    double fpuOpsRatio = (double)fpuOps / totalInstructions * 100.0;
+                      instructionCounts[FSQRT] + instructionCounts[FFLOOR] + instructionCounts[FMADD];
+    ;
+    double fpuOpsRatio = (double)fpuOps / totalSteps * 100.0;
     std::cerr << "FPU operations: " << fpuOps << " (" << fpuOpsRatio << "% of instructions)" << std::endl;
 
     // メモリ命令
     uint64_t memOps = instructionCounts[LW] + instructionCounts[LWR] + instructionCounts[SW] +
                       instructionCounts[FLW] + instructionCounts[FLWR] + instructionCounts[FSW];
-    double memOpsRatio = (double)memOps / totalInstructions * 100.0;
+    double memOpsRatio = (double)memOps / totalSteps * 100.0;
     std::cerr << "Memory operations: " << memOps << " (" << memOpsRatio << "% of instructions)" << std::endl;
 
     // 分岐命令
     uint64_t branchOps = instructionCounts[BEQ] + instructionCounts[BNE] + instructionCounts[BLT] +
-                         instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR];
-    double branchOpsRatio = (double)branchOps / totalInstructions * 100.0;
+                         instructionCounts[BGE] + instructionCounts[JAL] + instructionCounts[JALR] + instructionCounts[BFLT] + instructionCounts[BFGE];
+    ;
+    double branchOpsRatio = (double)branchOps / totalSteps * 100.0;
     std::cerr << "Branch operations: " << branchOps << " (" << branchOpsRatio << "% of instructions)" << std::endl;
 }
 
@@ -1709,7 +1739,7 @@ void Simulator::runProgram(int outputRegNum)
                                         printInstruction(instruction);
                                     }
                                     executeInstruction(instruction);
-                                    if (isBranchInst(instruction))
+                                    if (!isBranchInst(instruction))
                                     {
                                         setPC(getPC() + 1);
                                     }
@@ -1773,7 +1803,7 @@ void Simulator::runProgram(int outputRegNum)
                             const uint64_t instruction = loadInstruction(pc);
 
                             executeInstruction(instruction);
-                            if (isBranchInst(instruction))
+                            if (!isBranchInst(instruction))
                             {
                                 setPC(getPC() + 1);
                             }
@@ -1815,7 +1845,7 @@ void Simulator::runProgram(int outputRegNum)
                         printInstruction(instruction);
                     }
                     executeInstruction(instruction);
-                    if (isBranchInst(instruction))
+                    if (!isBranchInst(instruction))
                     {
                         setPC(getPC() + 1);
                     }
@@ -1837,7 +1867,7 @@ void Simulator::runProgram(int outputRegNum)
                         printInstruction(instruction);
                     }
                     executeInstruction(instruction);
-                    if (isBranchInst(instruction))
+                    if (!isBranchInst(instruction))
                     {
                         setPC(getPC() + 1);
                     }
@@ -2045,29 +2075,87 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                             pipeline->advance();
                             cycleCount++;
                             // 命令を発行しようとする
-                            const uint64_t instruction = loadInstruction(pc);
-                            bool issued = pipeline->tryIssue(instruction, pc);
 
-                            if (issued)
+                            // スーパースカラ発行の判断
+                            int32_t currentPC = pc;
+                            bool pairIssued = false;
+
+                            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                             {
-                                if (rep == 1)
+                                const uint64_t instruction1 = loadInstruction(currentPC);
+                                const uint64_t instruction2 = loadInstruction(currentPC + 1);
+
+                                // 同時実行可能なペアかチェック
+                                if (pipeline->canIssueInPair(instruction1, instruction2))
                                 {
-                                    std::cerr << "Issuing: " << instToString(instruction) << std::endl;
-                                }
-                                if (isBranchInst(instruction))
-                                {
-                                    setPC(getPC() + 1);
-                                }
-                                step++;
-                            }
-                            else
-                            {
-                                if (rep == 1)
-                                {
-                                    std::cerr << "Instruction stalled: " << instToString(instruction) << std::endl;
+                                    // ペアとして発行を試みる
+                                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                                    if (pairIssued)
+                                    {
+                                        // 発行成功：ステップカウントとPCを2つ進める
+                                        if (isBranchInst(instruction1))
+                                        {
+                                            step += 1;
+                                            // Untaken
+                                            if (getPC() != getImmediate(instruction1))
+                                            {
+                                                step += 1;
+                                                if (!isBranchInst(instruction2))
+                                                {
+                                                    setPC(getPC() + 1);
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            step += 2;
+                                            if (!isBranchInst(instruction2))
+                                            {
+                                                setPC(getPC() + 2);
+                                            }
+                                        }
+                                        if (rep == 1)
+                                        {
+                                            std::cerr << "Issued pair: " << instToString(instruction1)
+                                                      << " and " << instToString(instruction2) << std::endl;
+                                        }
+                                    }
                                 }
                             }
 
+                            if (!pairIssued)
+                            {
+                                // 単独命令の発行
+                                const uint64_t instruction = loadInstruction(currentPC);
+
+                                // 命令を発行しようとする
+                                bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                                if (issued)
+                                {
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << "Issued: " << instToString(instruction) << std::endl;
+                                    }
+                                    // 発行成功：ステップカウントを増やす
+                                    step++;
+
+                                    // PCを更新
+                                    if (!isBranchInst(instruction))
+                                    {
+                                        // 分岐/ジャンプ/ebreak命令以外はPCを1増やす
+                                        setPC(currentPC + 1);
+                                    }
+                                }
+                                else
+                                {
+                                    if (rep == 1)
+                                    {
+                                        std::cerr << "Instruction stalled: " << instToString(instruction) << std::endl;
+                                    }
+                                }
+                            }
                             if (rep == 1)
                             {
                                 std::cerr << std::endl;
@@ -2133,24 +2221,72 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                         break;
                     }
 
-                    const uint64_t instruction = loadInstruction(pc);
                     pipeline->advance();
                     cycleCount++;
                     // 命令を発行しようとする
-                    bool issued = pipeline->tryIssue(instruction, pc);
+                    // サイクル開始時のPCを保存
+                    int32_t currentPC = pc;
 
-                    if (issued)
+                    // スーパースカラ発行の判断
+                    bool pairIssued = false;
+
+                    if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                     {
-                        // 発行成功：ステップカウントを増やす
-                        step++;
+                        const uint64_t instruction1 = loadInstruction(currentPC);
+                        const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                        if (isBranchInst(instruction))
+                        // 同時実行可能なペアかチェック
+                        if (pipeline->canIssueInPair(instruction1, instruction2))
                         {
-                            setPC(getPC() + 1);
-                            ;
+                            // ペアとして発行を試みる
+                            pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                            if (pairIssued)
+                            {
+                                if (isBranchInst(instruction1))
+                                {
+                                    step += 1;
+                                    // Untaken
+                                    if (getPC() != getImmediate(instruction1))
+                                    {
+                                        step += 1;
+                                        if (!isBranchInst(instruction2))
+                                        {
+                                            setPC(getPC() + 1);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    step += 2;
+                                    if (!isBranchInst(instruction2))
+                                    {
+                                        setPC(getPC() + 2);
+                                    }
+                                }
+                            }
                         }
                     }
 
+                    if (!pairIssued)
+                    {
+                        // 単独命令の発行
+                        const uint64_t instruction = loadInstruction(currentPC);
+
+                        // 命令を発行しようとする
+                        bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                        if (issued)
+                        {
+                            // 発行成功：ステップカウントを増やす
+                            step++;
+
+                            if (!isBranchInst(instruction))
+                            {
+                                setPC(getPC() + 1);
+                            }
+                        }
+                    }
                     // パイプラインを1サイクル進める
                 }
 
@@ -2239,26 +2375,86 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
             // パイプラインを1サイクル進める
             pipeline->advance();
             cycleCount++;
+            // スーパースカラ発行の判断
 
-            // 命令を発行しようとする
-            bool issued = pipeline->tryIssue(instruction, pc);
+            int32_t currentPC = pc;
+            bool pairIssued = false;
 
-            if (issued)
+            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
             {
-                // 発行成功：ステップカウントを増やす
-                step++;
+                const uint64_t instruction1 = loadInstruction(currentPC);
+                const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                if (isBreakpoint)
+                // 同時実行可能なペアかチェック
+                if (pipeline->canIssueInPair(instruction1, instruction2))
                 {
-                    pc++;
-                    // パイプライン内の残りの命令を処理
-                    finishPipelineExecution(cycleCount);
-                    break;
+
+                    // ペアとして発行を試みる
+                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                    if (pairIssued)
+                    {
+                        // 発行成功：ステップカウントとPCを2つ進める
+                        if (isBranchInst(instruction1))
+                        {
+                            step += 1;
+                            // Untaken
+                            if (getPC() != getImmediate(instruction1))
+                            {
+                                step += 1;
+                                if (!isBranchInst(instruction2))
+                                {
+                                    setPC(getPC() + 1);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            step += 2;
+                            if (!isBranchInst(instruction2))
+                            {
+                                setPC(getPC() + 2);
+                            }
+                        }
+                        if (enableDebug)
+                        {
+                            std::cerr << "Issued pair: " << instToString(instruction1)
+                                      << " and " << instToString(instruction2) << std::endl;
+                        }
+                    }
+                }
+            }
+
+            if (!pairIssued)
+            {
+                // 単独命令の発行
+                const uint64_t instruction = loadInstruction(currentPC);
+
+                if (enableDebug)
+                {
+                    std::cerr << "Instruction: " << instToString(instruction) << std::endl;
                 }
 
-                if (isBranchInst(instruction))
+                // 命令を発行しようとする
+                bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                if (issued)
                 {
-                    setPC(getPC() + 1);
+                    // 発行成功：ステップカウントを増やす
+                    step++;
+
+                    if (!isBranchInst(instruction))
+                    {
+                        setPC(getPC() + 1);
+                    }
+                    if (enableDebug)
+                    {
+                        std::cerr << "Issued: " << instToString(instruction) << std::endl;
+                    }
+                }
+                else if (enableDebug)
+                {
+                    std::cerr << "Stalled" << std::endl;
                 }
             }
         }
@@ -2291,27 +2487,85 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
             // パイプラインを1サイクル進める
             pipeline->advance();
             cycleCount++;
-            // 命令を発行しようとする
-            bool issued = pipeline->tryIssue(instruction, pc);
 
-            if (issued)
+            int32_t currentPC = pc;
+            bool pairIssued = false;
+
+            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
             {
-                // 発行成功：ステップカウントを増やす
-                step++;
+                const uint64_t instruction1 = loadInstruction(currentPC);
+                const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                if (isBreakpoint)
+                // 同時実行可能なペアかチェック
+                if (pipeline->canIssueInPair(instruction1, instruction2))
                 {
-                    pc++;
-                    // パイプライン内の残りの命令を処理
-                    finishPipelineExecution(cycleCount);
-                    break;
+
+                    // ペアとして発行を試みる
+                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                    if (pairIssued)
+                    {
+                        // 発行成功：ステップカウントとPCを2つ進める
+                        if (isBranchInst(instruction1))
+                        {
+                            step += 1;
+                            // Untaken
+                            if (getPC() != getImmediate(instruction1))
+                            {
+                                step += 1;
+                                if (!isBranchInst(instruction2))
+                                {
+                                    setPC(getPC() + 1);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            step += 2;
+                            if (!isBranchInst(instruction2))
+                            {
+                                setPC(getPC() + 2);
+                            }
+                        }
+                        if (enableDebug)
+                        {
+                            std::cerr << "Issued pair: " << instToString(instruction1)
+                                      << " and " << instToString(instruction2) << std::endl;
+                        }
+                    }
+                }
+            }
+
+            if (!pairIssued)
+            {
+                // 単独命令の発行
+                const uint64_t instruction = loadInstruction(currentPC);
+
+                if (enableDebug)
+                {
+                    std::cerr << "Instruction: " << instToString(instruction) << std::endl;
                 }
 
-                // PCが変わっていなければ、次の命令へ
-                // （分岐命令の場合、既にtryIssue内でPCが更新されている）
-                if (isBranchInst(instruction))
+                // 命令を発行しようとする
+                bool issued = pipeline->tryIssue(instruction, currentPC);
+
+                if (issued)
                 {
-                    setPC(getPC() + 1);
+                    // 発行成功：ステップカウントを増やす
+                    step++;
+
+                    if (!isBranchInst(instruction))
+                    {
+                        setPC(getPC() + 1);
+                    }
+                    if (enableDebug)
+                    {
+                        std::cerr << "Issued: " << instToString(instruction) << std::endl;
+                    }
+                }
+                else if (enableDebug)
+                {
+                    std::cerr << "Stalled" << std::endl;
                 }
             }
 
@@ -2328,10 +2582,8 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
         std::cerr << "Program reached breakpoint" << std::endl;
     }
     std::cerr << "________Simulation Ended________" << std::endl;
-    std::cerr << "Total cycles: " << cycleCount << std::endl;
+    std::cerr << "Simulated cycles: " << cycleCount << std::endl;
     std::cerr << "Total instructions: " << step << std::endl;
-    std::cerr << "Total stalls: " << pipeline->getStallCount() << std::endl;
-    std::cerr << "IPC: " << (double)step / cycleCount << std::endl;
 
     if (outputRegNum >= 0)
     {

@@ -57,6 +57,7 @@ protected:
         FTOI,
         ITOF,
         FADD,
+        FSUB,
         FMUL,
         FDIV,
         FMV,
@@ -75,7 +76,7 @@ protected:
         "beq", "bne", "blt", "bge", "bflt", "bfge", "jal", "jalr",
         "lw", "lwr", "sw", "flw", "flwr", "fsw",
         "ebreak",
-        "ftoi", "itof", "fadd", "fmul", "fdiv", "fmv", "fsqrt", "ffloor", "flt", "feq", "fmadd"
+        "ftoi", "itof", "fadd","fsub", "fmul", "fdiv", "fmv", "fsqrt", "ffloor", "flt", "feq", "fmadd"
     };
 
     [[nodiscard]]

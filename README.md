@@ -2,7 +2,7 @@
 2024年CPU実験6班のCPUシミュレータのリポジトリ。
 
 ## 概要
-2024年CPU実験6班のISAに従うバイナリファイルを読み込み、動作をシミュレートするプログラム。アセンブリコードは [`6asm`](https://github.com/windows-server-2003/2024-cpuex-asm) を使って機械語に変換してから利用する。ISAは基本RISC-Vをベースとして改変したものであり、RISC-Vのプログラムがこのシミュレータで動くことは保証していない。
+2024年CPU実験6班のISAに従うバイナリファイルを読み込み、動作をシミュレートするプログラム。アセンブリコードは [`6asm`](https://github.com/windows-server-2003/2024-cpuex-asm) を使って機械語に変換してから利用する。ISAは基本RISC-Vをベースとして改変した独自のものであり、RISC-Vのプログラムが動くことは想定していない。
 
 ## 必要な環境
 - コンパイラ: `g++` (C++23対応)
@@ -33,14 +33,14 @@ sudo apt-get install libssl-dev
 ### 実行例
 標準的なシミュレーション実行例:
 ```bash
-./simulator example/mandelbrot.bin -i example/mandelbrot.input 1> simulator.log 2> simulator.err
+./simulator example/mandelbrot.bin -i example/mandelbrot.input 2> simulator.err
 ```
 
 - `example/mandelbrot.bin`: 実行するRISC-Vバイナリ
 - `-i example/mandelbrot.input.sld`: 入力ファイルパス（指定がない場合、`sld/contest.sld` が使用される）
 
 実行結果:
-- 標準出力にシミュレーション結果のIO命令の出力が表示される。
+- `--output`に指定されたファイル（デフォルト: `output.ppm`）にプログラムのIO命令の出力が表示される。
 - 標準エラー出力にシミュレーションの情報が表示される。
 
 ---
@@ -50,17 +50,24 @@ sudo apt-get install libssl-dev
 |-----------------------|----------------------------------------------------------------------|
 | `-h [ --help ]`      | ヘルプを表示                |
 | `-i [ --input ] <filepath>`      | 入力ファイルを指定（デフォルト: `sld/contest.sld`）                |
+| `-o [ --output ] <filepath>`      | 出力ファイルを指定（デフォルト: `output.ppm`）                |
 | `--notify`            | 実行終了時にDiscord Webhookへ通知を送信する。Webhook URLは `discordWebhook.txt` に記載 |
 | `-r [ --reg ] <RegNum>`      | 特定のレジスタ値を出力。`<RegNum>` は 0-31（`x0-x31`）、32-63（`fp0-fp31`） |
 | `-l [ --limit ] <maxStep>`  | 最大実行命令数を指定（デフォルト: `UINT64_MAX`）                   |
 | `-m [ --memory ] <size>`     | DRAMサイズを指定（単位: MiB、デフォルト: 4MiB）                                      |
-| `-c [ --cache ] <numWay>`    | キャッシュメモリを有効化し、Way数を指定（1の場合はDirect Mapped） |
+| `--no-cache`          | キャッシュメモリを無効化する |
 | `--icount`            | 命令メモリに存在する各命令とその実行回数を出力する                       |
 | `--istats`            |  実行された命令の特殊な統計を出力する。`mv`と`mvi`の回数や`lw`/`sw`のオフセット分布など                       |
 | `-d [ --debug ]`             | 詳細なログを表示（大量の出力が発生する可能性あり）                |
+| `--stdout`            | 標準出力への出力を有効化 |
 | `-p [ --pbar ] <imageSize>`             | プログレスバーをターミナルに表示。標準出力がターミナル上の時のみ動作。 例：`/simulator example/minrt_inline400_32 -p 32`            |
 | `-onlystdio`         | **(廃止)** 実行時のOutputのみを表示                     |
 | `-g [ --gdb ]`               | GDBのような機能を有効化    |
+| `--no-pipeline`             | パイプライン処理を無効化する |
+| `--l1-lines <N>`           | L1キャッシュのライン数を指定 (デフォルト: 512) |
+| `--l2-lines <N>`           | L2キャッシュのライン数を指定 (デフォルト: 2048) |
+| `--l2-ways <N>`            | L2キャッシュのウェイ数を指定 (デフォルト: 4) |
+| `--cache-line-size <N>`    | キャッシュラインのサイズをバイト単位で指定 (デフォルト: 128) |
 
 ---
 
@@ -74,6 +81,7 @@ sudo apt-get install libssl-dev
 | `c`           | 次の `ebreak` まで実行                                          |
 | `l`           | 付近のアセンブリコードを表示                                    |
 | `r`           | 直前の出力を再度表示                                            |
+| `p` or `pipeline` | パイプラインの現在の状態を表示                                |
 | `quit` or `q` | デバッグモードを終了                                            |
 | `info` or `i` | 引数なしでレジスタ群をすべて表示                                 |
 | `[空文字]`    | 直前のコマンドを再実行                                          |

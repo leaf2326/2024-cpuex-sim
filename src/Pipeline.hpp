@@ -12,11 +12,11 @@ class Simulator;
 // パイプラインに入る命令情報
 struct PipelineInstruction
 {
-    uint64_t raw;          // 命令の生データ
+    uint64_t raw; // 命令の生データ
     int32_t pc;
-    int rd;                // rdレジスタ（なければ-1）
+    int rd; // rdレジスタ（なければ-1）
     bool isFpRd;
-    int rs1, rs2, rs3;          // ソースレジスタ（なければ-1）
+    int rs1, rs2, rs3; // ソースレジスタ（なければ-1）
     bool isFpRs1, isFpRs2, isFpRs3;
     bool isMemory;
     bool isLoad;
@@ -24,6 +24,7 @@ struct PipelineInstruction
     bool isBranch;
     bool isJalr;
     bool isEbreak;
+    bool isOut;
     int cacheWaitCycles;  // キャッシュ待機サイクル数
     bool shouldDisappear; // executed_memから消滅するべきか
 
@@ -39,8 +40,10 @@ class Pipeline
 public:
     Pipeline(Simulator &sim);
 
-    // 命令を発行しようとする（成功したらtrue）
+    // 命令を発行しようとする
     bool tryIssue(uint64_t instruction, int32_t pc);
+    // 2つの命令を同時に発行しようとする
+    bool tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruction2, int32_t pc2);
 
     void advance();
 
@@ -66,6 +69,21 @@ public:
 
     bool isEmpty() const;
 
+    bool canIssueInPair(const uint64_t inst1, const uint64_t inst2);
+    bool hasDataDependency(const uint64_t inst1, const uint64_t inst2);
+    
+    [[nodiscard]] inline uint64_t getSuperscalarAttempts() const { return superscalarAttempts; }
+    [[nodiscard]] inline uint64_t getSuperscalarSuccess() const { return superscalarSuccess; }
+    [[nodiscard]] inline uint64_t getSingleIssueAttempts() const { return singleIssueAttempts; }
+    [[nodiscard]] inline uint64_t getSingleIssueSuccess() const { return singleIssueSuccess; }
+    [[nodiscard]] inline float getSuperscalarEfficiency() const { 
+        return superscalarAttempts > 0 ? 
+            static_cast<float>(superscalarSuccess) / superscalarAttempts : 0.0f; 
+    }
+    [[nodiscard]] inline uint64_t getDataHazardStalls() const { return dataHazardStalls; }
+    [[nodiscard]] inline uint64_t getControlHazardStalls() const { return controlHazardStalls; }
+    [[nodiscard]] inline uint64_t getStructuralStalls() const { return structuralStalls; }
+
 private:
     Simulator &simulator;
 
@@ -77,13 +95,23 @@ private:
     uint64_t loadRawStallCount = 0;      // Load RAWストール数
     uint64_t memoryStallCycles = 0;      // メモリストールサイクル数
     uint64_t totalCycles = 0;            // 合計サイクル数
+    uint64_t singleIssueAttempts = 0;    // スーパースカラー発行の試行回数
+    uint64_t singleIssueSuccess = 0;     // 成功したスーパースカラー発行の回数
+    uint64_t superscalarAttempts = 0;    // スーパースカラー発行の試行回数
+    uint64_t superscalarSuccess = 0;     // 成功したスーパースカラー発行の回数
+    uint64_t dataHazardStalls = 0;       // データハザードによるストール回数
+    uint64_t controlHazardStalls = 0;
+    uint64_t structuralStalls = 0;
 
     // パイプラインステージ
-    InstSlot decoded_int[3]; // int2, int1, int0
-    InstSlot decoded_fp[6];  // fp5, fp4, fp3, fp2, fp1, fp0
+    std::vector<PipelineInstruction> decoded_int[3];
+    InstSlot decoded_fp[6];
     InstSlot decoded_mem;
-    InstSlot executed_int, executed_fp, executed_mem;
-    InstSlot MAed_int, MAed_fp;
+    std::vector<PipelineInstruction> executed_int;
+    InstSlot executed_fp;
+    InstSlot executed_mem;
+    std::vector<PipelineInstruction> MAed_int;
+    InstSlot MAed_fp;
 
     bool fetchInstruction(int32_t address);
 

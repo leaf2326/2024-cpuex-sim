@@ -512,7 +512,12 @@ bool Memory::checkCacheHit(uint32_t address)
 {
     if (address < 0 || address >= memorySize) [[unlikely]]
     {
-        throw std::out_of_range("dMemory access out of bounds");
+        std::stringstream ss;
+        ss << "Error: dMemory access out of bounds at address "
+           << std::hex << address << std::dec
+           << " (word address " << std::hex << (address >> 2) << std::dec << ")" << std::endl;
+        ss << "Memory size is " << std::hex << memorySize << std::dec << " bytes" << std::endl;
+        throw std::out_of_range(ss.str() + "dMemory access out of bounds");
     }
 
     // 特別なアドレス（入出力）は常にヒット
