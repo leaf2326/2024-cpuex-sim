@@ -1321,6 +1321,16 @@ bool Simulator::fetchInstruction(int32_t address)
     return iCache.fetch(address);
 }
 
+bool Simulator::fetch2Instruction(int32_t address1, int32_t address2)
+{
+    bool hit = iCache.fetch(address1) || iCache.fetch(address2);
+    if (!hit)
+    {
+        --iCache.missCount;
+    }
+    return hit;
+}
+
 // ログの出力
 void Simulator::printNonPipelineLog()
 {
@@ -1367,6 +1377,7 @@ void Simulator::printNonPipelineLog()
     estimatedClock += loadStoreSequence;
     uint64_t floatingStall = 0;
     floatingStall += (instructionCounts[FADD]) * 2;
+    floatingStall += (instructionCounts[FSUB]) * 2;
     floatingStall += (instructionCounts[FMADD]) * 3;
     floatingStall += (instructionCounts[FMUL]) * 1;
     floatingStall += (instructionCounts[FDIV]) * 4;

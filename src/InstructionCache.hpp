@@ -19,6 +19,8 @@ public:
     {
         return missCount;
     }
+    
+    size_t missCount;
 
 private:
     static constexpr size_t CacheLines = 512;
@@ -31,7 +33,6 @@ private:
     std::vector<std::optional<uint32_t>> jaltContent;
     std::queue<uint32_t> pcHistory;
     std::queue<uint32_t> prefetchPipeline;
-    size_t missCount;
 
     inline void jaltWrite(uint32_t addr, uint32_t content)
     {

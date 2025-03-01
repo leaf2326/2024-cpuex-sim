@@ -131,7 +131,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
     {
         // ebreakがある場合は単独で発行
         simulator.setBreakpoint(true);
-        simulator.fetchInstruction(pc1);
+        simulator.fetch2Instruction(pc1, pc2);
         int instType = getInstructionType(instruction1);
         simulator.logInstruction(instType);
         simulator.logInstAddr(pc1);
@@ -198,7 +198,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
         handleWAWHazards(inst2);
     }
 
-    simulator.fetchInstruction(pc1); // pc1のフェッチで同時にpc+1もフェッチされる
+    simulator.fetch2Instruction(pc1, pc2);
 
     // 1つ目の命令の処理
     if (inst1.isBranch || inst1.isJalr)

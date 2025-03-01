@@ -190,6 +190,7 @@ private:
     InstructionCache iCache;
     static constexpr int64_t IMEMORY_SIZE = InstructionCache::IMEMORY_SIZE; // Iメモリサイズ（128KiB）
     bool fetchInstruction(int32_t address);
+    bool fetch2Instruction(int32_t address1, int32_t address2);
     uint64_t getInstructionCacheMissCount() const { return iCache.getMissCount(); }
 
     std::array<uint64_t, IMEMORY_SIZE / 4> iMemory{};
