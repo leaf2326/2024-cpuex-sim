@@ -1234,6 +1234,14 @@ void Simulator::executeInstruction(uint64_t instruction)
         else if (fpuop == 0x4)
         {
             detectPrevLoad(rs1 + REG_COUNT, NOLOADREG);
+            if (m1 & 0x1)
+            {
+                ++fmvM1Bit0Count; // 第0ビットが立っている（負符号）
+            }
+            if (m1 & 0x2)
+            {
+                ++fmvM1Bit1Count; // 第1ビットが立っている（絶対値）
+            }
             logInstruction(FMV);
             setFpRegister(rd, fprs1);
         }
@@ -1358,7 +1366,18 @@ void Simulator::printNonPipelineLog()
     std::cerr << "Cache miss with different range write back: " << dMemory.getDiffRangeWbCount() << std::endl;
     std::cerr << "Cache miss with same range write back: " << dMemory.getSameRangeWbCount() << std::endl;
     std::cerr << "Instruction cache miss: " << iCache.getMissCount() << std::endl;
+    std::cerr << "FMV modifier distribution:" << std::endl;
+    uint64_t fmvCount = instructionCounts[FMV];
+    uint64_t m1_0 = fmvCount - fmvM1Bit0Count - fmvM1Bit1Count + (fmvM1Bit0Count & fmvM1Bit1Count);
+    uint64_t m1_1 = fmvM1Bit0Count - (fmvM1Bit0Count & fmvM1Bit1Count);
+    uint64_t m1_2 = fmvM1Bit1Count - (fmvM1Bit0Count & fmvM1Bit1Count);
+    uint64_t m1_3 = (fmvM1Bit0Count & fmvM1Bit1Count);
 
+    std::cerr << "  m1=0 (identity): " << m1_0 << " (" << (double)m1_0 / fmvCount * 100.0 << "%)" << std::endl;
+    std::cerr << "  m1=1 (negative): " << m1_1 << " (" << (double)m1_1 / fmvCount * 100.0 << "%)" << std::endl;
+    std::cerr << "  m1=2 (absolute): " << m1_2 << " (" << (double)m1_2 / fmvCount * 100.0 << "%)" << std::endl;
+    std::cerr << "  m1=3 (neg-abs): " << m1_3 << " (" << (double)m1_3 / fmvCount * 100.0 << "%)" << std::endl;
+    
     std::cerr << "________Stall prediction________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
@@ -1454,7 +1473,17 @@ void Simulator::printPipelineLog()
               << "% (percentage of superscalar attempts that succeeded)" << std::endl;
     std::cerr << "IPC efficiency: " << ipcEfficiency
               << "% (percentage of theoretical max IPC achieved)" << std::endl;
+    std::cerr << "FMV modifier distribution:" << std::endl;
+    uint64_t fmvCount = instructionCounts[FMV];
+    uint64_t m1_0 = fmvCount - fmvM1Bit0Count - fmvM1Bit1Count + (fmvM1Bit0Count & fmvM1Bit1Count);
+    uint64_t m1_1 = fmvM1Bit0Count - (fmvM1Bit0Count & fmvM1Bit1Count);
+    uint64_t m1_2 = fmvM1Bit1Count - (fmvM1Bit0Count & fmvM1Bit1Count);
+    uint64_t m1_3 = (fmvM1Bit0Count & fmvM1Bit1Count);
 
+    std::cerr << "  m1=0 (identity): " << m1_0 << " (" << (double)m1_0 / fmvCount * 100.0 << "%)" << std::endl;
+    std::cerr << "  m1=1 (negative): " << m1_1 << " (" << (double)m1_1 / fmvCount * 100.0 << "%)" << std::endl;
+    std::cerr << "  m1=2 (absolute): " << m1_2 << " (" << (double)m1_2 / fmvCount * 100.0 << "%)" << std::endl;
+    std::cerr << "  m1=3 (neg-abs): " << m1_3 << " (" << (double)m1_3 / fmvCount * 100.0 << "%)" << std::endl;
     Log::printLog();
 
     // 分岐予測ミス

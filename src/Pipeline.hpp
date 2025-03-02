@@ -126,5 +126,6 @@ private:
     void flushPipeline();
     int getInstructionType(uint64_t instruction);
     bool isJalInstruction(uint64_t instruction) const;
+    void logIssue(uint64_t instruction, int32_t pc);
 };
 #endif // PIPELINE_HPP

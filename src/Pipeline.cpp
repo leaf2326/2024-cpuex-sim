@@ -38,9 +38,7 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
         simulator.setBreakpoint(true);
         simulator.fetchInstruction(pc);
 
-        int instType = getInstructionType(instruction);
-        simulator.logInstruction(instType);
-        simulator.logInstAddr(pc);
+        logIssue(instruction, pc);
         singleIssueSuccess++;
         return true;
     }
@@ -113,9 +111,8 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     {
         simulator.storeWord(simulator.OUTPUT_ADDRESS * 4, inst.rs1Value);
     }
-    int instType = getInstructionType(instruction);
-    simulator.logInstruction(instType);
-    simulator.logInstAddr(pc);
+
+    logIssue(instruction, pc);
     singleIssueSuccess++;
     return true;
 }
@@ -133,9 +130,8 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
         // ebreakがある場合は単独で発行
         simulator.setBreakpoint(true);
         simulator.fetch2Instruction(pc1, pc2);
-        int instType = getInstructionType(instruction1);
-        simulator.logInstruction(instType);
-        simulator.logInstAddr(pc1);
+
+        logIssue(instruction1, pc1);
         superscalarSuccess++;
         return true;
     }
@@ -221,9 +217,8 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
             }
             else
             {
-                int instType2 = getInstructionType(instruction2);
-                simulator.logInstruction(instType2);
-                simulator.logInstAddr(pc2);
+
+                logIssue(instruction2, pc2);
                 if (inst2.isEbreak)
                 {
                     simulator.setBreakpoint(true);
@@ -254,9 +249,8 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
     }
 
     // 命令キャッシュアクセスと統計の記録
-    int instType1 = getInstructionType(instruction1);
-    simulator.logInstruction(instType1);
-    simulator.logInstAddr(pc1);
+
+    logIssue(instruction1, pc1);
 
     // 1つ目が通常命令の場合
     if (inst1.isMemory)
@@ -286,9 +280,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
     // 2つ目の命令も処理
     if (inst2.isEbreak)
     {
-        int instType2 = getInstructionType(instruction2);
-        simulator.logInstruction(instType2);
-        simulator.logInstAddr(pc2);
+        logIssue(instruction2, pc2);
         simulator.setBreakpoint(true);
     }
     else if (inst2.isBranch || inst2.isJalr)
@@ -299,9 +291,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
     }
     else
     {
-        int instType2 = getInstructionType(instruction2);
-        simulator.logInstruction(instType2);
-        simulator.logInstAddr(pc2);
+        logIssue(instruction2, pc2);
         // 2つ目が通常命令の場合
         if (inst2.isMemory)
         {
@@ -1655,4 +1645,22 @@ bool Pipeline::hasDataDependency(const uint64_t inst1, const uint64_t inst2)
     }
 
     return false;
+}
+void Pipeline::logIssue(uint64_t instruction, int32_t pc)
+{
+    int instType = getInstructionType(instruction);
+    if (instType == Simulator::FMV)
+    {
+        uint32_t m1 = getM1(instruction);
+        if (m1 & 0x1)
+        {
+            ++simulator.fmvM1Bit0Count; // 第0ビットが立っている（負符号）
+        }
+        if (m1 & 0x2)
+        {
+            ++simulator.fmvM1Bit1Count; // 第1ビットが立っている（絶対値）
+        }
+    }
+    simulator.logInstruction(instType);
+    simulator.logInstAddr(pc);
 }

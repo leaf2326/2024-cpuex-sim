@@ -138,7 +138,8 @@ public:
     inline void setBreakpoint(bool bp) { isBreakpoint = bp; }
 
     int32_t applyFpModifier(int32_t value, uint32_t modifier) { return fpu.applyFpModifier(value, modifier); }
-    
+    uint64_t fmvM1Bit0Count = 0;
+    uint64_t fmvM1Bit1Count = 0;
 private:
     Pipeline *pipeline = nullptr;
     // パイプラインサポート
@@ -273,9 +274,9 @@ private:
 
     void printOutput();
     [[nodiscard]] inline bool isJalrInstruction(uint64_t instruction) const
-{
-    return getOpcode(instruction) == 0xF;
-}
+    {
+        return getOpcode(instruction) == 0xF;
+    }
 };
 
 #endif // SIMULATOR_HPP
