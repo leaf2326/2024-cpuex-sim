@@ -1377,7 +1377,7 @@ void Simulator::printNonPipelineLog()
     std::cerr << "  m1=1 (negative): " << m1_1 << " (" << (double)m1_1 / fmvCount * 100.0 << "%)" << std::endl;
     std::cerr << "  m1=2 (absolute): " << m1_2 << " (" << (double)m1_2 / fmvCount * 100.0 << "%)" << std::endl;
     std::cerr << "  m1=3 (neg-abs): " << m1_3 << " (" << (double)m1_3 / fmvCount * 100.0 << "%)" << std::endl;
-    
+
     std::cerr << "________Stall prediction________" << std::endl;
     estimatedClock += 4;
     estimatedClock += totalInstructions;
@@ -1608,7 +1608,8 @@ void Simulator::printOutput()
     for (const auto &o : dMemory.output)
     {
         char output_c = o & 0xFF;
-        file << output_c;
+
+        file.write(reinterpret_cast<char *>(&output_c), sizeof(output_c));
         if (enableStdout)
         {
             std::cout << output_c;
