@@ -120,6 +120,7 @@ private:
 
     // L1キャッシュ (Direct Mapped)
     std::vector<CacheBlock> l1Cache;
+    std::vector<bool> l1IsFirstAccess; 
 
     // L2キャッシュ (Set Associative)
     std::vector<std::vector<CacheBlock>> l2Cache;

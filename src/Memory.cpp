@@ -38,6 +38,7 @@ Memory::Memory(uint64_t memorySize,
 
     // L1キャッシュの初期化
     l1Cache.resize(l1Lines, CacheBlock{false, false, 0, std::vector<int32_t>(wordsPerLine)});
+    l1IsFirstAccess.resize(l1Lines, true); 
 
     // L2キャッシュの初期化
     l2Cache.resize(l2Sets, std::vector<CacheBlock>(l2Associativity, CacheBlock{false, false, 0, std::vector<int32_t>(wordsPerLine)}));
@@ -544,6 +545,13 @@ bool Memory::checkCacheHit(uint32_t address)
         stallCycles = 1;
         return true;
     }
+    if (l1IsFirstAccess[l1Index])
+    {
+        // L1初期参照ミス
+        l1IsFirstAccess[l1Index] = false;
+        stallCycles = 1;
+        return false;
+    }
 
     // L2キャッシュチェック
     uint32_t l2Tag = getTag(address, false);
@@ -561,7 +569,7 @@ bool Memory::checkCacheHit(uint32_t address)
 
     if (l2Hit)
     {
-        stallCycles = 7;
+        stallCycles = 4;
         return true;
     }
 
@@ -573,7 +581,7 @@ bool Memory::checkCacheHit(uint32_t address)
     {
         // 初回参照ミス
         l2IsFirstAccess[l2Index][victimIndex] = false;
-        stallCycles = 2;
+        stallCycles = 4;
     }
     // ライトバック必要性の判断
     else if (block.valid && block.dirty) [[unlikely]]

@@ -176,7 +176,7 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
         if (contentionStall2)
         {
             // WB衝突の種類を判別
-            if (inst1.isMemory)
+            if (inst2.isMemory)
             {
                 wbCollisionMemCount++;
             }
