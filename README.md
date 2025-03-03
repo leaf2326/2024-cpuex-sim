@@ -68,6 +68,7 @@ sudo apt-get install libssl-dev
 | `--l2-lines <N>`           | L2キャッシュのライン数を指定 (デフォルト: 2048) |
 | `--l2-ways <N>`            | L2キャッシュのウェイ数を指定 (デフォルト: 4) |
 | `--cache-line-size <N>`    | キャッシュラインのサイズをバイト単位で指定 (デフォルト: 128) |
+| `--superscalar <mode>`    |  Set superscalar mode: `none` (disable), `restricted` (no b*/add/addi), or `full` (default) |
 
 ---
 
