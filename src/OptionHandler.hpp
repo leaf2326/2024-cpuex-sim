@@ -33,6 +33,7 @@ public:
     bool enableGDB;
     bool enableICache;
     bool enableNoPipeline;
+    std::string superscalarMode;
 
     static constexpr uint64_t DEFAULT_MAX_STEP = UINT64_MAX;
     static constexpr uint64_t DEFAULT_MEMORY_SIZE = 4 * 1024 * 1024; // 4MiB (Default dMemory Size)

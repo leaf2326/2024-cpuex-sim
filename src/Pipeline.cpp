@@ -323,12 +323,12 @@ void Pipeline::advance()
 
     // 次のサイクルでの各スロットの状態
     std::vector<PipelineInstruction> next_MAed_int;
-    next_MAed_int.reserve(executed_int.size());  // 事前に必要なサイズを確保
-    
+    next_MAed_int.reserve(executed_int.size()); // 事前に必要なサイズを確保
+
     InstSlot next_MAed_fp = std::nullopt;
     std::vector<PipelineInstruction> next_executed_int;
-    next_executed_int.reserve(decoded_int[0].size());  // 事前に必要なサイズを確保
-    
+    next_executed_int.reserve(decoded_int[0].size()); // 事前に必要なサイズを確保
+
     InstSlot next_executed_fp = std::nullopt;
     InstSlot next_executed_mem = std::nullopt;
     InstSlot next_decoded_mem = std::nullopt;
@@ -336,7 +336,7 @@ void Pipeline::advance()
     std::array<InstSlot, 6> next_decoded_fp = {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt};
 
     // executed_intからMAed_intへ - moveセマンティクスを活用
-    for (auto& inst : executed_int)
+    for (auto &inst : executed_int)
     {
         // すべての命令をMAed_intに移動
         next_MAed_int.push_back(std::move(inst));
@@ -383,9 +383,26 @@ void Pipeline::advance()
             }
             else
             {
-                // int型のロード命令はMAed_intに追加可能（複数対応）
-                executeAtExecutedStage(*executed_mem);
-                next_MAed_int.push_back(std::move(*executed_mem));
+                if (simulator.getSuperscalarMode() == Simulator::SuperscalarMode::NONE)
+                {
+                    if (!next_MAed_int.empty())
+                    {
+                        next_executed_mem = std::move(executed_mem);
+                        executed_mem_stalled = true;
+                    }
+                    else
+                    {
+                        // int型のロード命令はMAed_intに追加可能（複数対応）
+                        executeAtExecutedStage(*executed_mem);
+                        next_MAed_int.push_back(std::move(*executed_mem));
+                    }
+                }
+                else
+                {
+                    // int型のロード命令はMAed_intに追加可能（複数対応）
+                    executeAtExecutedStage(*executed_mem);
+                    next_MAed_int.push_back(std::move(*executed_mem));
+                }
             }
         }
     }
@@ -403,7 +420,7 @@ void Pipeline::advance()
             {
                 // メモリアクセス
                 int32_t address = decoded_mem->rs1Value;
-                
+
                 if (decoded_mem->isLoad)
                 {
                     if (decoded_mem->rs2 != -1)
@@ -448,7 +465,7 @@ void Pipeline::advance()
     }
 
     // decoded_intの処理 - すべて実行ステージに進む
-    for (auto& inst : decoded_int[0])
+    for (auto &inst : decoded_int[0])
     {
         executeAtExecutedStage(inst);
         next_executed_int.push_back(std::move(inst));
@@ -478,12 +495,12 @@ void Pipeline::advance()
     executed_fp = std::move(next_executed_fp);
     executed_mem = std::move(next_executed_mem);
     decoded_mem = std::move(next_decoded_mem);
-    
+
     for (int i = 0; i < 3; i++)
     {
         decoded_int[i] = std::move(next_decoded_int[i]);
     }
-    
+
     for (int i = 0; i < 6; i++)
     {
         decoded_fp[i] = std::move(next_decoded_fp[i]);
@@ -788,7 +805,15 @@ bool Pipeline::checkContention(const PipelineInstruction &inst) const
         int slot = latency - 1;
         return (slot >= 0 && slot < 6) ? decoded_fp[slot].has_value() : true;
     }
-
+    else if (simulator.getSuperscalarMode() == Simulator::SuperscalarMode::NONE)
+    {
+        if (inst.rd != -1)
+        {
+            int latency = getIntLatency(inst.raw);
+            int slot = latency - 1;
+            return !decoded_int[slot].empty();
+        }
+    }
     // INT命令は複数発行可能
     return false;
 }
@@ -1589,6 +1614,10 @@ bool Pipeline::isJalInstruction(uint64_t instruction) const
 
 bool Pipeline::canIssueInPair(const uint64_t inst1, const uint64_t inst2)
 {
+    if (simulator.getSuperscalarMode() == Simulator::SuperscalarMode::NONE)
+    {
+        return false; // スーパースカラ完全無効
+    }
     // ペア条件チェック
     uint32_t opcode1 = getOpcode(inst1);
     uint32_t opcode2 = getOpcode(inst2);
@@ -1605,6 +1634,15 @@ bool Pipeline::canIssueInPair(const uint64_t inst1, const uint64_t inst2)
             (opcode2 == 0x1 && getSubop(inst2) == 0x1) || // 後ろがaddi
             (opcode2 == 0x1 && getSubop(inst2) == 0x0 && getSubsubop(inst2) == 0x0))
         { // 後ろがadd
+            if (simulator.getSuperscalarMode() == Simulator::SuperscalarMode::RESTRICTED)
+            {
+                // b*, add/addi excluded
+                if ((opcode1 == 0x2 || opcode1 == 0x6 || opcode1 == 0xA) && ((opcode2 == 0x1 && getSubop(inst2) == 0x0 && getSubsubop(inst2) == 0x0) || // add
+                                                                             (opcode2 == 0x1 && getSubop(inst2) == 0x1)))
+                {
+                    return false;
+                }
+            }
             // データ依存がなければ同時実行可能
             return !hasDataDependency(inst1, inst2);
         }

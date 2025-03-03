@@ -140,7 +140,18 @@ public:
     int32_t applyFpModifier(int32_t value, uint32_t modifier) { return fpu.applyFpModifier(value, modifier); }
     uint64_t fmvM1Bit0Count = 0;
     uint64_t fmvM1Bit1Count = 0;
+    enum class SuperscalarMode
+    {
+        NONE,       // 完全に無効（常に単一命令発行）
+        RESTRICTED, // 制限付き（b*, add/addiは同時発行しない）
+        FULL        // 仕様通りの完全なスーパースカラ
+    };
+
+    inline void setSuperscalarMode(SuperscalarMode mode) { superscalarMode = mode; }
+    [[nodiscard]] inline SuperscalarMode getSuperscalarMode() const { return superscalarMode; }
+
 private:
+    SuperscalarMode superscalarMode = SuperscalarMode::FULL;
     Pipeline *pipeline = nullptr;
     // パイプラインサポート
     bool enablePipeline = false;

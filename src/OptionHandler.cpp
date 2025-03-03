@@ -13,6 +13,7 @@ OptionHandler::OptionHandler()
       imageSize(0),
       enableGDB(false),
       enableICache(false),
+      superscalarMode("full"),
       options("simulator")
 {
     
@@ -41,9 +42,9 @@ OptionHandler::OptionHandler()
         ("l2-ways", "Number of ways in L2 (1 for direct-mapped)",
             cxxopts::value<size_t>(l2Associativity)->default_value(std::to_string(DEFAULT_L2ASSOCIATIVITY)))
         ("cache-line-size", "Cache line size in bytes",
-            cxxopts::value<size_t>(lineSize)->default_value(std::to_string(DEFAULT_LINESIZE)));
-         
-        
+            cxxopts::value<size_t>(lineSize)->default_value(std::to_string(DEFAULT_LINESIZE)))
+        ("superscalar", "Set superscalar mode: 'none' (disable), 'restricted' (no b*/add/addi), or 'full' (default)",
+          cxxopts::value<std::string>(superscalarMode)->default_value("full"));        
         
     options.parse_positional({"FILE"});
 }

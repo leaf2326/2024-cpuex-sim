@@ -40,6 +40,16 @@ Simulator::Simulator(OptionHandler &op)
     {
         pipeline = new Pipeline(*this);
     }
+    if (op.superscalarMode == "none") {
+        setSuperscalarMode(Simulator::SuperscalarMode::NONE);
+        std::cerr << "Superscalar mode: NONE (disabled)\n";
+    } else if (op.superscalarMode == "restricted") {
+        setSuperscalarMode(Simulator::SuperscalarMode::RESTRICTED);
+        std::cerr << "Superscalar mode: RESTRICTED (b*, add/addi excluded)\n";
+    } else {
+        setSuperscalarMode(Simulator::SuperscalarMode::FULL);
+        std::cerr << "Superscalar mode: FULL (default)\n";
+    }
 }
 
 Simulator::~Simulator()
