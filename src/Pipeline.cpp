@@ -323,25 +323,29 @@ void Pipeline::advance()
 
     // 次のサイクルでの各スロットの状態
     std::vector<PipelineInstruction> next_MAed_int;
+    next_MAed_int.reserve(executed_int.size());  // 事前に必要なサイズを確保
+    
     InstSlot next_MAed_fp = std::nullopt;
     std::vector<PipelineInstruction> next_executed_int;
+    next_executed_int.reserve(decoded_int[0].size());  // 事前に必要なサイズを確保
+    
     InstSlot next_executed_fp = std::nullopt;
     InstSlot next_executed_mem = std::nullopt;
     InstSlot next_decoded_mem = std::nullopt;
     std::array<std::vector<PipelineInstruction>, 3> next_decoded_int;
     std::array<InstSlot, 6> next_decoded_fp = {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt};
 
-    // executed_intからMAed_intへ
-    for (auto &inst : executed_int)
+    // executed_intからMAed_intへ - moveセマンティクスを活用
+    for (auto& inst : executed_int)
     {
         // すべての命令をMAed_intに移動
-        next_MAed_int.push_back(inst);
+        next_MAed_int.push_back(std::move(inst));
     }
 
     // executed_fpからMAed_fpへ
     if (executed_fp)
     {
-        next_MAed_fp = executed_fp;
+        next_MAed_fp = std::move(executed_fp);
     }
 
     // executed_memの処理
@@ -352,7 +356,7 @@ void Pipeline::advance()
         {
             // キャッシュミスで待機中
             executed_mem->cacheWaitCycles--;
-            next_executed_mem = executed_mem;
+            next_executed_mem = std::move(executed_mem);
             executed_mem_stalled = true;
         }
         else if (executed_mem->isStore || executed_mem->shouldDisappear)
@@ -368,20 +372,20 @@ void Pipeline::advance()
                 if (next_MAed_fp)
                 {
                     // MAed_fpに競合
-                    next_executed_mem = executed_mem;
+                    next_executed_mem = std::move(executed_mem);
                     executed_mem_stalled = true;
                 }
                 else
                 {
-                    next_MAed_fp = executed_mem;
                     executeAtExecutedStage(*executed_mem);
+                    next_MAed_fp = std::move(executed_mem);
                 }
             }
             else
             {
                 // int型のロード命令はMAed_intに追加可能（複数対応）
                 executeAtExecutedStage(*executed_mem);
-                next_MAed_int.push_back(*executed_mem);
+                next_MAed_int.push_back(std::move(*executed_mem));
             }
         }
     }
@@ -391,16 +395,15 @@ void Pipeline::advance()
     {
         if (executed_mem_stalled)
         {
-            next_decoded_mem = decoded_mem;
+            next_decoded_mem = std::move(decoded_mem);
         }
         else
         {
             if (decoded_mem->isMemory)
             {
                 // メモリアクセス
-                int32_t address;
-
-                address = decoded_mem->rs1Value;
+                int32_t address = decoded_mem->rs1Value;
+                
                 if (decoded_mem->isLoad)
                 {
                     if (decoded_mem->rs2 != -1)
@@ -440,48 +443,50 @@ void Pipeline::advance()
                     countMemoryStall(decoded_mem->cacheWaitCycles);
                 }
             }
-            next_executed_mem = decoded_mem;
+            next_executed_mem = std::move(decoded_mem);
         }
     }
 
     // decoded_intの処理 - すべて実行ステージに進む
-    for (auto &inst : decoded_int[0])
+    for (auto& inst : decoded_int[0])
     {
         executeAtExecutedStage(inst);
-        next_executed_int.push_back(inst);
+        next_executed_int.push_back(std::move(inst));
     }
 
-    // decoded_int[1]とdecoded_int[2]をシフト
-    next_decoded_int[0] = decoded_int[1];
-    next_decoded_int[1] = decoded_int[2];
-    next_decoded_int[2].clear();
+    // decoded_int[1]とdecoded_int[2]をシフト - 直接moveして効率化
+    next_decoded_int[0] = std::move(decoded_int[1]);
+    next_decoded_int[1] = std::move(decoded_int[2]);
+    // decoded_int[2]はmoveで空になっているので、clearは不要
 
     // decoded_fpの処理
     if (decoded_fp[0])
     {
         executeAtExecutedStage(*decoded_fp[0]);
-        next_executed_fp = decoded_fp[0];
+        next_executed_fp = std::move(decoded_fp[0]);
     }
 
     for (int i = 0; i < 5; i++)
     {
-        next_decoded_fp[i] = decoded_fp[i + 1];
+        next_decoded_fp[i] = std::move(decoded_fp[i + 1]);
     }
 
-    // すべてのスロットを更新
-    MAed_int = next_MAed_int;
-    MAed_fp = next_MAed_fp;
-    executed_int = next_executed_int;
-    executed_fp = next_executed_fp;
-    executed_mem = next_executed_mem;
-    decoded_mem = next_decoded_mem;
+    // すべてのスロットを更新 - moveセマンティクスで効率化
+    MAed_int = std::move(next_MAed_int);
+    MAed_fp = std::move(next_MAed_fp);
+    executed_int = std::move(next_executed_int);
+    executed_fp = std::move(next_executed_fp);
+    executed_mem = std::move(next_executed_mem);
+    decoded_mem = std::move(next_decoded_mem);
+    
     for (int i = 0; i < 3; i++)
     {
-        decoded_int[i] = next_decoded_int[i];
+        decoded_int[i] = std::move(next_decoded_int[i]);
     }
+    
     for (int i = 0; i < 6; i++)
     {
-        decoded_fp[i] = next_decoded_fp[i];
+        decoded_fp[i] = std::move(next_decoded_fp[i]);
     }
 }
 void Pipeline::decodeInstruction(uint64_t raw, int32_t pc, PipelineInstruction &inst)
