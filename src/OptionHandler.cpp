@@ -39,9 +39,10 @@ OptionHandler::OptionHandler()
         ("l2-lines", "Number of cache lines in L2 cache",
             cxxopts::value<size_t>(l2Lines)->default_value(std::to_string(DEFAULT_L2LINES)))
         ("l2-ways", "Number of ways in L2 (1 for direct-mapped)",
-            cxxopts::value<size_t>(lineSize)->default_value(std::to_string(DEFAULT_LINESIZE)))
+            cxxopts::value<size_t>(l2Associativity)->default_value(std::to_string(DEFAULT_L2ASSOCIATIVITY)))
         ("cache-line-size", "Cache line size in bytes",
-            cxxopts::value<size_t>(l2Associativity)->default_value(std::to_string(DEFAULT_L2ASSOCIATIVITY)));
+            cxxopts::value<size_t>(lineSize)->default_value(std::to_string(DEFAULT_LINESIZE)));
+         
         
         
     options.parse_positional({"FILE"});
