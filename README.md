@@ -60,15 +60,15 @@ sudo apt-get install libssl-dev
 | `--istats`            |  実行された命令の特殊な統計を出力する。`mv`と`mvi`の回数や`lw`/`sw`のオフセット分布など                       |
 | `-d [ --debug ]`             | 詳細なログを表示（大量の出力が発生する可能性あり）                |
 | `--stdout`            | 標準出力への出力を有効化 |
-| `-p [ --pbar ] <imageSize>`             | プログレスバーをターミナルに表示。標準出力がターミナル上の時のみ動作。 例：`/simulator example/minrt_inline400_32 -p 32`            |
+| `-p [ --pbar ] <imageSize>`             | プログレスバーをターミナルに表示。標準出力がターミナル上の時かつP3のバイナリの時のみ動作。 例：`/simulator example/minrt_inline400_32 -p 32`            |
 | `-onlystdio`         | **(廃止)** 実行時のOutputのみを表示                     |
 | `-g [ --gdb ]`               | GDBのような機能を有効化    |
-| `--no-pipeline`             | パイプライン処理を無効化する |
-| `--l1-lines <N>`           | L1キャッシュのライン数を指定 (デフォルト: 512) |
-| `--l2-lines <N>`           | L2キャッシュのライン数を指定 (デフォルト: 2048) |
-| `--l2-ways <N>`            | L2キャッシュのウェイ数を指定 (デフォルト: 4) |
-| `--cache-line-size <N>`    | キャッシュラインのサイズをバイト単位で指定 (デフォルト: 128) |
-| `--superscalar <mode>`    |  Set superscalar mode: `none` (disable), `restricted` (no b*/add/addi), or `full` (default) |
+| `--no-pipeline`             | パイプライン処理を無効化する。この時の時間予測はv2.2core向けのものであり最新のコアには対応していない。 |
+| `--l1-lines <N>`           | L1キャッシュのライン数を指定 (デフォルト: 1024) |
+| `--l2-lines <N>`           | L2キャッシュのライン数を指定 (デフォルト: 5120) |
+| `--l2-ways <N>`            | L2キャッシュのウェイ数を指定 (デフォルト: 5) |
+| `--cache-line-size <N>`    | キャッシュラインのサイズをバイト単位で指定 (デフォルト: 64) |
+| `--superscalar <mode>`    |  Set superscalar mode: `none` (disable, default), `restricted` (no b*/add/addi), or `full` |
 
 ---
 
