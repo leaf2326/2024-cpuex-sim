@@ -65,7 +65,7 @@ sudo apt-get install libssl-dev
 | `-g [ --gdb ]`               | GDBのような機能を有効化    |
 | `--no-pipeline`             | パイプライン処理を無効化する。この時の時間予測はv2.2core向けのものであり最新のコアには対応していない。 |
 | `--l1-lines <N>`           | L1キャッシュのライン数を指定 (デフォルト: 1024) |
-| `--l2-lines <N>`           | L2キャッシュのライン数を指定 (デフォルト: 5120) |
+| `--l2-lines <N>`           | L2キャッシュの総ライン数を指定 (デフォルト: 5120) 、L2キャッシュのウェイ数の倍数であるべき|
 | `--l2-ways <N>`            | L2キャッシュのウェイ数を指定 (デフォルト: 5) |
 | `--cache-line-size <N>`    | キャッシュラインのサイズをバイト単位で指定 (デフォルト: 64) |
 | `--superscalar <mode>`    |  Set superscalar mode: `none` (disable, default), `restricted` (no b*/add/addi), or `full` |

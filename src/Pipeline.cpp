@@ -44,13 +44,20 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     }
 
     // 分岐命令のハザードと依存関係と競合をチェック
+    // bool branchStall = checkBranchHazard(inst);
     bool depStall = checkDependencies(inst);
     bool contentionStall = checkContention(inst);
 
-    if (depStall || contentionStall)
+    if (depStall || /* branchStall || */ contentionStall)
     {
         stallCount++;
         // ストールの種類をカウント
+        /*
+        if (branchStall)
+        {
+            branchBypassStallCount++;
+        }
+        */
         if (contentionStall)
         {
             // WB衝突の種類を判別
@@ -132,25 +139,28 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
     }
 
     // 両方の命令の発行可能性をチェック
-
+    /*
     bool branchStall1 = checkBranchHazard(inst1);
     bool branchStall2 = checkBranchHazard(inst2);
+    */
     bool depStall1 = checkDependencies(inst1);
     bool depStall2 = checkDependencies(inst2);
     bool contentionStall1 = checkContention(inst1);
     bool contentionStall2 = checkContention(inst2);
     // 両方の命令の発行可能性をチェック
-    bool stall1 = branchStall1 || depStall1 || contentionStall1;
-    bool stall2 = branchStall2 || depStall2 || contentionStall2;
+    bool stall1 = /*branchStall1 || */ depStall1 || contentionStall1;
+    bool stall2 = /*branchStall2 || */ depStall2 || contentionStall2;
 
     if (stall1 || stall2)
     {
         stallCount++;
         // ストールの種類をカウント
+        /*
         if (branchStall1)
         {
             branchBypassStallCount++;
         }
+        */
         if (contentionStall1)
         {
             // WB衝突の種類を判別
@@ -163,11 +173,12 @@ bool Pipeline::tryIssuePair(uint64_t instruction1, int32_t pc1, uint64_t instruc
                 wbCollisionIntFpCount++;
             }
         }
-
+        /*
         if (branchStall2)
         {
             branchBypassStallCount++;
         }
+        */
         if (contentionStall2)
         {
             // WB衝突の種類を判別
