@@ -592,16 +592,16 @@ bool Memory::checkCacheHit(uint32_t address)
 
         if (oldRange != newRange)
         {
-            stallCycles = 90;
+            stallCycles = 77;
         }
         else
         {
-            stallCycles = 90;
+            stallCycles = 77;
         }
     }
     else
     {
-        stallCycles = 90;
+        stallCycles = 77;
     }
 
     return false;

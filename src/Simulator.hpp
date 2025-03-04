@@ -166,11 +166,9 @@ private:
     uint64_t step = 0;
     static constexpr int REG_COUNT = 64;
     static constexpr int FPREG_COUNT = 64;
-    static constexpr int64_t CACHE_SIZE = 16 * 1024;
-    static constexpr int64_t BLOCK_SIZE = 16;
     static constexpr int64_t INPUT_ADDRESS = 25;
     static constexpr int64_t OUTPUT_ADDRESS = 26;
-    static constexpr double CPUFREQUENCY = 100000000;
+    static constexpr double CPUFREQUENCY = 117000000;
     uint64_t outputSize;
     std::string outputFilePath;
 

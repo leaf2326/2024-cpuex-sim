@@ -44,18 +44,13 @@ bool Pipeline::tryIssue(uint64_t instruction, int32_t pc)
     }
 
     // 分岐命令のハザードと依存関係と競合をチェック
-    bool branchStall = checkBranchHazard(inst);
     bool depStall = checkDependencies(inst);
     bool contentionStall = checkContention(inst);
 
-    if (depStall || branchStall || contentionStall)
+    if (depStall || contentionStall)
     {
         stallCount++;
         // ストールの種類をカウント
-        if (branchStall)
-        {
-            branchBypassStallCount++;
-        }
         if (contentionStall)
         {
             // WB衝突の種類を判別

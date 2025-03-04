@@ -40,13 +40,18 @@ Simulator::Simulator(OptionHandler &op)
     {
         pipeline = new Pipeline(*this);
     }
-    if (op.superscalarMode == "none") {
+    if (op.superscalarMode == "none")
+    {
         setSuperscalarMode(Simulator::SuperscalarMode::NONE);
         std::cerr << "Superscalar mode: NONE (disabled)\n";
-    } else if (op.superscalarMode == "restricted") {
+    }
+    else if (op.superscalarMode == "restricted")
+    {
         setSuperscalarMode(Simulator::SuperscalarMode::RESTRICTED);
         std::cerr << "Superscalar mode: RESTRICTED (b*, add/addi excluded)\n";
-    } else {
+    }
+    else
+    {
         setSuperscalarMode(Simulator::SuperscalarMode::FULL);
         std::cerr << "Superscalar mode: FULL (default)\n";
     }
@@ -2126,46 +2131,48 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
                             // スーパースカラ発行の判断
                             int32_t currentPC = pc;
                             bool pairIssued = false;
-
-                            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
+                            if (getSuperscalarMode() != SuperscalarMode::NONE)
                             {
-                                const uint64_t instruction1 = loadInstruction(currentPC);
-                                const uint64_t instruction2 = loadInstruction(currentPC + 1);
-
-                                // 同時実行可能なペアかチェック
-                                if (pipeline->canIssueInPair(instruction1, instruction2))
+                                if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                                 {
-                                    // ペアとして発行を試みる
-                                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+                                    const uint64_t instruction1 = loadInstruction(currentPC);
+                                    const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                                    if (pairIssued)
+                                    // 同時実行可能なペアかチェック
+                                    if (pipeline->canIssueInPair(instruction1, instruction2))
                                     {
-                                        // 発行成功：ステップカウントとPCを2つ進める
-                                        if (isBranchInst(instruction1))
+                                        // ペアとして発行を試みる
+                                        pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                                        if (pairIssued)
                                         {
-                                            step += 1;
-                                            // Untaken
-                                            if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
+                                            // 発行成功：ステップカウントとPCを2つ進める
+                                            if (isBranchInst(instruction1))
                                             {
                                                 step += 1;
-                                                if (!isBranchInst(instruction2))
+                                                // Untaken
+                                                if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                                                 {
-                                                    setPC(getPC() + 1);
+                                                    step += 1;
+                                                    if (!isBranchInst(instruction2))
+                                                    {
+                                                        setPC(getPC() + 1);
+                                                    }
                                                 }
                                             }
-                                        }
-                                        else
-                                        {
-                                            step += 2;
-                                            if (!isBranchInst(instruction2))
+                                            else
                                             {
-                                                setPC(getPC() + 2);
+                                                step += 2;
+                                                if (!isBranchInst(instruction2))
+                                                {
+                                                    setPC(getPC() + 2);
+                                                }
                                             }
-                                        }
-                                        if (rep == 1)
-                                        {
-                                            std::cerr << "Issued pair: " << instToString(instruction1)
-                                                      << " and " << instToString(instruction2) << std::endl;
+                                            if (rep == 1)
+                                            {
+                                                std::cerr << "Issued pair: " << instToString(instruction1)
+                                                          << " and " << instToString(instruction2) << std::endl;
+                                            }
                                         }
                                     }
                                 }
@@ -2276,45 +2283,46 @@ void Simulator::runPipelineProgramGDB(int outputRegNum)
 
                     // スーパースカラ発行の判断
                     bool pairIssued = false;
-
-                    if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
+                    if (getSuperscalarMode() != SuperscalarMode::NONE)
                     {
-                        const uint64_t instruction1 = loadInstruction(currentPC);
-                        const uint64_t instruction2 = loadInstruction(currentPC + 1);
-
-                        // 同時実行可能なペアかチェック
-                        if (pipeline->canIssueInPair(instruction1, instruction2))
+                        if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                         {
-                            // ペアとして発行を試みる
-                            pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+                            const uint64_t instruction1 = loadInstruction(currentPC);
+                            const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                            if (pairIssued)
+                            // 同時実行可能なペアかチェック
+                            if (pipeline->canIssueInPair(instruction1, instruction2))
                             {
-                                if (isBranchInst(instruction1))
+                                // ペアとして発行を試みる
+                                pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                                if (pairIssued)
                                 {
-                                    step += 1;
-                                    // Untaken
-                                    if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
+                                    if (isBranchInst(instruction1))
                                     {
                                         step += 1;
-                                        if (!isBranchInst(instruction2))
+                                        // Untaken
+                                        if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                                         {
-                                            setPC(getPC() + 1);
+                                            step += 1;
+                                            if (!isBranchInst(instruction2))
+                                            {
+                                                setPC(getPC() + 1);
+                                            }
                                         }
                                     }
-                                }
-                                else
-                                {
-                                    step += 2;
-                                    if (!isBranchInst(instruction2))
+                                    else
                                     {
-                                        setPC(getPC() + 2);
+                                        step += 2;
+                                        if (!isBranchInst(instruction2))
+                                        {
+                                            setPC(getPC() + 2);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-
                     if (!pairIssued)
                     {
                         // 単独命令の発行
@@ -2426,52 +2434,53 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
 
             int32_t currentPC = pc;
             bool pairIssued = false;
-
-            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
+            if (getSuperscalarMode() != SuperscalarMode::NONE)
             {
-                const uint64_t instruction1 = loadInstruction(currentPC);
-                const uint64_t instruction2 = loadInstruction(currentPC + 1);
-
-                // 同時実行可能なペアかチェック
-                if (pipeline->canIssueInPair(instruction1, instruction2))
+                if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                 {
+                    const uint64_t instruction1 = loadInstruction(currentPC);
+                    const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                    // ペアとして発行を試みる
-                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
-
-                    if (pairIssued)
+                    // 同時実行可能なペアかチェック
+                    if (pipeline->canIssueInPair(instruction1, instruction2))
                     {
-                        // 発行成功：ステップカウントとPCを2つ進める
-                        if (isBranchInst(instruction1))
+
+                        // ペアとして発行を試みる
+                        pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                        if (pairIssued)
                         {
-                            step += 1;
-                            // Untaken
-                            if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
+                            // 発行成功：ステップカウントとPCを2つ進める
+                            if (isBranchInst(instruction1))
                             {
                                 step += 1;
-                                if (!isBranchInst(instruction2))
+                                // Untaken
+                                if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                                 {
-                                    setPC(getPC() + 1);
+                                    step += 1;
+                                    if (!isBranchInst(instruction2))
+                                    {
+                                        setPC(getPC() + 1);
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            step += 2;
-                            if (!isBranchInst(instruction2))
+                            else
                             {
-                                setPC(getPC() + 2);
+                                step += 2;
+                                if (!isBranchInst(instruction2))
+                                {
+                                    setPC(getPC() + 2);
+                                }
                             }
-                        }
-                        if (enableDebug)
-                        {
-                            std::cerr << "Issued pair: " << instToString(instruction1)
-                                      << " and " << instToString(instruction2) << std::endl;
+                            if (enableDebug)
+                            {
+                                std::cerr << "Issued pair: " << instToString(instruction1)
+                                          << " and " << instToString(instruction2) << std::endl;
+                            }
                         }
                     }
                 }
             }
-
             if (!pairIssued)
             {
                 // 単独命令の発行
@@ -2537,47 +2546,49 @@ void Simulator::runPipelineProgramNormal(int outputRegNum)
 
             int32_t currentPC = pc;
             bool pairIssued = false;
-
-            if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
+            if (getSuperscalarMode() != SuperscalarMode::NONE)
             {
-                const uint64_t instruction1 = loadInstruction(currentPC);
-                const uint64_t instruction2 = loadInstruction(currentPC + 1);
-
-                // 同時実行可能なペアかチェック
-                if (pipeline->canIssueInPair(instruction1, instruction2))
+                if (currentPC % 2 == 0 && currentPC + 1 < instructionSize)
                 {
+                    const uint64_t instruction1 = loadInstruction(currentPC);
+                    const uint64_t instruction2 = loadInstruction(currentPC + 1);
 
-                    // ペアとして発行を試みる
-                    pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
-
-                    if (pairIssued)
+                    // 同時実行可能なペアかチェック
+                    if (pipeline->canIssueInPair(instruction1, instruction2))
                     {
-                        // 発行成功：ステップカウントとPCを2つ進める
-                        if (isBranchInst(instruction1))
+
+                        // ペアとして発行を試みる
+                        pairIssued = pipeline->tryIssuePair(instruction1, currentPC, instruction2, currentPC + 1);
+
+                        if (pairIssued)
                         {
-                            step += 1;
-                            // Untaken
-                            if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
+                            // 発行成功：ステップカウントとPCを2つ進める
+                            if (isBranchInst(instruction1))
                             {
                                 step += 1;
-                                if (!isBranchInst(instruction2))
+                                // Untaken
+                                if (getPC() != getImmediate(instruction1) && !isJalrInstruction(instruction1))
                                 {
-                                    setPC(getPC() + 1);
+                                    step += 1;
+                                    if (!isBranchInst(instruction2))
+                                    {
+                                        setPC(getPC() + 1);
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            step += 2;
-                            if (!isBranchInst(instruction2))
+                            else
                             {
-                                setPC(getPC() + 2);
+                                step += 2;
+                                if (!isBranchInst(instruction2))
+                                {
+                                    setPC(getPC() + 2);
+                                }
                             }
-                        }
-                        if (enableDebug)
-                        {
-                            std::cerr << "Issued pair: " << instToString(instruction1)
-                                      << " and " << instToString(instruction2) << std::endl;
+                            if (enableDebug)
+                            {
+                                std::cerr << "Issued pair: " << instToString(instruction1)
+                                          << " and " << instToString(instruction2) << std::endl;
+                            }
                         }
                     }
                 }
