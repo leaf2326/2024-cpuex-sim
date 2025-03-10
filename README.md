@@ -27,7 +27,7 @@ sudo apt-get install libssl-dev
 
 3. シミュレータを実行する。
    ```bash
-   ./simulator example/minrt_inline400_32
+   ./simulator example/minrt_latest_256_p6.sim
    ```
 
 ### 実行例
