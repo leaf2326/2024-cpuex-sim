@@ -32,12 +32,16 @@ sudo apt-get install libssl-dev
 
 ### 実行例
 標準的なシミュレーション実行例:
+minrt(256*256)
 ```bash
-./simulator example/mandelbrot.bin -i example/mandelbrot.input 2> simulator.err
+./simulator example/minrt_latest_256_p6.sim
 ```
-
-- `example/mandelbrot.bin`: 実行するRISC-Vバイナリ
-- `-i example/mandelbrot.input.sld`: 入力ファイルパス（指定がない場合、`sld/contest.sld` が使用される）
+mandelbrot
+```bash
+./simulator example/mandelbrot.sim -i example/mandelbrot.input
+```
+- `example/mandelbrot.sim`: 実行するRISC-Vバイナリ
+- `-i example/mandelbrot.input`: 入力ファイルパス（指定がない場合、`sld/contest.sld` が使用される）
 
 実行結果:
 - `--output`に指定されたファイル（デフォルト: `output.ppm`）にプログラムのIO命令の出力が表示される。
