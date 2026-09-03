@@ -77,6 +77,8 @@ mandelbrot
 ---
 
 ## GDBモード
+<img width="558" height="364" alt="image" src="https://github.com/user-attachments/assets/7f720376-6ce3-496f-819f-51d6d20dfff4" />
+
 `--gdb` オプションを使うとデバッグモードでシミュレータを実行可能。以下のコマンドがサポートされる。
 
 ### コマンド一覧
