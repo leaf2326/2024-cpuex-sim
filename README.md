@@ -16,7 +16,7 @@ sudo apt-get install libssl-dev
 ## ビルドと実行
 1. プロジェクトをクローンする。
    ```bash
-   git clone https://github.com/your-repo/2024-cpuex-sim.git
+   git clone https://github.com/leaf2326/2024-cpuex-sim.git
    cd 2024-cpuex-sim
    ```
 
